@@ -144,6 +144,7 @@ To opt out at build time, configure with `-DENABLE_BATT_LED=OFF`. Default is ON.
 
 - Overclocking to 320 MHz @ 1.20 V is **required** for stable BT pairing. Dropping voltage to 1.10 V or clock to stock breaks the CYW43 PIO SPI bus and BT stops working. A small heatsink on the RP2350 is recommended for sustained gameplay.
 - HD haptics may not fire in every game on Linux + Steam; this is game-side (some titles only send HD-haptic audio under Windows-specific APIs). Tested working in Spider-Man Remastered; not delivered in Ghost of Tsushima — same firmware, same controller.
+- **DualSense microphone does not work over the Bluetooth pairing.** This is a Sony / DS5-firmware-side limitation also documented in the upstream Linux kernel driver (`drivers/hid/hid-playstation.c` line ~1509: *"Bluetooth audio is currently not supported"*). The mic works fine when the controller is connected directly to the host via USB-C. See [BLUETOOTH_AUDIO_NOTES.md](./BLUETOOTH_AUDIO_NOTES.md) for the full investigation log + what's already wired firmware-side if a future contributor cracks the BT-side trigger.
 
 ## Performance / Overclocking
 
