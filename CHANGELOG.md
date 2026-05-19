@@ -10,6 +10,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ---
 
+## [0.6.3-oled-edition] — 2026-05-18
+
+Small follow-up to v0.6.2. UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.3-oled-edition) (built by `.github/workflows/release.yml`).
+
+### Fixed
+
+- **OLED Status header was stuck on `"DS5 Bridge v0.6.0"`.** The string was hardcoded in `src/oled.cpp` and never got bumped per release, so v0.6.1 and v0.6.2 both shipped with stale text on the Status screen. Now driven by a compile-time `FIRMWARE_VERSION` macro set from `CMakeLists.txt`'s `${VERSION}` (which `release.yml` already passes as `-DVERSION="$FIRMWARE_VERSION"`). Single source of truth: the release tag. Local builds without `-DVERSION` show `"dev"` so an untagged build is obvious at a glance.
+- **Web preview's Status header had the same bug.** `src/oled/screens.ts` hardcoded `"v0.5.4"`. Now reads `firmware-latest.json` (already CI-bundled from the GitHub API) at runtime in `OledEmulator.tsx` and writes the short tag (suffix `-oled-edition` stripped) into `state.firmwareVersionLabel`, which `renderStatus()` consumes.
+
+### Documentation
+
+- New `CLAUDE.md` "Versioning — single source of truth" section documents the release ritual (CHANGELOG bump → tag → push → `gh release create`) and the single-source-of-truth flow from tag → CMake → C++ macro → web `firmware-latest.json`. Includes a note about the still-pending `WEB_REPO_DISPATCH_PAT` secret on the firmware repo.
+
+---
+
 ## [0.6.2-oled-edition] — 2026-05-18
 
 OLED button-model + visual chrome refactor on top of v0.6.1. UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.2-oled-edition) (built by `.github/workflows/release.yml`).
