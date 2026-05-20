@@ -8,6 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+---
+
+## [0.6.4-oled-edition] — 2026-05-19
+
+Trigger-flow diagnostics (in response to issue #3) + the OLED idle power ladder. UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.4-oled-edition) (built by `.github/workflows/release.yml`).
+
 ### Added
 
 - **OLED idle power ladder.** Replaces the single-tier 5-min auto-dim with a three-stage state machine: at 2 min idle the panel wipes black and a 2×2 "breathing dot" (1 s on / 1 s off) walks through 8 evenly-spaced positions every 30 s; at 15 min idle the SH1107 is sent `cmd(0xAE)` (display off) entirely. Wakes instantly on KEY0/KEY1, controller pair (BT-connect rising edge), or any input-report change. Why this shape: on the Waveshare panel, bench-testing `kDimContrast = 0x10` and `0x02` both produced only ~10 % perceptual reduction (SH1107's contrast register vs apparent brightness is heavily non-linear on this hardware), so the only reliable per-pixel dim available is *rendering fewer pixels*. The breathing dot lights ~4 of 8 192 pixels half the time — roughly a 1 000× drop in cumulative current — while still indicating "the dongle is alive," and the rotating position spreads OLED wear across the panel.
