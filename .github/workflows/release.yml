@@ -93,16 +93,11 @@ jobs:
           mkdir -p artifacts
           cp build/standard/ds5-bridge-oled.uf2 "artifacts/ds5-bridge-oled-${{ github.event.release.tag_name }}.uf2"
 
-      - name: Build Debug firmware
-        run: |
-          cmake -S . -B build/debug -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
-            -DENABLE_SERIAL=ON \
-            -DENABLE_VERBOSE=ON \
-            -DVERSION="$FIRMWARE_VERSION"
-          cmake --build build/debug --target ds5-bridge
-          cp build/debug/ds5-bridge-oled.uf2 "artifacts/ds5-bridge-oled-debug-${{ github.event.release.tag_name }}.uf2"
+      # The debug build (ENABLE_SERIAL=ON) compiles out tud_connect/disconnect and
+      # comes up as a serial console rather than a working HID/audio bridge — a
+      # developer diagnostic, not an end-user UF2. It is NOT published as a release
+      # download (footgun) — build it on demand with -DENABLE_SERIAL=ON, or use the
+      # PR-CI compile in build.yml. See CHANGELOG/CLAUDE.md.
 
       - name: Compute UF2 checksums + append to release notes
         env:
