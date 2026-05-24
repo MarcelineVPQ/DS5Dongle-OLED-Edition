@@ -90,6 +90,7 @@ add_executable(ds5-bridge
         src/state_mgr.cpp
         src/oled.cpp
         src/slots.cpp
+        src/remap.cpp
 )
 
 if (ENABLE_BATT_LED)

@@ -14,6 +14,7 @@
 #include "device/usbd.h"
 #include "pico/time.h"
 #include "slots.h"
+#include "remap.h"
 #include "hardware/clocks.h"
 #include "hardware/adc.h"
 #include "hardware/vreg.h"
@@ -86,11 +87,34 @@ bool is_pico_cmd(uint8_t report_id) {
 uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     if (report_id == 0xf7) {
         printf("[HID] Receive 0xf7 getting config\n");
-        if (sizeof(Config_body) > reqlen) {
+        const size_t cfg_len = sizeof(Config_body);
+        if (cfg_len > reqlen) {
             printf("[Config] Warning: Config_body overflow\n");
         }
-        const auto len = std::min(sizeof(Config_body),static_cast<size_t>(reqlen));
-        memcpy(buffer,&get_config(),len);
+        const auto len = std::min(cfg_len, static_cast<size_t>(reqlen));
+        memcpy(buffer, &get_config(), len);
+
+        // OLED Edition: append the button-remap block right after Config_body
+        // when the host asked for enough room. Old clients request exactly
+        // sizeof(Config_body) and never see it; new web tools read config +
+        // remap in one GET (the 0xF6/0xF7 reports are 63 bytes, plenty).
+        //   [+0]      'R'
+        //   [+1]      'M'
+        //   [+2]      protocol version (kRemapProtoVer)
+        //   [+3..+4]  revision uint16 LE (bumps on each successful set)
+        //   [+5..+20] 16-byte remap table (source idx -> target idx, 0xFF=off)
+        constexpr size_t kRemapBlock = 5 + kRemapCount;
+        if (reqlen >= cfg_len + kRemapBlock) {
+            uint8_t *p = buffer + cfg_len;
+            p[0] = 'R';
+            p[1] = 'M';
+            p[2] = kRemapProtoVer;
+            const uint16_t rev = remap_revision();
+            p[3] = (uint8_t)(rev & 0xFF);
+            p[4] = (uint8_t)((rev >> 8) & 0xFF);
+            remap_get(p + 5);
+            return cfg_len + kRemapBlock;
+        }
         return len;
     }
     if (report_id == 0xf8) {
@@ -267,5 +291,26 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
         tud_disconnect();
         sleep_ms(150);
         tud_connect();
+    }
+    // 0x10 set button-remap table (OLED Edition). Hardened framing so a stray
+    // write to 0xF6 can't corrupt the map: magic 'R''M' + protocol version gate
+    // before remap_set() (which itself validates each entry <16 or 0xFF=off).
+    //   [0]      0x10  func-id
+    //   [1]      'R'
+    //   [2]      'M'
+    //   [3]      protocol version (must == kRemapProtoVer)
+    //   [4..19]  16-byte remap table
+    if (buffer[0] == 0x10) {
+        constexpr uint16_t kNeed = 4 + kRemapCount;
+        if (bufsize < kNeed) {
+            printf("[CMD] 0x10 remap-set too short (%u<%u)\n", bufsize, kNeed);
+            return;
+        }
+        if (buffer[1] != 'R' || buffer[2] != 'M' || buffer[3] != kRemapProtoVer) {
+            printf("[CMD] 0x10 remap-set bad magic/version\n");
+            return;
+        }
+        if (remap_set(buffer + 4)) printf("[CMD] remap set ok (rev=%u)\n", remap_revision());
+        else                       printf("[CMD] remap set rejected (invalid table)\n");
     }
 }
