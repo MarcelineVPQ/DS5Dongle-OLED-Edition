@@ -10,6 +10,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ---
 
+## [0.6.6-oled-edition] — 2026-05-23
+
+Community-issue follow-ups: configurable OLED idle-ladder thresholds (#5) and a diagnostic counter clarifying the trigger-flow numbers (#6). UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.6-oled-edition) (built by `.github/workflows/release.yml`). The companion `DS5Dongle-OLED-Config-Web` config tool gains matching screen-timeout controls and is synced to the v0.6.5+ `Config_body` layout (fixes a latent issue where saving via the old web tool would zero the lightbar fields).
+
+### Added
+
+- **Configurable OLED idle-ladder thresholds (issue #5, requested by @TerryFrench).** The dim and off tiers are no longer hardcoded at 2 / 15 min — two new `Config_body` fields `screen_dim_timeout` / `screen_off_timeout` (minutes, `0 = that tier disabled`, range `[0,250]`) are editable on the Settings screen (`ScrDim`/`ScrOff`) and persist to flash. Defaults preserve the previous 2 / 15 ladder; on upgrade the unset fields read as those defaults via the `config_valid()` clamp. The idle timer moved from `time_us_32()` to 64-bit µs so the full 250-min range is representable without the ~71-min wrap. Power users with always-on dongles can bias shorter; status-watchers can bias longer or set `0` to keep a tier lit.
+- **`trig fold` counter on the Diagnostics screen (issue #6).** Counts trigger-bearing `0x02` host reports that arrived while the speaker stream was active and were therefore folded into the `0x36` audio frames (via `state[]`) instead of sent as a standalone `0x31`. Makes `trig_allow == to_bt(trig) + fold` visible, confirming the apparent `trig`/`tx` gap is audio-path folding, not dropped trigger reports.
+
+---
+
 ## [0.6.5-oled-edition] — 2026-05-23
 
 Charging UX (Status-screen battery ETA + amber lightbar pulse), persistent and screen-sticky lightbar control, and a charging-aware idle power ladder. UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.5-oled-edition) (built by `.github/workflows/release.yml`).
