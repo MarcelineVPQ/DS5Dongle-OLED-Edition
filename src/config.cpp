@@ -95,6 +95,12 @@ void config_valid() {
         body->auto_haptics_lowpass = 1; // 160 Hz
         printf("[Config] auto_haptics_lowpass invalid, defaulting to 1 (160 Hz)\n");
     }
+    if (body->lightbar_mode > 8) { // 0..7 OLED modes + 8 = HOST passthrough (default)
+        body->lightbar_mode = 8;
+        printf("[Config] lightbar_mode invalid, defaulting to 8 (HOST passthrough)\n");
+    }
+    // lb_fav_{r,g,b} need no validation — any 0..255 is a legal color, and an
+    // erased flash sector (0xFF) yields 4 white favorites, a usable default.
     if (body->config_version != CONFIG_VERSION) {
         body->config_version = CONFIG_VERSION;
         printf("[Config] Warning: Config may breaking change\n");

@@ -23,6 +23,16 @@ struct __attribute__((packed)) Config_body {
     uint8_t auto_haptics_enable;  // 0=Off, 1=Fallback (default), 2=Mix, 3=Replace
     uint8_t auto_haptics_gain;    // [0,200] percent, default 100
     uint8_t auto_haptics_lowpass; // 0=80Hz, 1=160Hz (default), 2=250Hz, 3=400Hz
+    // Lightbar (OLED Edition Phase H): persisted so the chosen mode/colors
+    // survive reboot and stick across all screens. lightbar_mode indexes the
+    // OLED Lightbar screen's mode list — 0=LIVE, 1..4=FAV0..3, 5=BREATHING,
+    // 6=RAINBOW, 7=FADE, 8=HOST (passthrough, the safe default that lets the
+    // host/game own the LED). Keep this numbering in sync with kNumLbModes /
+    // kLbModeHost in src/oled.cpp. Erased flash (0xFF) → HOST + white favorites.
+    uint8_t lightbar_mode;
+    uint8_t lb_fav_r[4];
+    uint8_t lb_fav_g[4];
+    uint8_t lb_fav_b[4];
 };
 
 struct __attribute__((packed)) Config {

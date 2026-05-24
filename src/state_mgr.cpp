@@ -6,6 +6,12 @@
 #include <cstring>
 
 #include "utils.h"
+#include "state_mgr.h"
+
+// Set by the OLED lightbar service (src/oled.cpp). While true, the firmware
+// owns the lightbar (an OLED mode or the charging pulse) and the host's
+// AllowLedColor writes are suppressed below so they can't stomp it.
+extern bool g_lightbar_override;
 
 namespace {
     constexpr size_t kAudioControlOffset = offsetof(SetStateData, MuteLightMode) - sizeof(uint8_t);
@@ -39,6 +45,18 @@ void state_set(uint8_t *data, const uint8_t size) {
         printf("[StateMgr] Warning: State Set over 63 bytes\n");
     }
     memcpy(data, state, size);
+}
+
+void state_set_led(uint8_t r, uint8_t g, uint8_t b) {
+    state[offsetof(SetStateData, LedRed) + 0] = r;
+    state[offsetof(SetStateData, LedRed) + 1] = g;
+    state[offsetof(SetStateData, LedRed) + 2] = b;
+}
+
+void state_get_led(uint8_t *r, uint8_t *g, uint8_t *b) {
+    *r = state[offsetof(SetStateData, LedRed) + 0];
+    *g = state[offsetof(SetStateData, LedRed) + 1];
+    *b = state[offsetof(SetStateData, LedRed) + 2];
 }
 
 void state_update(const uint8_t *data, const uint8_t size) {
@@ -147,7 +165,7 @@ void state_update(const uint8_t *data, const uint8_t size) {
         sizeof(uint8_t)
     );
     copy_if_allowed(
-        update.AllowLedColor,
+        update.AllowLedColor && !g_lightbar_override,
         offsetof(SetStateData, LedRed),
         sizeof(update.LedRed) * 3
     );
