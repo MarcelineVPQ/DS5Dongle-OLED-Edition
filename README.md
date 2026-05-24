@@ -18,6 +18,7 @@ The web tool is a one-stop shop — **no installs, no command line, no `picotool
 
   > **What is BOOTSEL mode?** It's the Pico's built-in flashing mode. To enter it: press and hold the small white button labeled **BOOTSEL** on the Pico, *then* plug the USB cable in (or, if it's already plugged in, briefly disconnect and reconnect while holding BOOTSEL). The Pico will appear to your computer as a removable drive — that's how you know it's in BOOTSEL mode. After the web tool flashes the firmware, the Pico auto-reboots into normal mode and is ready to use.
 - **Config tab** — once the dongle is flashed and reconnected, edit haptics gain, speaker volume, polling rate, audio auto-haptics mode, and the rest of the persistent settings; save to the dongle's flash with one click. Powered by WebHID.
+- **Remap tab** — visual button remapper: click a button on a live DualSense diagram to reassign it to any other (the shoulders/triggers float to the corners as labeled glyphs). The map is stored on the dongle and applied before the host sees the report, so it works in every game and on every OS. Powered by WebHID.
 - **OLED Preview tab** — pixel-perfect emulation of all 11 OLED screens. Use the in-page KEY0/KEY1 buttons (or the controller's △ / R1 / D-pad when a DualSense is paired) to navigate. Adaptive triggers actually fire on the controller when you cycle the Trigger Test preset.
 
 Works in any Chromium-based browser (Chrome, Edge, Brave, Opera). Firefox + Safari don't expose WebHID or WebUSB, so flashing and live config aren't available there — the OLED Preview still renders with mock data.
@@ -43,6 +44,7 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 **OLED Edition additions:**
 
 - Optional Pico-OLED-1.3 status display with **11 screens** (status, slots, lightbar, trigger test, gyro tilt, touchpad, diagnostics, CPU/clock, RSSI, VU meters, settings)
+- **Button remapping** — reassign any of the 16 digital controls (face buttons, D-pad, shoulders/triggers, stick clicks, Create/Options) to any other. Stored on the dongle and applied before the host sees the report, so it works in **every game and OS with no host-side software**; identity (no remap) is the default. Edit it visually in the [web config tool](#️-web-config-tool)'s **Remap tab**, or headlessly via `scripts/remap_test.py`. Persisted in its own flash sector, survives reboot.
 - **4-slot persistent multi-controller pairing** — bond up to four DualSenses, switch between them from the OLED, slot 0 reconnects automatically on boot
 - **Lightbar color picker** with 4 user favorite slots + breathing / rainbow / fade effect presets
 - **Persistent settings menu** for the 8 firmware config fields (haptics gain, speaker volume, polling rate, etc.) with hold-to-confirm Reset and Wipe-all-slots actions

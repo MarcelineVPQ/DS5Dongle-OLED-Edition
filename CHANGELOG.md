@@ -16,6 +16,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 - **BT microphone now has packet-loss concealment (PLC).** The mic decode path gained a small decoded-frame jitter buffer (8 frames) drained at a steady 10 ms playout cadence: bursty BT delivery is smoothed, and a dropped mic frame during an active session is concealed with an Opus PLC frame (`opus_decode(decoder, NULL, 0, …)`) instead of leaving a hole the host hears as a click/dropout. Playout pre-buffers 3 frames and stops after 300 ms of no real frames (so it never emits comfort noise when the mic is idle). A new **`Mic PLC:`** counter on the Diagnostics screen climbs only when concealment fires — effectively a live BT link-quality gauge. Verified: forced BT loss kept the captured audio gap-free (longest zero-run ~0 ms) while the counter climbed. Design ported from [SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge) (credit). Adds ~30 ms mic latency (the pre-buffer).
 
+### Companion web tool
+
+- **Visual button-remapping editor (new Remap tab).** `DS5Dongle-OLED-Config-Web` gains a dedicated **Remap** tab built on the new firmware remap protocol: click a button on a live, theme-aware DualSense diagram to reassign it, with the shoulders/triggers (L1/L2/R1/R2) floated to the corners as labeled glyphs + leader lines (they have no target in a front view). Remapped/selected buttons glow; a collapsible full dropdown list is kept as a fallback. Reads the remap block appended to the `0xF7` config response and writes over `0xF6` (func `0x10`), independent of `Config_body`. Controller outline + button glyphs are [Zacksly's "PS5 Button Icons and Controls"](https://zacksly.itch.io/ps5-button-icons-and-controls) (CC BY 3.0, recolored to `currentColor` and cropped), credited in the footer, each asset file, and a bundled license. Strings translated across all 7 locales.
+
 ---
 
 ## [0.6.8-oled-edition] — 2026-05-24
