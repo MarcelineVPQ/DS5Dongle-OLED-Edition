@@ -10,6 +10,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ---
 
+## [0.6.7-oled-edition] — 2026-05-23
+
+UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.7-oled-edition) (built by `.github/workflows/release.yml`).
+
+### Changed
+
+- **Charge ETA now shows a provisional estimate immediately on plug-in.** Instead of sitting on `~--m` for the ~15-20 min until the first 10% step is timed, the Status screen shows a default-rate estimate `~Nm?` (the trailing `?` marks it provisional) the moment charging starts. The `?` drops and the number switches to the measured rate once a clean 10% step completes. Default is ~15 min per 10% step (`kDefaultStepUs`), taper-weighted exactly like the measured path, so the provisional figure is in the right ballpark and self-corrects.
+
+### Companion web tool
+
+- `DS5Dongle-OLED-Config-Web` gains **lightbar controls** (mode dropdown + four favorite-color pickers) in the config view, the provisional charge-ETA token in the OLED preview to match this firmware, and translations for two preview notes that were English-only. Build housekeeping: `tsconfig.tsbuildinfo` is no longer tracked.
+
+---
+
 ## [0.6.6-oled-edition] — 2026-05-23
 
 Community-issue follow-ups: configurable OLED idle-ladder thresholds (#5) and a diagnostic counter clarifying the trigger-flow numbers (#6). UF2s attached to [the GitHub release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.6.6-oled-edition) (built by `.github/workflows/release.yml`). The companion `DS5Dongle-OLED-Config-Web` config tool gains matching screen-timeout controls and is synced to the v0.6.5+ `Config_body` layout (fixes a latent issue where saving via the old web tool would zero the lightbar fields).
