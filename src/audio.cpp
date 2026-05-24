@@ -61,6 +61,24 @@ int32_t  audio_mic_last_decoded() { return g_mic_last_decoded; }
 uint16_t audio_mic_last_want()    { return g_mic_last_want; }
 uint16_t audio_mic_last_wrote()   { return g_mic_last_wrote; }
 
+// Mic jitter buffer + packet-loss concealment. Decoded mono frames land here
+// (filled as Opus arrives, drained at a steady 10 ms playout cadence) so bursty
+// BT delivery is smoothed and a dropped frame is concealed via Opus PLC instead
+// of underrunning the host with a click/hole. Design ported from
+// SundayMoments/DS5_Bridge (credit there). PLC keeps voice continuous on a
+// lossy BT link (e.g. controller moved away, USB 3.0 RF interference).
+struct mic_decoded_element { int16_t mono[MIC_FRAMES]; };
+static queue_t mic_decode_fifo;
+static constexpr int      MIC_DECODE_DEPTH  = 8;       // jitter-buffer capacity (frames)
+static constexpr int      MIC_PLAYOUT_START = 3;       // pre-buffer before playout begins
+static constexpr uint64_t MIC_FRAME_US      = 10000;  // 10 ms per Opus frame @ 48 kHz
+static constexpr uint64_t MIC_SESSION_US    = 300000; // no real frame this long → stop playout
+static bool     mic_playout_started = false;
+static uint64_t mic_next_playout_us = 0;
+static uint64_t mic_last_real_us    = 0;
+static volatile uint32_t g_mic_plc_frames = 0;        // concealed frames generated (Diag)
+uint32_t audio_mic_plc_frames() { return g_mic_plc_frames; }
+
 struct audio_raw_element {
     float data[512 * 2];
 };
@@ -161,23 +179,61 @@ void audio_loop() {
     // push to the host via tud_audio_write. Runs once per loop iteration so
     // it keeps up with the ~100 Hz arrival rate of mic-tagged BT frames.
     if (mic_decoder != nullptr) {
-        static mic_element packet{};
-        if (queue_try_remove(&mic_fifo, &packet)) {
-            static int16_t mono[MIC_FRAMES];
-            const int decoded = opus_decode(mic_decoder, packet.data,
-                                            MIC_OPUS_SIZE, mono, MIC_FRAMES, 0);
-            g_mic_last_decoded = decoded; // observed in OLED Diag
-            if (decoded > 0) {
-                static int16_t stereo[MIC_FRAMES * 2];
-                for (int i = 0; i < decoded; i++) {
-                    stereo[i * 2]     = mono[i];
-                    stereo[i * 2 + 1] = mono[i];
+        const uint64_t now = time_us_64();
+
+        // Decode stage: drain incoming Opus into the jitter buffer as fast as it
+        // arrives (absorbs bursty BT delivery), up to the buffer's capacity.
+        static mic_element pkt{};
+        while (queue_get_level(&mic_decode_fifo) < MIC_DECODE_DEPTH
+               && queue_try_remove(&mic_fifo, &pkt)) {
+            static mic_decoded_element dec{};
+            const int n = opus_decode(mic_decoder, pkt.data, MIC_OPUS_SIZE,
+                                      dec.mono, MIC_FRAMES, 0);
+            g_mic_last_decoded = n; // observed in OLED Diag
+            if (n > 0) {
+                queue_try_add(&mic_decode_fifo, &dec);
+                mic_last_real_us = now;
+            }
+        }
+
+        // Playout stage: emit one frame every 10 ms. Pre-buffer a few frames to
+        // absorb jitter, then play a real frame if buffered, else conceal with an
+        // Opus PLC frame during an active session (transient loss) so the host
+        // hears continuity instead of a hole. If real frames have been gone for a
+        // while (mic off/idle), stop so we don't emit comfort noise forever.
+        if (!mic_playout_started
+            && queue_get_level(&mic_decode_fifo) >= MIC_PLAYOUT_START) {
+            mic_playout_started = true;
+            mic_next_playout_us = now;
+        }
+        if (mic_playout_started && (int64_t)(now - mic_next_playout_us) >= 0) {
+            static mic_decoded_element out{};
+            bool have = queue_try_remove(&mic_decode_fifo, &out);
+            if (!have) {
+                if (now - mic_last_real_us < MIC_SESSION_US) {
+                    const int n = opus_decode(mic_decoder, nullptr, 0,
+                                              out.mono, MIC_FRAMES, 0); // PLC
+                    if (n > 0) { have = true; g_mic_plc_frames++; }
+                } else {
+                    mic_playout_started = false; // session ended — re-buffer next time
                 }
-                const uint16_t want = (uint16_t)(decoded * 2 * sizeof(int16_t));
-                const uint16_t wrote = tud_audio_write(stereo, want);
+            }
+            if (have) {
+                static int16_t stereo[MIC_FRAMES * 2];
+                for (int i = 0; i < MIC_FRAMES; i++) {
+                    stereo[i * 2]     = out.mono[i];
+                    stereo[i * 2 + 1] = out.mono[i];
+                }
+                const uint16_t want = (uint16_t)(MIC_FRAMES * 2 * sizeof(int16_t));
+                g_mic_last_wrote = tud_audio_write(stereo, want);
                 g_mic_last_want  = want;
-                g_mic_last_wrote = wrote;
                 g_mic_frames++;
+                mic_next_playout_us += MIC_FRAME_US;
+                // Drift guard: if we've fallen many frames behind (loop stall),
+                // resync the cadence instead of bursting to catch up.
+                if ((int64_t)(now - mic_next_playout_us) > (int64_t)(4 * MIC_FRAME_US)) {
+                    mic_next_playout_us = now + MIC_FRAME_US;
+                }
             }
         }
     }
@@ -376,7 +432,8 @@ void audio_init() {
 
     // Mic path: queue + decoder live on core0 (audio_loop), separate from
     // the core1 speaker encoder. Mic Opus is mono / 48 kHz / 10 ms frames.
-    queue_init(&mic_fifo, sizeof(mic_element), 2);
+    queue_init(&mic_fifo, sizeof(mic_element), MIC_DECODE_DEPTH);          // deeper: tolerate BT bursts
+    queue_init(&mic_decode_fifo, sizeof(mic_decoded_element), MIC_DECODE_DEPTH); // decoded-PCM jitter buffer
     int dec_error = 0;
     mic_decoder = opus_decoder_create(48000, MIC_CHANNELS, &dec_error);
     if (dec_error != 0 || mic_decoder == nullptr) {

@@ -157,6 +157,7 @@ This was long believed impossible — earlier versions of this fork documented i
 - Mic audio is **mono** (decoded mono, duplicated across the stereo capture endpoint).
 - Toggling off mid-session stops the host feed immediately, but the controller keeps streaming until it next reconnects (there's no known "stop" command); connecting fresh with the toggle off never enables it.
 - The OLED **Diagnostics** screen's `Mic in:` counter reads ~100/s while the mic is streaming — a quick way to confirm it's live.
+- **Packet-loss concealment:** dropped mic frames (weak BT link, distance, interference) are concealed with Opus PLC so voice stays continuous instead of clicking/cutting out, at a small jitter-buffer latency (~30 ms). The Diag screen's `Mic PLC:` counter climbs only when frames are being concealed — effectively a live link-quality gauge.
 
 ## Known Issues
 

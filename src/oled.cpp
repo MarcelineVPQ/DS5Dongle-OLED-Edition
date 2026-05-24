@@ -827,7 +827,7 @@ void sample_diag_rates() {
 
 // Row list ordered by relevance: always-useful at top, parked-mic-investigation
 // data at bottom. To add a row, bump kNumDiagRows and add a case.
-constexpr int kNumDiagRows = 11;
+constexpr int kNumDiagRows = 12;
 __attribute__((noinline))
 void format_diag_row(int idx, char* line, size_t n) {
     switch (idx) {
@@ -872,7 +872,10 @@ void format_diag_row(int idx, char* line, size_t n) {
                      (long)audio_mic_last_decoded(),
                      (unsigned)audio_mic_last_wrote());
             break;
-        case 10: {
+        case 10:
+            snprintf(line, n, "Mic PLC: %lu", (unsigned long)audio_mic_plc_frames());
+            break;
+        case 11: {
             uint8_t pfx[6]; bt_31_mic_prefix(pfx);
             snprintf(line, n, "%02X %02X %02X %02X %02X %02X",
                      pfx[0], pfx[1], pfx[2], pfx[3], pfx[4], pfx[5]);

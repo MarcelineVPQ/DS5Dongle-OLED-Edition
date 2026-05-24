@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Changed
+
+- **BT microphone now has packet-loss concealment (PLC).** The mic decode path gained a small decoded-frame jitter buffer (8 frames) drained at a steady 10 ms playout cadence: bursty BT delivery is smoothed, and a dropped mic frame during an active session is concealed with an Opus PLC frame (`opus_decode(decoder, NULL, 0, …)`) instead of leaving a hole the host hears as a click/dropout. Playout pre-buffers 3 frames and stops after 300 ms of no real frames (so it never emits comfort noise when the mic is idle). A new **`Mic PLC:`** counter on the Diagnostics screen climbs only when concealment fires — effectively a live BT link-quality gauge. Verified: forced BT loss kept the captured audio gap-free (longest zero-run ~0 ms) while the counter climbed. Design ported from [SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge) (credit). Adds ~30 ms mic latency (the pre-buffer).
+
 ---
 
 ## [0.6.8-oled-edition] — 2026-05-24
