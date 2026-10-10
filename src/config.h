@@ -9,7 +9,7 @@
 
 struct __attribute__((packed)) Config_body {
     uint8_t config_version; // Config Version
-    float haptics_gain; // [1.0,2.0]
+    float haptics_gain; // [1.0,6.0]
     float speaker_volume; // [-100,0]
     uint8_t inactive_time; // [5,60] min
     uint8_t disable_inactive_disconnect; // bool: 0 disable,1 enable

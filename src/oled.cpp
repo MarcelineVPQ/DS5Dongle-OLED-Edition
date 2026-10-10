@@ -1487,9 +1487,9 @@ void settings_adjust(int delta) {
     Config_body &c = settings_local;
     settings_dirty = true;
     switch (settings_sel) {
-        case 0: { // haptics_gain  [1.0, 2.0] step 0.1
-            int v = (int)(c.haptics_gain * 10.0f + 0.5f) + delta;
-            if (v < 10) v = 10; if (v > 20) v = 20;
+        case 0: { // haptics_gain  [1.0, 6.0] step 0.5
+            int v = (int)(c.haptics_gain * 10.0f + 0.5f) + delta * 5;
+            if (v < 10) v = 10; if (v > 60) v = 60;
             c.haptics_gain = v / 10.0f;
             break;
         }

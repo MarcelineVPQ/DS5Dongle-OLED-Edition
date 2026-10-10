@@ -18,4 +18,12 @@ void state_update(const uint8_t *data, const uint8_t size);
 void state_set_led(uint8_t r, uint8_t g, uint8_t b);
 void state_get_led(uint8_t *r, uint8_t *g, uint8_t *b);
 
+// Motor RumbleEmulation (heavy/light) lives in the persistent state[] block too
+// (SetStateData RumbleEmulationRight/Left). audio.cpp drives these from the
+// haptic-audio (ch3/4) envelope so games that author haptics ONLY as audio
+// (Cyberpunk, DS2) still fire the strong motor actuators — the 0x36 audio-
+// haptic actuator path alone is far too weak. EnableImprovedRumbleEmulation is
+// already asserted in state_init_data, so this gets full (un-halved) strength.
+void state_set_rumble(uint8_t right, uint8_t left);
+
 #endif //DS5_BRIDGE_STATE_MGR_H

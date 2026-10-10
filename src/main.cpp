@@ -251,6 +251,16 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
     (void) buffer;
     (void) reqlen;
 
+#if ENABLE_COMPANION_SPIKE
+    // Companion HID instance (Strategy C): config / diagnostics command set lives here
+    // on its OWN declared interface (reports 0xF6..0xFE), reusing the existing dispatch.
+    // Isolated from the gamepad's 0x05/0x09/0x20 native-detection answers below.
+    if (itf == 1) {
+        if (is_pico_cmd(report_id)) return pico_cmd_get(report_id, buffer, reqlen);
+        return 0;
+    }
+#endif
+
     // --- DualSense feature reports that Linux's hid_playstation reads at probe ---
     // Without valid answers the kernel never creates a gamepad device, so games
     // outside Steam Input (Heroic/Proton/native) see no controller. The host asks
@@ -326,6 +336,14 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
     (void) report_type;
     (void) buffer;
     (void) bufsize;
+
+#if ENABLE_COMPANION_SPIKE
+    // Companion HID instance (Strategy C): SET config / commands via the existing dispatch.
+    if (itf == 1) {
+        if (is_pico_cmd(report_id)) pico_cmd_set(report_id, buffer, bufsize);
+        return;
+    }
+#endif
 
     if (is_pico_cmd(report_id)) {
         printf("[HID] Receive 0xf6 setting config, funcid:0x%02X\n", buffer[0]);

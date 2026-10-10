@@ -268,6 +268,7 @@ void audio_loop() {
     const float haptics_gain = get_config().haptics_gain;
     uint16_t spk_max = g_peak_spk;
     uint16_t hap_max = g_peak_hap;
+    uint16_t frame_hap = 0; // fresh per-call ch3/4 peak (motor-rumble derivation)
 
     // ---- Audio Auto Haptics (borrowed from loteran/DS5Dongle 5d6bc2f) ----
     // Derives a haptic-feedback waveform from the speaker audio so games that
@@ -302,6 +303,8 @@ void audio_loop() {
             b = (uint16_t)(hr < 0 ? -hr : hr);
             if (a > hap_max) hap_max = a;
             if (b > hap_max) hap_max = b;
+            if (a > frame_hap) frame_hap = a;
+            if (b > frame_hap) frame_hap = b;
         }
  #if !DISABLE_SPEAKER_PROC
         audio_buf[audio_buf_pos++] = raw[i * INPUT_CHANNELS] / 32768.0f * audio_gain;
@@ -357,6 +360,25 @@ void audio_loop() {
         native_silent_count = 0;
     } else if (native_silent_count < NATIVE_SILENT_TIMEOUT * 2) {
         native_silent_count++;
+    }
+
+    // --- Strong motor rumble derived from the haptic audio envelope ---
+    // The 0x36 audio-haptic actuator path is far too weak to feel (measured:
+    // full-scale ch3/4 -> only a faint buzz). The RumbleEmulation motors are
+    // strong. Games like Cyberpunk/DS2 author haptics ONLY as ch3/4 audio and
+    // never set the motor bytes, so through the dongle they feel like nothing.
+    // Derive a rumble level from the ch3/4 envelope and drive the motors; the
+    // (widened) haptics_gain is the strength knob. state_init already asserts
+    // EnableImprovedRumbleEmulation, so this is the un-halved full-strength path.
+    {
+        float hap_norm = (float)frame_hap / 32768.0f;     // 0..1 this call
+        static float rumble_env = 0.0f;
+        if (hap_norm > rumble_env) rumble_env = hap_norm;             // instant attack
+        else rumble_env += 0.015f * (hap_norm - rumble_env);         // slow release
+        float r = rumble_env * haptics_gain;                          // gain = strength knob
+        if (r > 1.0f) r = 1.0f;
+        uint8_t rmb = (uint8_t)(r * 255.0f);
+        state_set_rumble(rmb, rmb);
     }
 
     // 3. 48kHz -> 3kHz 重采样

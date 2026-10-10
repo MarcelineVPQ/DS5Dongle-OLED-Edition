@@ -33,6 +33,20 @@
 #define ENABLE_SERIAL 0
 #endif
 
+#ifndef ENABLE_COMPANION_SPIKE
+#define ENABLE_COMPANION_SPIKE 0
+#endif
+
+#if ENABLE_COMPANION_SPIKE && ENABLE_SERIAL
+#error "ENABLE_COMPANION_SPIKE uses EP5 IN, which collides with the CDC serial endpoints. Build the spike without ENABLE_SERIAL."
+#endif
+
+#if ENABLE_COMPANION_SPIKE
+// Length of desc_hid_report_companion[]. Used by the config descriptor's HID
+// descriptor (wDescriptorLength) and cross-checked by a static_assert at the array.
+#define COMPANION_REPORT_DESC_LEN 77
+#endif
+
 bool ds_mode() {
     if (get_config().controller_mode == 2) {
         return !is_dse;
@@ -45,6 +59,9 @@ enum {
     ITF_NUM_AUDIO_STREAMING_OUT,
     ITF_NUM_AUDIO_STREAMING_IN,
     ITF_NUM_HID,
+#if ENABLE_COMPANION_SPIKE
+    ITF_NUM_HID_COMPANION,
+#endif
 #if ENABLE_SERIAL
     ITF_NUM_CDC,
     ITF_NUM_CDC_DATA,
@@ -57,8 +74,18 @@ enum {
 #else
         0,
 #endif
+    // Patch anchor for the gamepad interface (see tud_descriptor_configuration_cb).
+    // MUST remain the end-of-gamepad-block offset, so the companion block is added
+    // to CONFIG_DESC_LEN_TOTAL only, never to CONFIG_DESC_LEN_BASE.
     CONFIG_DESC_LEN_BASE = 0x00E3 + CONFIG_DESC_LEN_AUDIO_IAD,
-    CONFIG_DESC_LEN_TOTAL = CONFIG_DESC_LEN_BASE
+    // Companion HID interface block: 9 (interface) + 9 (HID) + 7 (1 IN endpoint) = 25.
+    CONFIG_DESC_LEN_COMPANION =
+#if ENABLE_COMPANION_SPIKE
+        25,
+#else
+        0,
+#endif
+    CONFIG_DESC_LEN_TOTAL = CONFIG_DESC_LEN_BASE + CONFIG_DESC_LEN_COMPANION
 #if ENABLE_SERIAL
         + TUD_CDC_DESC_LEN
 #endif
@@ -391,11 +418,48 @@ uint8_t descriptor_configuration[] = {
     0x40, 0x00, // wMaxPacketSize: 64
     0x01, // bInterval: 1 (polling every 4ms -> 1ms)
 
+#if ENABLE_COMPANION_SPIKE
+    // --- INTERFACE DESCRIPTOR (4.0): Vendor HID companion (Strategy C spike) ---
+    // A SEPARATE, declared HID interface. The gamepad interface above is untouched
+    // (still byte-identical 289-byte descriptor), so native game triggers are not
+    // affected. Config GET/SET ride EP0 control (feature reports); the one IN
+    // interrupt endpoint is the HID-spec minimum.
+    0x09, // bLength
+    0x04, // bDescriptorType (INTERFACE)
+    ITF_NUM_HID_COMPANION, // bInterfaceNumber: 4
+    0x00, // bAlternateSetting: 0
+    0x01, // bNumEndpoints: 1 (IN)
+    0x03, // bInterfaceClass: HID
+    0x00, // bInterfaceSubClass: None
+    0x00, // bInterfaceProtocol: None
+    0x00, // iInterface
+
+    // HID Descriptor
+    0x09, // bLength: 9
+    0x21, // bDescriptorType (HID)
+    0x11, 0x01, // bcdHID: 1.11
+    0x00, // bCountryCode: Not localized
+    0x01, // bNumDescriptors: 1 report descriptor
+    0x22, // bDescriptorType: Report
+    U16_TO_U8S_LE(COMPANION_REPORT_DESC_LEN), // wDescriptorLength (sizeof desc_hid_report_companion)
+
+    // Endpoint Descriptor (Companion HID IN: EP5)
+    0x07, // bLength
+    0x05, // bDescriptorType (ENDPOINT)
+    0x85, // bEndpointAddress: IN EP5
+    0x03, // bmAttributes: Interrupt
+    0x40, 0x00, // wMaxPacketSize: 64
+    0x01, // bInterval
+#endif
+
 #if ENABLE_SERIAL
     // --- CDC ACM (USB Serial) ---
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC, 0x85, 0x08, 0x06, 0x86, 0x40),
 #endif
 };
+
+static_assert(sizeof(descriptor_configuration) == CONFIG_DESC_LEN_TOTAL,
+              "descriptor_configuration size must equal CONFIG_DESC_LEN_TOTAL");
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
 // Application return pointer to descriptor
@@ -807,8 +871,51 @@ static_assert(sizeof(desc_hid_report_dse) == 0x01B5);
 // Invoked when received GET HID REPORT DESCRIPTOR
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
+#if ENABLE_COMPANION_SPIKE
+// Strategy C: a vendor HID collection on usage page 0xFF5D carrying the config command
+// set as DECLARED feature reports 0xF6..0xFE (handled by the existing pico_cmd_* dispatch
+// in cmd.cpp). Wholly separate from the gamepad descriptor, which stays byte-identical.
+// One Input report (ID 0xF5) exists only to feed the mandatory HID IN endpoint; the
+// firmware never sends on it. Report IDs deliberately avoid the gamepad's own IDs
+// (0x01 input, 0x31, ...) so WebHID feature-report routing on this multi-collection
+// device is unambiguous.
+uint8_t const desc_hid_report_companion[] = {
+    0x06, 0x5D, 0xFF, // Usage Page (Vendor Defined 0xFF5D)
+    0x09, 0x01,       // Usage (0x01)
+    0xA1, 0x01,       // Collection (Application)
+    0x15, 0x00,       //   Logical Minimum (0)
+    0x26, 0xFF, 0x00, //   Logical Maximum (255)
+    0x75, 0x08,       //   Report Size (8)
+    0x95, 0x3F,       //   Report Count (63)
+    // Input report (feeds the IN endpoint; ID 0xF5, unused by firmware)
+    0x85, 0xF5,       //   Report ID (0xF5)
+    0x09, 0x20,       //   Usage (0x20)
+    0x81, 0x02,       //   Input (Data,Var,Abs)
+    // Feature reports 0xF6..0xFE — the config / diagnostics command set
+    0x85, 0xF6, 0x09, 0x21, 0xB1, 0x02, // 0xF6 SET config / commands
+    0x85, 0xF7, 0x09, 0x21, 0xB1, 0x02, // 0xF7 GET config (+ remap block)
+    0x85, 0xF8, 0x09, 0x21, 0xB1, 0x02, // 0xF8 GET firmware version
+    0x85, 0xF9, 0x09, 0x21, 0xB1, 0x02, // 0xF9 GET rssi
+    0x85, 0xFA, 0x09, 0x21, 0xB1, 0x02, // 0xFA GET slots
+    0x85, 0xFB, 0x09, 0x21, 0xB1, 0x02, // 0xFB GET diagnostics
+    0x85, 0xFC, 0x09, 0x21, 0xB1, 0x02, // 0xFC GET cpu/clock
+    0x85, 0xFD, 0x09, 0x21, 0xB1, 0x02, // 0xFD GET bt-trace
+    0x85, 0xFE, 0x09, 0x21, 0xB1, 0x02, // 0xFE GET longest frame dump
+    0xC0              // End Collection
+};
+static_assert(sizeof(desc_hid_report_companion) == COMPANION_REPORT_DESC_LEN,
+              "companion report descriptor size must match COMPANION_REPORT_DESC_LEN");
+#endif
+
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t itf) {
+#if ENABLE_COMPANION_SPIKE
+    // Instances are assigned in config-descriptor order: 0 = gamepad, 1 = companion.
+    if (itf == 1) {
+        return desc_hid_report_companion;
+    }
+#else
     (void) itf;
+#endif
     if (ds_mode()) {
         return desc_hid_report_ds;
     }

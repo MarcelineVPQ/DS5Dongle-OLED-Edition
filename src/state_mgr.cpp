@@ -53,6 +53,11 @@ void state_set_led(uint8_t r, uint8_t g, uint8_t b) {
     state[offsetof(SetStateData, LedRed) + 2] = b;
 }
 
+void state_set_rumble(uint8_t right, uint8_t left) {
+    state[offsetof(SetStateData, RumbleEmulationRight)] = right; // light/high-freq motor
+    state[offsetof(SetStateData, RumbleEmulationLeft)]  = left;  // heavy/low-freq motor
+}
+
 void state_get_led(uint8_t *r, uint8_t *g, uint8_t *b) {
     *r = state[offsetof(SetStateData, LedRed) + 0];
     *g = state[offsetof(SetStateData, LedRed) + 1];

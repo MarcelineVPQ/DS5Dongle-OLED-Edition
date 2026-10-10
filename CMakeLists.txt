@@ -51,6 +51,16 @@ if (ENABLE_BATT_LED)
 else ()
         set(ENABLE_BATT_LED_VALUE 0)
 endif ()
+# Throwaway spike: add a second, declared vendor HID interface (usage page 0xFF5D)
+# alongside the byte-identical gamepad interface, to prove the host can reach a
+# companion interface cross-platform without disturbing native game triggers.
+# Default OFF — production/CI builds must be unaffected.
+option(ENABLE_COMPANION_SPIKE "Add a second vendor HID interface (Strategy C spike)" OFF)
+if (ENABLE_COMPANION_SPIKE)
+        set(ENABLE_COMPANION_SPIKE_VALUE 1)
+else ()
+        set(ENABLE_COMPANION_SPIKE_VALUE 0)
+endif ()
 option(DISABLE_SPEAKER_PROC "Disable Speaker in controller" OFF)
 if (DISABLE_SPEAKER_PROC)
         set(DISABLE_SPEAKER_PROC_VALUE 1)
@@ -117,6 +127,7 @@ target_compile_definitions(wdl_resampler PRIVATE
 target_compile_definitions(ds5-bridge PRIVATE
         CYW43_LWIP=0
         ENABLE_SERIAL=${ENABLE_SERIAL_VALUE}
+        ENABLE_COMPANION_SPIKE=${ENABLE_COMPANION_SPIKE_VALUE}
         PICO_FLASH_ASSUME_CORE1_SAFE=1
         WDL_RESAMPLE_TYPE=float
         CYW43_PIO_CLOCK_DIV_INT=${CYW43_PIO_CLOCK_DIV_VALUE}

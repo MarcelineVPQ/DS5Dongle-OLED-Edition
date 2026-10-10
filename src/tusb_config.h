@@ -34,6 +34,10 @@
 #define ENABLE_SERIAL 0
 #endif
 
+#ifndef ENABLE_COMPANION_SPIKE
+#define ENABLE_COMPANION_SPIKE 0
+#endif
+
 //--------------------------------------------------------------------+
 // Board Specific Configuration
 //--------------------------------------------------------------------+
@@ -96,7 +100,12 @@
 
 //------------- CLASS -------------//
 #define CFG_TUD_AUDIO             1
+#if ENABLE_COMPANION_SPIKE
+// Two HID instances: [0] = byte-identical DS5 gamepad, [1] = vendor companion.
+#define CFG_TUD_HID               2
+#else
 #define CFG_TUD_HID               1
+#endif
 #define CFG_TUD_CDC               ENABLE_SERIAL
 #define CFG_TUD_MSC               0
 #define CFG_TUD_MIDI              0
