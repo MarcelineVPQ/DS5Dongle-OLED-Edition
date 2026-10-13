@@ -488,9 +488,13 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
 }
 
 int main() {
+    // 150 MHz is only issue #15's F2 build: the RP2350 boots at 150 MHz and
+    // the default core voltage, and upstream v0.7.0 leaves both as they are.
+#if SYS_CLOCK_KHZ != 150000
     vreg_set_voltage(VREG_VOLTAGE_1_20);
     sleep_ms(1000);
     set_sys_clock_khz(SYS_CLOCK_KHZ, true);
+#endif
 
     board_init();
     tusb_rhport_init_t dev_init = {

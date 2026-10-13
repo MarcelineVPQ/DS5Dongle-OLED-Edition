@@ -4,7 +4,7 @@
   scripts/audio_diag.py            one snapshot
   scripts/audio_diag.py SECONDS    two snapshots SECONDS apart, plus deltas
 
-Issue #15 diagnostic firmware (+diag-D / -F1 / -F3) also answers 0xEA (core1
+Issue #15 diagnostic firmware (+diag-D / -F1 / -F2 / -F3) also answers 0xEA (core1
 crash record, heartbeat, stack high-water, flash setup); it is printed after
 the counters when the firmware has it.
 """
@@ -77,7 +77,7 @@ HFSR_BITS = [(1, "VECTTBL"), (30, "FORCED"), (31, "DEBUGEVT")]
 SFSR_BITS = [(0, "INVEP"), (1, "INVIS"), (2, "INVER"), (3, "AUVIOL"), (4, "INVTRAN"),
              (5, "LSPERR"), (6, "SFARVALID"), (7, "LSERR")]
 DIAG_FLAGS = [(0, "core1 faulted"), (1, "fault recorder"), (2, "stack guard"),
-              (3, "F1 XIP setup"), (4, "F3 busy idle"), (5, "RP2350")]
+              (3, "XIP setup embedded (F1/F2)"), (4, "F3 busy idle"), (5, "RP2350")]
 
 def bits(v, table):
     on = [n for b, n in table if v >> b & 1]
@@ -101,7 +101,18 @@ def query_c1diag(dev):
                 stack_free=struct.unpack_from("<H", r, 48)[0], qmi_timing=u32(50), qmi_rfmt=u32(54),
                 qmi_rcmd=struct.unpack_from("<H", r, 58)[0], exc_return=r[60], sfsr=r[61])
 
-def print_c1diag(d, sys_khz=320000):
+def query_sys_khz(dev):
+    """clk_sys in kHz from 0xFC (measured, else configured): F2 runs at 150 MHz."""
+    buf = bytearray(SIZE); buf[0] = 0xFC
+    try:
+        with open(dev, "rb+", buffering=0) as f:
+            fcntl.ioctl(f, 0xC0004807 | (SIZE << 16), buf)
+    except OSError:
+        return None
+    set_khz, real_khz = struct.unpack_from("<II", buf, 1)
+    return real_khz or set_khz or None
+
+def print_c1diag(d, sys_khz):
     print("-- core1 diagnostics (0xEA, layout %d)" % d["ver"])
     print(f"{'flags':11} {d['flags']:#04x} " + ", ".join(n for b, n in DIAG_FLAGS if d['flags'] >> b & 1))
     print(f"{'stage_now':11} {stage_text(d['stage_now'])}")
@@ -143,7 +154,7 @@ if len(sys.argv) < 2:
     print(f"{'c1_free_kib':11} {'n/a' if a['c1_free_kib'] is None else a['c1_free_kib']}")
     print(f"{'c1_stage':11} {stage_text(a['c1_stage'])}")
     d = query_c1diag(dev)
-    if d: print_c1diag(d)
+    if d: print_c1diag(d, query_sys_khz(dev) or 320000)
     sys.exit()
 secs = float(sys.argv[1]); time.sleep(secs); b = query(dev)
 print(f"{'field':11} {'before':>10} {'after':>10} {'per s':>9}")
@@ -153,4 +164,4 @@ for k in FIELDS:
 print(f"{'c1_flags':11} {a['c1_flags']:>#10x} {b['c1_flags']:>#10x}")
 print(f"{'c1_stage':11} {stage_text(b['c1_stage'])}")
 d = query_c1diag(dev)
-if d: print_c1diag(d)
+if d: print_c1diag(d, query_sys_khz(dev) or 320000)

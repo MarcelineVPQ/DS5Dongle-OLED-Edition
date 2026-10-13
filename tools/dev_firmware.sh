@@ -5,7 +5,7 @@
 #   tools/dev_firmware.sh            build -> prints the .uf2 path
 #   tools/dev_firmware.sh --flash    build, put the dongle in BOOTSEL, copy it
 #   tools/dev_firmware.sh --picow    build for the original Pico W instead
-#   tools/dev_firmware.sh --diag D   an issue #15 diagnostic build (D, F1 or F3;
+#   tools/dev_firmware.sh --diag D   an issue #15 diagnostic build (D, F1, F2 or F3;
 #                                    CMakeLists.txt ISSUE15_DIAG), own build folder
 #
 # The version is "<last tag>+<commits since>.<commit>[.dirty]", e.g.
@@ -22,11 +22,11 @@ while [ $# -gt 0 ]; do
     --flash) FLASH=true ;;
     --picow) BOARD=pico_w ;;
     --diag) DIAG="${2:-}"; shift ;;
-    *) echo "usage: tools/dev_firmware.sh [--flash] [--picow] [--diag D|F1|F3]" >&2; exit 2 ;;
+    *) echo "usage: tools/dev_firmware.sh [--flash] [--picow] [--diag D|F1|F2|F3]" >&2; exit 2 ;;
   esac
   shift
 done
-case "$DIAG" in ""|D|F1|F3) ;; *) echo "--diag takes D, F1 or F3" >&2; exit 2 ;; esac
+case "$DIAG" in ""|D|F1|F2|F3) ;; *) echo "--diag takes D, F1, F2 or F3" >&2; exit 2 ;; esac
 : "${PICO_SDK_PATH:=$HOME/pico-sdk}"
 export PICO_SDK_PATH
 [ -d "$PICO_SDK_PATH" ] || { echo "Pico SDK not found at $PICO_SDK_PATH (set PICO_SDK_PATH)" >&2; exit 1; }

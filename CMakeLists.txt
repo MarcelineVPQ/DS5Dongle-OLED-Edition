@@ -58,10 +58,19 @@ else ()
         set(DISABLE_SPEAKER_PROC_VALUE 0)
 endif ()
 option(PICO_W_BUILD "Build for Rasberry Pi Pico W, audio is missing" OFF)
+# Issue #15 diagnostic build selector, declared here because F2 changes the
+# clock below; the variants are described further down.
+set(ISSUE15_DIAG "" CACHE STRING "Issue #15 diagnostic build: empty (off), D, F1, F2 or F3")
 if (PICO_W_BUILD)
         set(CYW43_PIO_CLOCK_DIV_VALUE 3)
         set(SYS_CLOCK_KHZ_VALUE 200000)
         set(DISABLE_SPEAKER_PROC_VALUE 1)
+elseif (ISSUE15_DIAG STREQUAL "F2")
+        # awalol upstream v0.7.0's Pico 2 W clock (a023371): stock 150 MHz,
+        # CYW43 PIO divider 2; main() then leaves clock and voltage at the
+        # boot defaults, as upstream does.
+        set(CYW43_PIO_CLOCK_DIV_VALUE 2)
+        set(SYS_CLOCK_KHZ_VALUE 150000)
 else ()
         set(CYW43_PIO_CLOCK_DIV_VALUE 5)
         set(SYS_CLOCK_KHZ_VALUE 320000)
@@ -255,25 +264,35 @@ target_compile_definitions(ds5-bridge PRIVATE
 #       board's flash (QMI) setup, all read with GET 0xEA (src/c1_diag.h)
 #   F1  D + the XIP setup (boot2) embedded and run at boot with flash clock
 #       divider 4, as awalol's upstream does (99da904, e5d99f0); still 320 MHz
+#   F2  D + upstream v0.7.0's whole Pico 2 W clock and flash setup: 150 MHz
+#       at the default core voltage, CYW43 PIO divider 2 (a023371), XIP setup
+#       embedded with flash clock divider 2 (99da904, e5d99f0: 2 below 266 MHz)
 #   F3  D + core1 idles with a RAM busy-wait instead of sleep_us
 # Empty (the default) builds exactly what master builds. The version gets
 # "+diag-<variant>.<commit>" so the OLED and the app show which one runs.
-set(ISSUE15_DIAG "" CACHE STRING "Issue #15 diagnostic build: empty (off), D, F1 or F3")
+# (ISSUE15_DIAG itself is declared with the clock settings above.)
 set(DS5_C1_DIAG_VALUE 0)
 set(DS5_C1_BUSY_IDLE_VALUE 0)
 if (NOT ISSUE15_DIAG STREQUAL "")
-        if (NOT ISSUE15_DIAG MATCHES "^(D|F1|F3)$")
-                message(FATAL_ERROR "ISSUE15_DIAG must be empty, D, F1 or F3 (got '${ISSUE15_DIAG}')")
+        if (NOT ISSUE15_DIAG MATCHES "^(D|F1|F2|F3)$")
+                message(FATAL_ERROR "ISSUE15_DIAG must be empty, D, F1, F2 or F3 (got '${ISSUE15_DIAG}')")
         endif ()
         set(DS5_C1_DIAG_VALUE 1)
         target_sources(ds5-bridge PRIVATE src/c1_diag.h)
         target_link_libraries(ds5-bridge hardware_exception)
-        if (ISSUE15_DIAG STREQUAL "F1")
+        if (ISSUE15_DIAG MATCHES "^F[12]$")
                 if (PICO_W_BUILD)
-                        message(FATAL_ERROR "ISSUE15_DIAG=F1 is RP2350 only (no XIP setup to embed on the Pico W)")
+                        message(FATAL_ERROR "ISSUE15_DIAG=${ISSUE15_DIAG} is RP2350 only (no XIP setup to embed on the Pico W)")
                 endif ()
-                target_compile_definitions(bs2_default PRIVATE PICO_FLASH_SPI_CLKDIV=4)
+                # Upstream's rule (e5d99f0): divider 4 above 266 MHz, else 2.
+                if (SYS_CLOCK_KHZ_VALUE GREATER 266000)
+                        set(ISSUE15_FLASH_CLKDIV 4)
+                else ()
+                        set(ISSUE15_FLASH_CLKDIV 2)
+                endif ()
+                target_compile_definitions(bs2_default PRIVATE PICO_FLASH_SPI_CLKDIV=${ISSUE15_FLASH_CLKDIV})
                 target_compile_definitions(ds5-bridge PRIVATE PICO_EMBED_XIP_SETUP=1)
+                message(STATUS "Issue #15 ${ISSUE15_DIAG}: ${SYS_CLOCK_KHZ_VALUE} kHz, boot2 flash clock divider ${ISSUE15_FLASH_CLKDIV}, CYW43 PIO divider ${CYW43_PIO_CLOCK_DIV_VALUE}")
         elseif (ISSUE15_DIAG STREQUAL "F3")
                 set(DS5_C1_BUSY_IDLE_VALUE 1)
         endif ()
