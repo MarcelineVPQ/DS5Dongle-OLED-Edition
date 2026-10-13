@@ -26,6 +26,9 @@
 #include "pico/bootrom.h"
 #include "perf.h"
 #include "ctrl_info.h"
+#if DS5_C1_DIAG
+#include "c1_diag.h"
+#endif
 
 // main.cpp: the grip test's rumble (0x0E).
 void send_rumble(uint8_t left, uint8_t right);
@@ -284,6 +287,9 @@ bool is_debug_cmd(uint8_t report_id) {
 bool is_pico_cmd(uint8_t report_id) {
 #if ENABLE_SERIAL
     if (is_debug_cmd(report_id)) return true;
+#endif
+#if DS5_C1_DIAG
+    if (report_id == PICO_CMD_C1_DIAG) return true;  // core1 crash diagnostics (issue #15), GET only
 #endif
     if (report_id == 0xf5 ||  // audio pipeline counters
         report_id == 0xf6 ||
@@ -584,6 +590,14 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         memcpy(buffer, src, len);
         return len;
     }
+#if DS5_C1_DIAG
+    if (report_id == PICO_CMD_C1_DIAG) {
+        // Core1 crash diagnostics (issue #15 diagnostic builds): c1_diag.h.
+        C1DiagSnapshot snap;
+        c1diag_snapshot(&snap);
+        return c1diag_serialize(snap, buffer, reqlen);
+    }
+#endif
     if (report_id == 0xf5) {
         // Audio pipeline counters (scripts/audio_diag.py), 63 bytes (both
         // transports cap a reply at 63). Fifteen uint32 LE at [4i]:

@@ -6,6 +6,7 @@
 #include <random>
 #include "cmd.h"
 #include "config.h"
+#include "c1_diag.h"
 #include "calib.h"
 #include "fakes.h"
 #include "perf.h"
@@ -182,6 +183,75 @@ TEST(cmd_f5_layout) {
     g_fake_c1_flags = 1;
     g_fake_c1_free_heap = 100000;
     g_fake_c1_stage = 9;
+}
+
+TEST(cmd_ea_c1diag_layout) {
+    // Issue #15 core1 diagnostics: 63 bytes at most on every length, read-only.
+    fresh();
+    for (uint16_t len = 0; len <= 200; len++) {
+        std::unique_ptr<uint8_t[]> buf(new uint8_t[200]);
+        CHECK_EQ(pico_cmd_get(PICO_CMD_C1_DIAG, buf.get(), len), len < 63 ? len : 63);
+    }
+    CHECK(is_pico_cmd(PICO_CMD_C1_DIAG));  // the HID feature path too
+    C1DiagSnapshot s;
+    s.flags = C1DIAG_FAULTED | C1DIAG_RECORDER | C1DIAG_STACK_GUARD | C1DIAG_RP2350;
+    s.stage_now = 15;
+    s.stage_at_fault = 12;
+    s.chip_version = 2;
+    s.rom_version = 3;
+    s.pc = 0x10001234u;
+    s.lr = 0x20001235u;
+    s.xpsr = 0x61000000u;
+    s.cfsr = 0x00008200u;
+    s.hfsr = 0x40000000u;
+    s.mmfar = 0xE000EDF8u;
+    s.bfar = 0x10ABCDEFu;
+    s.sp = 0x20040F00u;
+    s.fault_us = 123456789u;
+    s.heartbeat_age_us = 0xFFFFFFFFu;
+    s.stack_free_bytes = 70000;  // saturates at 65535
+    s.qmi_timing = 0x60007203u;
+    s.qmi_rfmt = 0x00009154u;
+    s.qmi_rcmd = 0x000000BBu;
+    s.exc_return = 0xF9;
+    s.sfsr = 0x48;
+    g_fake_c1diag = s;
+    uint8_t r[64];
+    std::memset(r, 0xA5, sizeof(r));
+    CHECK_EQ(pico_cmd_get(PICO_CMD_C1_DIAG, r, 63), 63);
+    auto u32 = [&](int at) { uint32_t x; std::memcpy(&x, r + at, 4); return x; };
+    CHECK_EQ(r[0], 'C');
+    CHECK_EQ(r[1], 'F');
+    CHECK_EQ(r[2], 1);
+    CHECK_EQ(r[3], 0x27);
+    CHECK_EQ(r[4], 15);
+    CHECK_EQ(r[5], 12);
+    CHECK_EQ(r[6], 2);
+    CHECK_EQ(r[7], 3);
+    CHECK_EQ(u32(8), 0x10001234u);
+    CHECK_EQ(u32(12), 0x20001235u);
+    CHECK_EQ(u32(16), 0x61000000u);
+    CHECK_EQ(u32(20), 0x00008200u);
+    CHECK_EQ(u32(24), 0x40000000u);
+    CHECK_EQ(u32(28), 0xE000EDF8u);
+    CHECK_EQ(u32(32), 0x10ABCDEFu);
+    CHECK_EQ(u32(36), 0x20040F00u);
+    CHECK_EQ(u32(40), 123456789u);
+    CHECK_EQ(u32(44), 0xFFFFFFFFu);
+    CHECK_EQ(r[48] | r[49] << 8, 0xFFFF);
+    CHECK_EQ(u32(50), 0x60007203u);
+    CHECK_EQ(u32(54), 0x00009154u);
+    CHECK_EQ(r[58] | r[59] << 8, 0xBB);
+    CHECK_EQ(r[60], 0xF9);
+    CHECK_EQ(r[61], 0x48);
+    CHECK_EQ(r[62], 0);
+    CHECK_EQ(r[63], 0xA5);  // nothing past 63
+    // A SET to 0xEA does nothing (read-only).
+    const uint32_t gen = cmd_host_config_gen();
+    const uint8_t junk[] = {0x02, 0x09, 0x07};
+    pico_cmd_set(PICO_CMD_C1_DIAG, junk, sizeof(junk));
+    CHECK_EQ(cmd_host_config_gen(), gen);
+    g_fake_c1diag = C1DiagSnapshot{};
 }
 
 TEST(cmd_random_sets_never_crash) {

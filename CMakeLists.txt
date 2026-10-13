@@ -249,6 +249,41 @@ target_compile_definitions(ds5-bridge PRIVATE
         ENABLE_COMPANION_VENDOR=${ENABLE_COMPANION_VENDOR_VALUE}
 )
 
+# Issue #15 diagnostic builds (branch debug/issue15), never in a release:
+#   D   core1 crash diagnostics: finer loop stages in 0xF5, a core1 HardFault
+#       recorder, a stack guard + high-water mark, the loop heartbeat and the
+#       board's flash (QMI) setup, all read with GET 0xEA (src/c1_diag.h)
+#   F1  D + the XIP setup (boot2) embedded and run at boot with flash clock
+#       divider 4, as awalol's upstream does (99da904, e5d99f0); still 320 MHz
+#   F3  D + core1 idles with a RAM busy-wait instead of sleep_us
+# Empty (the default) builds exactly what master builds. The version gets
+# "+diag-<variant>.<commit>" so the OLED and the app show which one runs.
+set(ISSUE15_DIAG "" CACHE STRING "Issue #15 diagnostic build: empty (off), D, F1 or F3")
+set(DS5_C1_DIAG_VALUE 0)
+set(DS5_C1_BUSY_IDLE_VALUE 0)
+if (NOT ISSUE15_DIAG STREQUAL "")
+        if (NOT ISSUE15_DIAG MATCHES "^(D|F1|F3)$")
+                message(FATAL_ERROR "ISSUE15_DIAG must be empty, D, F1 or F3 (got '${ISSUE15_DIAG}')")
+        endif ()
+        set(DS5_C1_DIAG_VALUE 1)
+        target_sources(ds5-bridge PRIVATE src/c1_diag.h)
+        target_link_libraries(ds5-bridge hardware_exception)
+        if (ISSUE15_DIAG STREQUAL "F1")
+                if (PICO_W_BUILD)
+                        message(FATAL_ERROR "ISSUE15_DIAG=F1 is RP2350 only (no XIP setup to embed on the Pico W)")
+                endif ()
+                target_compile_definitions(bs2_default PRIVATE PICO_FLASH_SPI_CLKDIV=4)
+                target_compile_definitions(ds5-bridge PRIVATE PICO_EMBED_XIP_SETUP=1)
+        elseif (ISSUE15_DIAG STREQUAL "F3")
+                set(DS5_C1_BUSY_IDLE_VALUE 1)
+        endif ()
+        message(STATUS "Issue #15 diagnostic build: ${ISSUE15_DIAG}")
+endif ()
+target_compile_definitions(ds5-bridge PRIVATE
+        DS5_C1_DIAG=${DS5_C1_DIAG_VALUE}
+        DS5_C1_BUSY_IDLE=${DS5_C1_BUSY_IDLE_VALUE}
+)
+
 option(ENABLE_WAKE_HID "Wake the Windows host on PS-button press" OFF)
 if(ENABLE_WAKE_HID)
     target_compile_definitions(ds5-bridge PRIVATE
@@ -288,6 +323,18 @@ if (VERSION STREQUAL "" OR VERSION STREQUAL "dev")
         endif ()
 else ()
         set(FW_VERSION "${VERSION}")
+endif ()
+if (NOT ISSUE15_DIAG STREQUAL "")
+        # v0.9.5-dev.7-oled-edition+3.a1b2c3d -> v0.9.5-dev.7-oled-edition+diag-D.a1b2c3d
+        execute_process(
+                COMMAND git rev-parse --short=7 HEAD
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                OUTPUT_VARIABLE GIT_SHORT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        string(REGEX REPLACE "\\+.*$" "" FW_VERSION "${FW_VERSION}")
+        string(APPEND FW_VERSION "+diag-${ISSUE15_DIAG}")
+        if (GIT_SHORT)
+                string(APPEND FW_VERSION ".${GIT_SHORT}")
+        endif ()
 endif ()
 message(STATUS "Firmware version: ${FW_VERSION}")
 target_compile_definitions(ds5-bridge PRIVATE

@@ -22,6 +22,14 @@
 #include "usb.h"
 #include "voice.h"
 #include "perf.h"
+#if DS5_C1_DIAG
+#include "c1_diag.h"
+#include "hardware/sync.h"
+#if PICO_RP2350
+#include "hardware/exception.h"
+#include "hardware/structs/qmi.h"
+#endif
+#endif
 
 #define INPUT_CHANNELS    4
 #define OUTPUT_CHANNELS   2
@@ -155,6 +163,17 @@ static volatile bool g_spk_ready = false;
 // 9 in the loop. The Pico W build (no speaker) goes 3 -> 7.
 static volatile uint8_t g_c1_stage = 0;
 uint32_t audio_c1_stage() { return g_c1_stage; }
+
+// Issue #15 diagnostic builds (CMake ISSUE15_DIAG, DS5_C1_DIAG=1): finer
+// stages inside core1's loop, in the same 4 bits of 0xF5 [60]: 10 before the
+// speaker queue read, 11 resample, 12 Opus encode, 13 queued, 14 mic, 15 idle
+// wait. Normal builds keep 9 for the whole loop. GET 0xEA (c1_diag.h) has
+// the rest: a HardFault record, the loop heartbeat, the stack high-water mark.
+#if DS5_C1_DIAG
+#define C1_STAGE(n) (g_c1_stage = (n))
+#else
+#define C1_STAGE(n) ((void) 0)
+#endif
 uint32_t audio_c1_flags() { return g_c1_flags; }
 uint32_t audio_c1_free_heap() { return g_c1_free_heap; }
 uint32_t audio_c1_enc() { return g_c1_enc; }
@@ -530,6 +549,129 @@ void audio_loop() {
     audio_bt_task();
 }
 
+#if DS5_C1_DIAG
+// Core1's loop heartbeat: time_us_32() at the top of every pass.
+static volatile uint32_t g_c1_heartbeat_us = 0;
+static volatile bool g_c1_heartbeat_set = false;
+// Stack paint: core0 fills core1's stack with this before launching it; the
+// lowest word that still holds it is the high-water mark.
+static constexpr uint32_t kC1StackPaint = 0xC1C1C1C1u;
+// MSPLIM sits this far above the stack base so the HardFault handler still
+// has room to run after a stack overflow (the SDK puts it at the base itself).
+static constexpr uint32_t kC1StackGuardBytes = 64;
+static volatile bool g_c1_guard_armed = false;
+
+#if PICO_RP2350
+// Core1 HardFault record, written once by the handler below (in RAM).
+struct C1FaultRecord {
+    uint32_t magic, pc, lr, xpsr, cfsr, hfsr, mmfar, bfar, sfsr, sp, exc_return, stage, us;
+};
+static constexpr uint32_t kC1FaultMagic = 0xC1FA0017u;
+static volatile C1FaultRecord g_c1_fault{};
+extern "C" {
+// Read by the naked handler's asm by name.
+uint32_t c1diag_prev_hardfault = 0;  // core0's (the SDK's default) handler
+uint32_t c1diag_stack_base = 0;      // core1's real stack base, for MSPLIM
+}
+
+// Core1 only: record the stacked frame and the fault status registers, then
+// park in RAM for good. Core0 keeps running, so 0xEA can report it.
+extern "C" void __not_in_flash_func(c1diag_fault_record)(const uint32_t *frame, uint32_t exc_return)
+    __attribute__((noreturn, used, noinline));
+extern "C" void __not_in_flash_func(c1diag_fault_record)(const uint32_t *frame, uint32_t exc_return) {
+    const uint32_t f = (uint32_t) frame;
+    g_c1_fault.sp = f;
+    g_c1_fault.exc_return = exc_return;
+    // Only read a frame that lies in SRAM (after a stack overflow it may be
+    // partial, but it is still readable there).
+    if ((f & 3u) == 0 && f >= SRAM_BASE && f + 32 <= SRAM_END) {
+        g_c1_fault.lr = frame[5];
+        g_c1_fault.pc = frame[6];
+        g_c1_fault.xpsr = frame[7];
+    }
+    g_c1_fault.cfsr = *(volatile uint32_t *) 0xE000ED28u;
+    g_c1_fault.hfsr = *(volatile uint32_t *) 0xE000ED2Cu;
+    g_c1_fault.mmfar = *(volatile uint32_t *) 0xE000ED34u;
+    g_c1_fault.bfar = *(volatile uint32_t *) 0xE000ED38u;
+    g_c1_fault.sfsr = *(volatile uint32_t *) 0xE000EDE4u;
+    g_c1_fault.stage = g_c1_stage;
+    g_c1_fault.us = time_us_32();
+    __dmb();
+    g_c1_fault.magic = kC1FaultMagic;
+    __dmb();
+    for (;;) __wfe();
+}
+
+// HardFault on either core (the vector table is shared). Core0 goes on to the
+// SDK's default handler as before (so the watchdog still reboots); core1
+// gives its MSPLIM headroom back, picks the frame's stack and records.
+extern "C" void __not_in_flash_func(c1diag_hardfault_handler)(void) __attribute__((naked, used));
+extern "C" void __not_in_flash_func(c1diag_hardfault_handler)(void) {
+    pico_default_asm_volatile(
+        "ldr r0, =0xd0000000\n"          // SIO CPUID: 0 core0, 1 core1
+        "ldr r0, [r0]\n"
+        "cmp r0, #0\n"
+        "bne 1f\n"
+        "ldr r0, =c1diag_prev_hardfault\n"
+        "ldr r0, [r0]\n"
+        "bx r0\n"
+        "1:\n"
+        "ldr r1, =c1diag_stack_base\n"
+        "ldr r1, [r1]\n"
+        "msr msplim, r1\n"                // the 64 guard bytes are ours now
+        "tst lr, #4\n"
+        "ite eq\n"
+        "mrseq r0, msp\n"
+        "mrsne r0, psp\n"
+        "mov r1, lr\n"
+        "b c1diag_fault_record\n"
+        ".ltorg\n");
+}
+#endif  // PICO_RP2350
+
+void c1diag_snapshot(C1DiagSnapshot *s) {
+    *s = C1DiagSnapshot{};
+    s->stage_now = g_c1_stage;
+    if (g_c1_heartbeat_set) s->heartbeat_age_us = time_us_32() - g_c1_heartbeat_us;
+    if (g_c1_guard_armed) s->flags |= C1DIAG_STACK_GUARD;
+    uint32_t untouched = 0;
+    for (uint32_t i = 0; i < count_of(audio_core1_stack) && audio_core1_stack[i] == kC1StackPaint; i++) untouched++;
+    s->stack_free_bytes = untouched * 4;
+    s->rom_version = *(volatile const uint8_t *) 0x13;
+#if defined(PICO_EMBED_XIP_SETUP) && PICO_EMBED_XIP_SETUP
+    s->flags |= C1DIAG_F1_XIP_SETUP;
+#endif
+#if DS5_C1_BUSY_IDLE
+    s->flags |= C1DIAG_F3_BUSY_IDLE;
+#endif
+#if PICO_RP2350
+    s->flags |= C1DIAG_RP2350;
+    s->chip_version = rp2350_chip_version();
+    if (c1diag_prev_hardfault != 0) s->flags |= C1DIAG_RECORDER;
+    s->qmi_timing = qmi_hw->m[0].timing;
+    s->qmi_rfmt = qmi_hw->m[0].rfmt;
+    s->qmi_rcmd = qmi_hw->m[0].rcmd;
+    if (g_c1_fault.magic == kC1FaultMagic) {
+        s->flags |= C1DIAG_FAULTED;
+        s->stage_at_fault = (uint8_t) g_c1_fault.stage;
+        s->pc = g_c1_fault.pc;
+        s->lr = g_c1_fault.lr;
+        s->xpsr = g_c1_fault.xpsr;
+        s->cfsr = g_c1_fault.cfsr;
+        s->hfsr = g_c1_fault.hfsr;
+        s->mmfar = g_c1_fault.mmfar;
+        s->bfar = g_c1_fault.bfar;
+        s->sp = g_c1_fault.sp;
+        s->fault_us = g_c1_fault.us;
+        s->exc_return = (uint8_t) g_c1_fault.exc_return;
+        s->sfsr = (uint8_t) g_c1_fault.sfsr;
+    }
+#else
+    s->chip_version = rp2040_chip_version();
+#endif
+}
+#endif  // DS5_C1_DIAG
+
 void audio_init() {
     resampler.SetMode(true, 0, false);
     resampler.SetRates(48000, 3000);
@@ -544,6 +686,13 @@ void audio_init() {
     // buffer, core0 drains it to USB. Mic Opus is mono / 48 kHz / 10 ms frames.
     queue_init(&mic_fifo, sizeof(mic_element), MIC_DECODE_DEPTH);          // deeper: tolerate BT bursts
     queue_init(&mic_decode_fifo, sizeof(mic_decoded_element), MIC_DECODE_DEPTH); // decoded-PCM jitter buffer
+#if DS5_C1_DIAG
+    for (auto &w : audio_core1_stack) w = kC1StackPaint;
+#if PICO_RP2350
+    c1diag_stack_base = (uint32_t) audio_core1_stack;
+    c1diag_prev_hardfault = (uint32_t) exception_set_exclusive_handler(HARDFAULT_EXCEPTION, c1diag_hardfault_handler);
+#endif
+#endif
     // Core1 now always runs: it owns the mic decoder even in no-speaker builds.
     multicore_launch_core1_with_stack(core1_entry, audio_core1_stack, sizeof(audio_core1_stack));
 }
@@ -556,7 +705,9 @@ static WDL_Resampler resampler_audio;
 // audio_spk_fifo for audio_bt_task. Non-blocking so core1 can also run the mic.
 static void __not_in_flash_func(speaker_proc)() {
     static audio_raw_element audio_element{};
+    C1_STAGE(10);
     if (!queue_try_remove(&audio_fifo, &audio_element)) return;
+    C1_STAGE(11);
     // 将 512 frames 重采样成 480 frames 以解决噪音问题。感谢 @Junhoo
     WDL_ResampleSample *in_buf;
     int nframes = resampler_audio.ResamplePrepare(512, 2, &in_buf);
@@ -567,6 +718,7 @@ static void __not_in_flash_func(speaker_proc)() {
     resampler_audio.ResampleOut(out_buf, nframes, 480, 2);
 
     static audio_spk_element spk{};
+    C1_STAGE(12);
     const int encoded = opus_encode_float(encoder, out_buf, 480, spk.data, SPEAKER_OPUS_SIZE);
     if (encoded <= 0) return;
     g_c1_enc++;
@@ -576,6 +728,7 @@ static void __not_in_flash_func(speaker_proc)() {
         g_drop_enc++;
     }
     queue_try_add(&audio_spk_fifo, &spk);
+    C1_STAGE(13);
 }
 #endif
 
@@ -628,6 +781,12 @@ static bool __not_in_flash_func(mic_proc)() {
 
 void __not_in_flash_func(core1_entry)() {
     g_c1_stage = 1;
+#if DS5_C1_DIAG && PICO_RP2350
+    // Stack guard 64 bytes above the base (the SDK set it at the base): an
+    // overflow faults with room left for the HardFault recorder.
+    pico_default_asm_volatile("msr msplim, %0" : : "r"((uint32_t) audio_core1_stack + kC1StackGuardBytes));
+    g_c1_guard_armed = true;
+#endif
     // Let core0's flash_safe_execute() park this core in RAM during flash
     // erase/program (config, remap, slots, BT link keys) — see flash_safe.h.
     flash_safe_execute_core_init();
@@ -679,6 +838,10 @@ void __not_in_flash_func(core1_entry)() {
     while (true) {
         g_c1_stage = 9;  // running: stage 9 and c1_loops moving
         g_c1_loops++;
+#if DS5_C1_DIAG
+        g_c1_heartbeat_us = time_us_32();
+        g_c1_heartbeat_set = true;
+#endif
         bool work = false;
 #if !DISABLE_SPEAKER_PROC
         if (g_spk_ready && !queue_is_empty(&audio_fifo)) {
@@ -689,6 +852,7 @@ void __not_in_flash_func(core1_entry)() {
         }
 #endif
         if (mic_decoder != nullptr) {
+            C1_STAGE(14);
             const uint32_t t0 = perf_now();
             if (mic_proc()) {
                 perf_record(PERF_C1_MIC, perf_now() - t0);
@@ -696,6 +860,15 @@ void __not_in_flash_func(core1_entry)() {
             }
         }
         // Idle without spinning on the queue spinlocks (starves core0's bus).
-        if (!work) sleep_us(10);
+        if (!work) {
+            C1_STAGE(15);
+#if DS5_C1_BUSY_IDLE
+            // Issue #15 candidate F3: wait in RAM (sleep_us runs from flash
+            // and goes through the alarm pool).
+            busy_wait_at_least_cycles(SYS_CLOCK_KHZ * 10u / 1000u);
+#else
+            sleep_us(10);
+#endif
+        }
     }
 }

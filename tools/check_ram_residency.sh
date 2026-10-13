@@ -8,6 +8,10 @@
 #      memcpy/memset/memmove all sit in SRAM (0x20000000-0x20080000).
 #      A symbol the build doesn't have (the Pico W build has no speaker
 #      encoder) is skipped; the always-present ones must exist.
+#   3. Issue #15 diagnostic builds (CMake ISSUE15_DIAG, which link
+#      c1diag_snapshot) on RP2350: core1's HardFault recorder (the handler and
+#      the function it records with) must be in RAM too, since it runs when
+#      flash may be what failed.
 #   Run by .github/workflows/build.yml and release.yml after each build.
 #   tools/check_ram_residency.sh path/to/ds5-bridge.elf
 set -euo pipefail
@@ -25,6 +29,10 @@ fi
 REQUIRED="_Z11core1_entryv memmove queue_try_add queue_try_remove opus_decode celt_decode_with_ec"
 OPTIONAL="memcpy memset opus_encode_float opus_encode_native celt_encode_with_ec
   _ZN13WDL_Resampler11ResampleOutEPfiii _ZN13WDL_Resampler15ResamplePrepareEiiPPf"
+ATTRS="$("${READELF:-arm-none-eabi-readelf}" -A "$ELF")"
+if grep -q ' _Z15c1diag_snapshotP14C1DiagSnapshot$' <<<"$SYMS" && grep -q 'Tag_CPU_arch: v8-M' <<<"$ATTRS"; then
+  REQUIRED="$REQUIRED c1diag_hardfault_handler c1diag_fault_record"
+fi
 for sym in $REQUIRED $OPTIONAL; do
   addr="$(awk -v s="$sym" '$3 == s && $2 ~ /^[tTwW]$/ {print $1; exit}' <<<"$SYMS")"
   if [ -z "$addr" ]; then

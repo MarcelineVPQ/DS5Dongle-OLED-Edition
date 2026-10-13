@@ -104,6 +104,9 @@ uint32_t audio_mic_frames() { return 10; }
 uint32_t audio_mic_plc_frames() { return 11; }
 uint8_t audio_peak_speaker() { return 12; }
 uint8_t audio_peak_haptic() { return 13; }
+#include "c1_diag.h"
+C1DiagSnapshot g_fake_c1diag{};
+void c1diag_snapshot(C1DiagSnapshot *out) { *out = g_fake_c1diag; }
 
 // --- main.cpp / state_mgr / oled / voice ----------------------------------
 #include "state_mgr.h"

@@ -5,6 +5,8 @@
 #   tools/dev_firmware.sh            build -> prints the .uf2 path
 #   tools/dev_firmware.sh --flash    build, put the dongle in BOOTSEL, copy it
 #   tools/dev_firmware.sh --picow    build for the original Pico W instead
+#   tools/dev_firmware.sh --diag D   an issue #15 diagnostic build (D, F1 or F3;
+#                                    CMakeLists.txt ISSUE15_DIAG), own build folder
 #
 # The version is "<last tag>+<commits since>.<commit>[.dirty]", e.g.
 # v0.9.3-oled-edition+3.a1b2c3d: the OLED, the app and picotool all show it,
@@ -14,13 +16,17 @@ set -euo pipefail
 FW="$(cd "$(dirname "$0")/.." && pwd)"
 FLASH=false
 BOARD=pico2_w
-for arg in "$@"; do
-  case "$arg" in
+DIAG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --flash) FLASH=true ;;
     --picow) BOARD=pico_w ;;
-    *) echo "usage: tools/dev_firmware.sh [--flash] [--picow]" >&2; exit 2 ;;
+    --diag) DIAG="${2:-}"; shift ;;
+    *) echo "usage: tools/dev_firmware.sh [--flash] [--picow] [--diag D|F1|F3]" >&2; exit 2 ;;
   esac
+  shift
 done
+case "$DIAG" in ""|D|F1|F3) ;; *) echo "--diag takes D, F1 or F3" >&2; exit 2 ;; esac
 : "${PICO_SDK_PATH:=$HOME/pico-sdk}"
 export PICO_SDK_PATH
 [ -d "$PICO_SDK_PATH" ] || { echo "Pico SDK not found at $PICO_SDK_PATH (set PICO_SDK_PATH)" >&2; exit 1; }
@@ -28,12 +34,12 @@ export PICO_SDK_PATH
 desc="$(git -C "$FW" describe --tags --match 'v*-oled-edition' --long --dirty)"
 # v0.9.3-oled-edition-3-ga1b2c3d[-dirty] -> v0.9.3-oled-edition+3.a1b2c3d[.dirty]
 VERSION="$(sed -E 's/-([0-9]+)-g([0-9a-f]+)(-dirty)?$/+\1.\2\3/; s/-dirty$/.dirty/' <<<"$desc")"
-BUILD="${XDG_CACHE_HOME:-$HOME/.cache}/ds5dongle/build-$BOARD"
+BUILD="${XDG_CACHE_HOME:-$HOME/.cache}/ds5dongle/build-$BOARD${DIAG:+-diag-$DIAG}"
 EXTRA=()
 [ "$BOARD" = pico_w ] && EXTRA=(-DPICO_W_BUILD=ON)
 
-echo "== Firmware $VERSION ($BOARD)"
-cmake -S "$FW" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_COMPANION_VENDOR=ON "-DVERSION=$VERSION" "${EXTRA[@]}" >/dev/null
+echo "== Firmware $VERSION ($BOARD${DIAG:+, issue #15 diag $DIAG})"
+cmake -S "$FW" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_COMPANION_VENDOR=ON "-DVERSION=$VERSION" "-DISSUE15_DIAG=$DIAG" "${EXTRA[@]}" >/dev/null
 cmake --build "$BUILD" --target ds5-bridge >/dev/null
 UF2="$BUILD/ds5-bridge-oled.uf2"
 echo "Built: $UF2"

@@ -38,6 +38,7 @@ target_compile_definitions(host_tests PRIVATE
         ENABLE_SERIAL=0
         ENABLE_VERBOSE=0
         DS5_BOARD_NAME="Host"
+        DS5_C1_DIAG=1  # issue #15 diagnostics: GET 0xEA (c1_diag.h)
         SYS_CLOCK_KHZ=320000
         FIRMWARE_VERSION="host-test"
         PICO_PROGRAM_VERSION_STRING="host-test"
