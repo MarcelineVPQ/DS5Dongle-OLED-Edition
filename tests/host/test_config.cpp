@@ -311,3 +311,31 @@ TEST(config_power_flags_defaults_and_round_trip) {
     config_default();
     CHECK_EQ(config_power_flags(), POWER_FLAGS_DEFAULT);
 }
+
+// Upstream #252: the speaker garbles below an AudioBufferLength of 28, so the
+// floor is 32. 16..31 (older firmware or app) read as 32, not as the default;
+// out of range and erased flash still take 64; 32..128 stay as they are.
+TEST(config_audio_buffer_floor) {
+    fake_flash_erase_all();
+    config_load();
+    CHECK_EQ(get_config().audio_buffer_length, 64);
+    Config_body b = get_config();
+    const struct { int in, out; } cases[] = {
+        {16, 32}, {20, 32}, {27, 32}, {28, 32}, {31, 32}, {32, 32}, {33, 33}, {64, 64},
+        {128, 128}, {129, 64}, {15, 64}, {0, 64}, {0xFF, 64},
+    };
+    // loop: NOT-WORTH — host test, 13 cases
+    for (const auto &c : cases) {
+        b.audio_buffer_length = (uint8_t) c.in;
+        set_config(reinterpret_cast<const uint8_t *>(&b), sizeof(b));
+        CHECK_EQ(get_config().audio_buffer_length, c.out);
+        CHECK(get_config().audio_buffer_length >= kAudioBufferMin);
+    }
+    // A config saved by older firmware with 16 loads as 32.
+    g_fake_flash_fail = false;
+    CHECK(config_save());
+    g_fake_flash[CONFIG_FLASH_OFFSET + offsetof(Config, body) + offsetof(Config_body, audio_buffer_length)] = 16;
+    config_default();
+    config_load();
+    CHECK_EQ(get_config().audio_buffer_length, 32);
+}
