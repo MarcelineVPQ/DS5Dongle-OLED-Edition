@@ -368,3 +368,44 @@ TEST(ctrl_running_owns_0x81_and_leaves_other_replies) {
     CHECK_EQ(state(), CTRL_TEST_NO_ANSWER);
     g_fake_features.erase(0x81);
 }
+
+// Lifetime pass batch 3: the 0x81 pollers read the cached reply into a stack
+// buffer, so polling it every main-loop pass never touches the heap (they
+// used to copy a std::vector each pass): a running test with a foreign reply
+// cached, the scrub after it, and the colorway read's polling and scrub.
+TEST(ctrl_0x81_polling_never_allocates) {
+    connect_fresh(false);
+    sim.answers = false;
+    CHECK_EQ(run(0x70, 1, 4), CMD_RESULT_OK);
+    tick(5);  // the test's SET 0x80 went out
+    g_fake_features[0x81] = reply(0x01, 0x13, 2, {1, 2, 3});  // not ours: stays cached
+    const int copies = g_fake_feature_copies;
+    const long allocs = g_heap_allocs;
+    tick(200);  // 2 s of passes while the test runs
+    CHECK_EQ(g_heap_allocs, allocs);
+    CHECK(g_fake_feature_copies - copies >= 200);
+    CHECK_EQ(state(), CTRL_TEST_RUNNING);
+    g_fake_features[0x81] = reply(0x70, 1, 0, {});  // ours, "idle": the scrub drops it
+    const long allocs2 = g_heap_allocs;
+    tick(200);  // the test times out, then the scrub window
+    CHECK_EQ(state(), CTRL_TEST_NO_ANSWER);
+    CHECK_EQ(g_heap_allocs, allocs2);
+    g_fake_features.erase(0x81);
+}
+
+TEST(ctrl_colorway_read_polling_never_allocates) {
+    g_fake_bt_connected = false;
+    tick();
+    g_fake_features.clear();
+    g_fake_feature_sets.clear();
+    g_fake_feature_get_hook = nullptr;
+    g_fake_bt_connected = true;
+    tick(160);  // 1.5 s: the colorway read's SET 0x80 goes out
+    g_fake_features[0x81] = reply(0x70, 1, 2, {});  // someone else's reply: never taken
+    const long allocs = g_heap_allocs;
+    const int copies = g_fake_feature_copies;
+    tick(350);  // polling until its 2 s deadline, then 1 s of scrub
+    CHECK_EQ(g_heap_allocs, allocs);
+    CHECK(g_fake_feature_copies > copies);
+    g_fake_features.erase(0x81);
+}

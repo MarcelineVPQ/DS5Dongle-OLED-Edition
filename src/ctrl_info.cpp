@@ -74,8 +74,8 @@ void blank(uint16_t from, uint16_t to) {  // block bytes [from, to)
     if (from < to && to <= sizeof(s_block)) memset(s_block + from, 0, to - from);
 }
 
-bool is_ours(const std::vector<uint8_t> &r) {
-    return r.size() >= 4 && r[0] == 0x81 && r[1] == s_req.dev && r[2] == s_req.action;
+bool is_ours(const uint8_t *r, uint16_t n) {
+    return n >= 4 && r[0] == 0x81 && r[1] == s_req.dev && r[2] == s_req.action;
 }
 
 void finish(uint8_t state) {
@@ -96,19 +96,19 @@ void finish(uint8_t state) {
 }
 
 // One 0x81 reply of ours. Returns true once the request is over.
-bool take_reply(const std::vector<uint8_t> &r) {
+bool take_reply(const uint8_t *r, uint16_t len) {
     const uint8_t status = r[3];
     if (status == kStatusTimeout) {
         finish(s_req.pages > 0 ? CTRL_TEST_DONE : CTRL_TEST_NO_ANSWER);
         return true;
     }
     if (status != kStatusComplete && status != kStatusMore) return false;  // idle / running
-    size_t n = r.size() - 4;
+    size_t n = (size_t) len - 4;
     if (n > kCtrlTestPageBytes) n = kCtrlTestPageBytes;  // the rest is the Bluetooth crc32
     // A re-asked GET can bring the last page again: it would land unblanked
     // at the next page's offset (page 0 holds the serial).
-    if (s_req.pages > 0 && memcmp(s_block + (size_t) (s_req.pages - 1) * kCtrlTestPageBytes, r.data() + 4, n) == 0) return false;
-    memcpy(s_block + (size_t) s_req.pages * kCtrlTestPageBytes, r.data() + 4, n);
+    if (s_req.pages > 0 && memcmp(s_block + (size_t) (s_req.pages - 1) * kCtrlTestPageBytes, r + 4, n) == 0) return false;
+    memcpy(s_block + (size_t) s_req.pages * kCtrlTestPageBytes, r + 4, n);
     s_req.pages++;
     if (status == kStatusComplete || s_req.pages >= s_req.max_pages) {
         finish(CTRL_TEST_DONE);
@@ -164,8 +164,10 @@ void ctrl_test_task(bool may_send) {
     const uint64_t now = time_us_64();
     if (s_req.state != CTRL_TEST_RUNNING) {
         if (s_scrub_until_us && now >= s_scrub_until_us) s_scrub_until_us = 0;
-        // lifetime: HOT-ALLOC — copies 0x81 every core0 pass during the scrub window when a reply is cached
-        if (s_scrub_until_us && is_ours(bt_peek_feature(0x81))) bt_drop_feature(0x81);
+        if (s_scrub_until_us) {
+            uint8_t h[4];  // a stack copy of the header, no heap (lifetime pass batch 3)
+            if (is_ours(h, bt_feature_copy(0x81, h, sizeof(h)))) bt_drop_feature(0x81);
+        }
         return;
     }
     if (!s_req.sent) {
@@ -179,15 +181,15 @@ void ctrl_test_task(bool may_send) {
         s_req.next_ask_us = now + 2 * kPollGapUs;
         return;
     }
-    // lifetime: HOT-ALLOC — copies 0x81 every core0 pass while a test runs (≤ 3 s) and a reply is cached
-    const std::vector<uint8_t> r = bt_peek_feature(0x81);
-    if (is_ours(r)) {
+    uint8_t r[kBtFeatureMax];  // a stack copy, no heap (lifetime pass batch 3)
+    const uint16_t rn = bt_feature_copy(0x81, r, sizeof(r));
+    if (is_ours(r, rn)) {
         bt_drop_feature(0x81);  // each reply is one page: never read it twice
         s_req.asking = false;
         s_req.next_ask_us = now + kPollGapUs;
         // error: NOT-WORTH — nothing; scheduling (test slot busy / reply taken); the request's deadline ends it as NO_ANSWER, which GET 0xEB reports and the app shows
-        if (take_reply(r)) return;
-    } else if (!r.empty() && s_req.pages > 0) {  // header cleared after the last page
+        if (take_reply(r, rn)) return;
+    } else if (rn != 0 && s_req.pages > 0) {  // header cleared after the last page
         finish(CTRL_TEST_DONE);
         return;
     }  // anything else isn't ours to drop: the next GET replaces it
@@ -197,8 +199,7 @@ void ctrl_test_task(bool may_send) {
     }
     if (s_req.asking && now - s_req.asked_us > kReaskUs) s_req.asking = false;  // that GET got lost
     if (!s_req.asking && now >= s_req.next_ask_us) {
-        // lifetime: NOT-WORTH — a discarded copy per re-ask (every 150 ms, ≤ 3 s per test)
-        (void) get_feature_data(0x81, 64);  // the answer lands in the feature cache
+        bt_request_feature(0x81);  // the answer lands in the feature cache
         s_req.asking = true;
         s_req.asked_us = now;
     }

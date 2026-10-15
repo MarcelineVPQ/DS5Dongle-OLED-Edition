@@ -85,3 +85,53 @@ TEST(scan_policy_no_idle_scan_while_a_window_is_open) {
     p.open(0);
     CHECK(!p.idle_due(1000 * kS, false));  // again() decides inside the window
 }
+
+// The Status screen's countdown (oled.cpp via bt_pairing_seconds_left): whole
+// seconds rounded up, only for a full pairing window, gone on connect.
+TEST(scan_policy_prompt_counts_down_whole_seconds) {
+    ScanPolicy p;
+    CHECK_EQ(p.prompt_seconds_left(0), 0u);
+    p.open(10 * kS);
+    CHECK_EQ(p.prompt_seconds_left(10 * kS), 120u);
+    CHECK_EQ(p.prompt_seconds_left(10 * kS + 1), 120u);
+    CHECK_EQ(p.prompt_seconds_left(11 * kS), 119u);
+    CHECK_EQ(p.prompt_seconds_left(129 * kS + 999'999), 1u);
+    CHECK_EQ(p.prompt_seconds_left(130 * kS), 0u);
+    // Never more than one change per second over the whole window.
+    uint32_t last = p.prompt_seconds_left(10 * kS);
+    int changes = 0;
+    // loop: NOT-WORTH — host test, 10 ms steps over 2 min
+    for (uint64_t t = 10 * kS; t <= 131 * kS; t += 10'000) {
+        const uint32_t v = p.prompt_seconds_left(t);
+        if (v != last) {
+            CHECK_EQ(v + 1, last);
+            changes++;
+            last = v;
+        }
+    }
+    CHECK_EQ(changes, 120);
+}
+
+TEST(scan_policy_boot_inquiry_is_no_prompt_but_pair_now_is) {
+    ScanPolicy p;
+    p.open(0, ScanPolicy::kBootWindowUs);  // boot with a paired slot: just press PS
+    CHECK_EQ(p.prompt_seconds_left(kS), 0u);
+    p.open(5 * kS);                        // KEY0 held 2 s: pair now
+    CHECK_EQ(p.prompt_seconds_left(5 * kS), 120u);
+    p.close();                             // a controller connected
+    CHECK_EQ(p.prompt_seconds_left(6 * kS), 0u);
+    CHECK(!p.window);
+}
+
+TEST(scan_policy_pair_now_after_the_window_ran_out) {
+    ScanPolicy p;
+    p.open(0);
+    CHECK(!p.again(121 * kS));  // the window's last inquiry ended
+    CHECK_EQ(p.prompt_seconds_left(200 * kS), 0u);
+    p.open(300 * kS);           // pair now, minutes later
+    CHECK(p.again(301 * kS));   // inquiries run again
+    CHECK_EQ(p.prompt_seconds_left(301 * kS), 119u);
+    // Again while one is open: extended to 2 min from now, never shortened.
+    p.open(360 * kS);
+    CHECK_EQ(p.prompt_seconds_left(360 * kS), 120u);
+}

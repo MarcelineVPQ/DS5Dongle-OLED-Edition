@@ -52,16 +52,19 @@ uint16_t cpu_temp_raw_smoothed() {
 
     // The temp sensor has a shallow slope (-1.721 mV/C) and ~1 LSB ≈ 0.47 C,
     // so a lone 12-bit sample swings several tenths of a degree frame to
-    // frame. Average a big block to kill that...
-    constexpr int kSamples = 256;
+    // frame. Average a block of 32 (each adc_read() ~2 µs, so ~64 µs of one
+    // main-loop pass; it was 256, ~0.5 ms, which the USB audio and Bluetooth
+    // paths waited behind: loop pass batch 2)...
+    constexpr int kSamples = 32;
     uint32_t acc = 0;
-    // loop: FIX-HOT-PATH — 256 blocking adc_read() calls (~0.5 ms) in one core0 main-loop pass
+    // loop: HOT-PATH-OK — 32 adc_read() calls (~64 µs) per CPU-screen frame (10 Hz) / per 0xFC GET (loop pass batch 2: was 256, ~0.5 ms)
     for (int i = 0; i < kSamples; i++) acc += adc_read();
     const float mean = (float)acc / (float)kSamples;
 
     // ...then a slow EMA so the displayed value glides to the true die
-    // temperature rather than mirroring the latest block. Seeded on the
-    // first call so it doesn't ramp up from zero.
+    // temperature rather than mirroring the latest block (at 0.15 it weighs
+    // ~12 blocks, so ~380 samples, more than the old 256 alone). Seeded on
+    // the first call so it doesn't ramp up from zero.
     static float ema = -1.0f;
     if (ema < 0.0f) ema = mean;
     else            ema += (mean - ema) * 0.15f;
@@ -171,9 +174,9 @@ void controller_info_task(bool may_start) {
         case ColorRead::Polling: {
             // error: NOT-WORTH — nothing; scheduling of the colorway read (not connected / not due / test slot busy); a read that never answers leaves the colorway unknown, the app draws the default
             if (now < s_color_due_us) return;
-            // lifetime: NOT-WORTH — every 40 ms for ≤ 2 s per connection (colorway read)
-            const std::vector<uint8_t> r = bt_peek_feature(0x81);  // [0x81, device, action, status, data...]
-            if (r.size() >= 4 + 6 && r[1] == 0x01 && r[2] == 0x13 && r[3] == 2) {
+            uint8_t r[kBtFeatureMax];  // [0x81, device, action, status, data...]
+            const uint16_t n = bt_feature_copy(0x81, r, sizeof(r));
+            if (n >= 4 + 6 && r[1] == 0x01 && r[2] == 0x13 && r[3] == 2) {
                 const char a = (char) r[4 + 4], b = (char) r[4 + 5];
                 const auto ok = [](char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z'); };
                 if (ok(a) && ok(b)) { s_colorway[0] = a; s_colorway[1] = b; }
@@ -188,15 +191,13 @@ void controller_info_task(bool may_start) {
                 s_color_deadline_us = now + 1000 * 1000;
                 return;
             }
-            // lifetime: NOT-WORTH — a discarded copy every 40 ms for ≤ 2 s per connection
-            (void) get_feature_data(0x81, 64);  // ask again; the answer lands in the feature cache
+            bt_request_feature(0x81);  // ask again; the answer lands in the feature cache
             s_color_due_us = now + 40 * 1000;
             return;
         }
         case ColorRead::Scrub: {
-            // lifetime: HOT-ALLOC — copies 0x81 every core0 pass for 1 s per connect while a foreign reply sits there
-            const std::vector<uint8_t> r = bt_peek_feature(0x81);
-            if (r.size() >= 3 && r[1] == 0x01 && r[2] == 0x13) bt_drop_feature(0x81);
+            uint8_t r[3];  // a stack copy of the header, no heap (lifetime pass batch 3)
+            if (bt_feature_copy(0x81, r, sizeof(r)) >= 3 && r[1] == 0x01 && r[2] == 0x13) bt_drop_feature(0x81);
             if (now > s_color_deadline_us) s_color_state = ColorRead::Done;
             return;
         }

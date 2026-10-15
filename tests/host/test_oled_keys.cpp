@@ -18,19 +18,21 @@ struct Board {
     Buttons b;
     Injector in;
     uint32_t now = 5'000'000;
-    int next = 0, back = 0, bright = 0, reboot = 0, activity = 0;
+    int next = 0, back = 0, bright = 0, reboot = 0, activity = 0, hold0 = 0;
+    bool hold = false;  // the screen has a KEY0 hold action (Status, no controller)
     void run(uint32_t us, bool pin0 = false, bool pin1 = false) {
         const uint32_t end = now + us;
         // loop: NOT-WORTH — host test only
         while (now < end) {
             bool v0, v1;
             levels(in, now, v0, v1);
-            const uint8_t ev = step(b, pin0 || v0, pin1 || v1, now);
+            const uint8_t ev = step(b, pin0 || v0, pin1 || v1, now, hold);
             next += (ev & kNext) != 0;
             back += (ev & kBack) != 0;
             bright += (ev & kBrightness) != 0;
             reboot += (ev & kReboot) != 0;
             activity += (ev & kActivity) != 0;
+            hold0 += (ev & kHold0) != 0;
             now += 1000;
         }
     }
@@ -149,4 +151,62 @@ TEST(cmd_0x18_oled_key_press) {
     run();
     CHECK_EQ(result(), CMD_RESULT_BUSY);
     g_fake_key_inject = Injector{};
+}
+
+// "Pair now": KEY0 held 2 s on the Status screen with no controller fires once
+// while still held, and its release doesn't also go to the next screen.
+TEST(oled_keys_key0_hold_pairs_without_navigating) {
+    Board k;
+    k.hold = true;
+    k.run(1'990'000, true);  // just short of 2 s: nothing yet
+    CHECK_EQ(k.hold0, 0);
+    k.run(20'000, true);     // 2 s reached while held
+    CHECK_EQ(k.hold0, 1);
+    k.run(3'000'000, true);  // keeps holding: once only
+    CHECK_EQ(k.hold0, 1);
+    k.run(100'000);          // release
+    CHECK_EQ(k.next, 0);
+    CHECK_EQ(k.back, 0);
+    CHECK_EQ(k.bright, 0);
+    CHECK(k.activity >= 2);  // the press woke the screen, the hold too
+    // A short press there still goes to the next screen.
+    k.run(100'000, true);
+    k.run(100'000);
+    CHECK_EQ(k.next, 1);
+    CHECK_EQ(k.hold0, 1);
+}
+
+// Every other screen (and Status with a controller): a KEY0 hold of any length
+// is "next screen" on release, as before.
+TEST(oled_keys_key0_hold_elsewhere_still_navigates) {
+    Board k;
+    k.run(5'000'000, true);
+    k.run(100'000);
+    CHECK_EQ(k.hold0, 0);
+    CHECK_EQ(k.next, 1);
+}
+
+// The app's remote long KEY0 press (1.6 s) is shorter than the hold, so it
+// navigates even on the Status screen; KEY1 long is still brightness there.
+TEST(oled_keys_key0_hold_not_reachable_by_remote_or_key1) {
+    Board k;
+    k.hold = true;
+    CHECK(push(k.in, 0, true));
+    k.run(2'000'000);
+    CHECK_EQ(k.hold0, 0);
+    CHECK_EQ(k.next, 1);
+    k.run(1'700'000, false, true);  // KEY1 held 1.7 s
+    k.run(100'000);
+    CHECK_EQ(k.bright, 1);
+    CHECK_EQ(k.hold0, 0);
+}
+
+// KEY0 + KEY1 (the reboot chord) never counts as a KEY0 hold.
+TEST(oled_keys_chord_is_not_a_hold) {
+    Board k;
+    k.hold = true;
+    k.run(500'000, true);
+    k.run(2'000'000, true, true);
+    CHECK(k.reboot >= 1);
+    CHECK_EQ(k.hold0, 0);
 }

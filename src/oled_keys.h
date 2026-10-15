@@ -18,6 +18,12 @@ namespace oledkeys {
 constexpr uint32_t kDebounceUs = 20000;
 constexpr uint32_t kLongPressUs = 1500000;  // KEY1 held longer = brightness cycle
 constexpr uint32_t kChordHoldUs = 1000000;  // KEY0 + KEY1 held this long = reboot
+// KEY0 held this long where the screen has a hold action (only the Status
+// screen with no controller: "pair now", src/pair_prompt.h) fires while still
+// held, and its release then does nothing. Longer than the app's remote long
+// press (kInjectLongHoldUs, 1.6 s), so a remote KEY0 press always navigates;
+// elsewhere a KEY0 hold of any length is still "next screen" on release.
+constexpr uint32_t kHoldUs = 2000000;
 
 // What one step() saw; handle_buttons() carries them out.
 enum Event : uint8_t {
@@ -26,6 +32,7 @@ enum Event : uint8_t {
     kBack = 0x04,        // KEY1 short press released: previous screen
     kBrightness = 0x08,  // KEY1 long press released: next brightness level
     kReboot = 0x10,      // KEY0 + KEY1 held kChordHoldUs
+    kHold0 = 0x20,       // KEY0 held kHoldUs where the screen allows it (k0_hold)
 };
 
 struct Buttons {
@@ -39,10 +46,11 @@ struct Buttons {
     uint32_t chord_since_us = 0; // 0 = no chord held
 };
 
-// One pass of the key logic. k0_down / k1_down = the key is held now.
+// One pass of the key logic. k0_down / k1_down = the key is held now;
+// k0_hold = the screen up now has a KEY0 hold action (false: as before).
 // Arm on a debounced press, fire on release; the chord cancels both armed
 // presses so whichever key is let go first doesn't also navigate.
-inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now) {
+inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now, bool k0_hold = false) {
     uint8_t ev = 0;
     if (k0_down && k1_down) {
         if (b.chord_since_us == 0) b.chord_since_us = now;
@@ -57,6 +65,10 @@ inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now) {
         b.k0_t_us = now;
         b.k0_armed = true;
         ev |= kActivity;
+    }
+    if (k0_down && b.k0_prev_down && b.k0_armed && k0_hold && (now - b.k0_t_us) >= kHoldUs) {
+        b.k0_armed = false;  // the hold acted: its release doesn't navigate
+        ev |= kHold0 | kActivity;
     }
     if (!k0_down && b.k0_prev_down && b.k0_armed) {
         b.k0_armed = false;
@@ -84,6 +96,7 @@ inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now) {
 constexpr uint32_t kInjectShortHoldUs = 60000;
 constexpr uint32_t kInjectLongHoldUs = kLongPressUs + 100000;
 constexpr uint32_t kInjectGapUs = 60000;
+static_assert(kInjectLongHoldUs < kHoldUs, "a remote long KEY0 press must not be a hold");
 constexpr uint8_t kInjectQueue = 4;
 
 struct Injector {

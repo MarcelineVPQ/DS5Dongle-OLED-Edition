@@ -39,6 +39,9 @@ add_executable(host_tests
         test_slots.cpp
         test_scan_policy.cpp
         test_mic_level.cpp
+        test_pair_prompt.cpp
+        test_oled_toast.cpp
+        test_heap.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
         ${FW}/src/remap.cpp

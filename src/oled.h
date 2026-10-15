@@ -22,6 +22,11 @@ bool oled_key_inject(uint8_t key, bool long_press);
 // when four presses are already waiting.
 bool oled_pad_inject(uint8_t button, uint16_t hold_ms);
 
+// A status line on whatever screen is up (oled_toast.h, ~3 s, the bottom row
+// inverted): for a save that fails outside the Settings / Slots screens.
+// msg must outlive the toast (a string literal). Main loop only.
+void oled_notice(const char *msg);
+
 // Screen mirror for the app (vendor 0xEF, protocol 1.4): a 4-byte header
 // (power state 0 on / 1 dimmed / 2 off, current screen, contrast, frame
 // counter) and the 128x64 image exactly as last sent to the panel, row-major,

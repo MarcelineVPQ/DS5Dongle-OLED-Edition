@@ -60,6 +60,7 @@ void bt_get_signal_strength(int8_t *rssi) { *rssi = -50; }
 std::map<uint8_t, std::vector<uint8_t>> g_fake_features;
 std::vector<std::vector<uint8_t>> g_fake_feature_sets;
 int g_fake_feature_gets = 0;
+int g_fake_feature_copies = 0;
 void (*g_fake_feature_get_hook)(uint8_t id) = nullptr;
 std::vector<uint8_t> get_feature_data(uint8_t id, uint16_t) {
     auto it = g_fake_features.find(id);
@@ -67,6 +68,18 @@ std::vector<uint8_t> get_feature_data(uint8_t id, uint16_t) {
     g_fake_feature_gets++;
     if (g_fake_feature_get_hook) g_fake_feature_get_hook(id);
     return ret;
+}
+void bt_request_feature(uint8_t id) {
+    g_fake_feature_gets++;
+    if (g_fake_feature_get_hook) g_fake_feature_get_hook(id);
+}
+uint16_t bt_feature_copy(uint8_t id, uint8_t *out, uint16_t cap) {
+    auto it = g_fake_features.find(id);
+    if (it == g_fake_features.end()) return 0;
+    const size_t n = it->second.size() < cap ? it->second.size() : cap;
+    memcpy(out, it->second.data(), n);
+    g_fake_feature_copies++;
+    return (uint16_t) n;
 }
 std::vector<uint8_t> bt_peek_feature(uint8_t id) {
     auto it = g_fake_features.find(id);

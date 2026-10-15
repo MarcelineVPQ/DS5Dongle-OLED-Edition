@@ -9,6 +9,8 @@
 #include "bt.h"
 #include "slots.h"
 #include "slots_footer.h"
+#include "pair_prompt.h"
+#include "oled_toast.h"
 #include "audio.h"
 #include "config.h"
 #include "state_mgr.h"
@@ -321,8 +323,14 @@ void flush_fb_raw() {
     panel_in_sync = true;
 }
 
+// The status line on every screen (oled_toast.h, error pass F1): drawn last,
+// over whatever the screen drew in the bottom row, while one is showing.
+oled_toast::Toast g_toast;
+void draw_toast();
+
 void flush_fb() {
     draw_button_chrome();
+    draw_toast();
     flush_fb_raw();
 }
 
@@ -454,9 +462,21 @@ void draw_title_scrolling(int x_min, int x_max, int y, const char *s, int n) {
 // Per-screen renderers reserve x ∈ [0..5] (5-wide glyph + 1 padding) and
 // start main content at kContentX.
 constexpr int kContentX = 6;
+static_assert(pair_prompt::kX == kContentX && oled_toast::kBarX == kContentX, "content starts right of the chrome strip");
 void draw_button_chrome() {
     draw_char(0, 8,  '>');
     draw_char(0, 49, '<');
+}
+
+void draw_toast() {
+    const char *msg = g_toast.current(time_us_64());
+    if (msg) {
+        rect_clear(oled_toast::kBarX, oled_toast::kBarY, oled_toast::kBarW, oled_toast::kBarH);
+        draw_text(oled_toast::kTextX, oled_toast::kTextY, msg);
+        rect_invert(oled_toast::kBarX, oled_toast::kBarY, oled_toast::kBarW, oled_toast::kBarH);
+    }
+    // Diagnostics redraws only changed rows: after a toast, the whole screen.
+    if (g_toast.take_ended()) ++fb_generation;
 }
 
 // Pixel-art icon support. Visual approach inspired by zurce/DS5Dongle-OLED
@@ -620,7 +640,10 @@ void handle_buttons() {
     // or the app's remote press holds it (oled_key_inject).
     bool v0 = false, v1 = false;
     oledkeys::levels(g_key_inject, now, v0, v1);
-    const uint8_t ev = oledkeys::step(g_keys, !gpio_get(kPinKey0) || v0, !gpio_get(kPinKey1) || v1, now);
+    // KEY0 held 2 s = "pair now", only on the Status screen with no
+    // controller (its text says so); everywhere else KEY0 is next screen.
+    const bool pair_hold = current_screen == kScreenStatus && !bt_is_connected();
+    const uint8_t ev = oledkeys::step(g_keys, !gpio_get(kPinKey0) || v0, !gpio_get(kPinKey1) || v1, now, pair_hold);
     // error: NOT-WORTH — nothing; no key event this pass (polling, not a failure)
     if (ev == 0) return;
     if (ev & oledkeys::kActivity) last_activity_us = time_us_64();
@@ -628,6 +651,12 @@ void handle_buttons() {
     // KEY0 = next screen, KEY1 short = back. Trigger-preset / lightbar-mode
     // cycling lives on the DualSense triangle (triggers_handle_input(),
     // lightbar_handle_input()).
+    if (ev & oledkeys::kHold0) {
+        // A pairing window for the current slot; the Status screen counts it down.
+        // error: NOT-WORTH — false only with a controller connected, which pair_hold already excludes
+        bt_pair_now();
+        last_render_us = 0;
+    }
     if (ev & oledkeys::kNext) {
         current_screen = (current_screen + 1) % kNumScreens;
         last_render_us = 0;
@@ -644,8 +673,8 @@ void handle_buttons() {
         Config_body b = get_config();
         b.screen_brightness = (uint8_t)bright_idx;
         set_config(b);
-        // error: SILENT-BUG — nothing; the long-press screen brightness applies now but a failed save loses it at power-off Change: show "Save FAIL" on whichever screen is up (batch: an OLED toast on every screen)
-        config_save();
+        // error: SHOWN — OLED status line "Bright: Save FAIL" on whichever screen is up (error pass F1; was SILENT-BUG)
+        if (!config_save()) oled_notice(oled_toast::kBrightness);
         settings_local.screen_brightness = (uint8_t)bright_idx;
     }
 }
@@ -801,6 +830,7 @@ struct FbCanvas {
     void px(int x, int y, bool on) { ::px(x, y, on); }
     void outline(int x, int y, int w, int h) { rect_outline(x, y, w, h); }
     void filled(int x, int y, int w, int h) { rect_filled(x, y, w, h); }
+    void text(int x, int y, const char *s) { draw_text(x, y, s); }
     void invert(int x, int y, int w, int h) { rect_invert(x, y, w, h); }
 };
 static_assert(oled_pad::kW == kW && oled_pad::kLeft >= kContentX, "glyph vs. screen / chrome");
@@ -864,10 +894,12 @@ __attribute__((noinline)) void render_screen() {
         // mirrored around x = 63.5.
         render_status_pad();
     } else {
-        draw_text(kContentX, 14, "Pair your DualSense:");
-        draw_text(kContentX, 26, "1. Hold Create + PS");
-        draw_text(kContentX, 36, "2. Wait for light bar");
-        draw_text(kContentX, 46, "   to flash blue");
+        // Press PS / pair-now hint, or "Pairing: hold Create + PS" and the
+        // window's time left (whole seconds: the frame, and so the flush,
+        // changes at most once a second).
+        FbCanvas c;
+        // error: NOT-WORTH — not a failure: false = every slot is empty, the screen says "No DualSense paired"
+        pair_prompt::draw(c, bt_any_slot_paired(), bt_pairing_seconds_left());
     }
 
     flush_fb();
@@ -1561,8 +1593,8 @@ void lightbar_save_config() {
         b.lb_fav_b[i] = lb_fav_b[i];
     }
     set_config(b);
-    // error: SILENT-BUG — nothing; the Lightbar screen's mode/favorites apply now but a failed save on leaving the screen loses them at power-off Change: show "Save FAIL" (batch: an OLED toast on every screen)
-    config_save();
+    // error: SHOWN — OLED status line "Lightbar: Save FAIL" on the screen it left for (error pass F1; was SILENT-BUG)
+    if (!config_save()) oled_notice(oled_toast::kLightbar);
     lb_dirty = false;
 }
 
@@ -1896,6 +1928,12 @@ void screen_input_tick() {
 
 // Configurator trigger preview (0xF6 0x0A): the Trigger Test screen's presets.
 void oled_send_trigger_preset(int preset) { send_trigger_effect(preset); }
+
+void oled_notice(const char *msg) {
+    g_toast.show(msg, time_us_64());
+    last_activity_us = time_us_64();  // wake a dimmed / off panel so it's seen
+    last_render_us = 0;
+}
 
 bool oled_key_inject(uint8_t key, bool long_press) {
     // error: SHOWN — CMD_RESULT_BUSY in the 0xF1 result byte (cmd.cpp 0x18): four presses already waiting

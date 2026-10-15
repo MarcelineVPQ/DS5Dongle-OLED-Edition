@@ -45,8 +45,7 @@ void start_fetch(bool readies, uint64_t now) {
     s_fetch_readies = readies;
     s_next = kFirstProfile;
     s_last_get_us = now;
-    // lifetime: NOT-WORTH — a discarded copy per Edge profile fetch step (a few per connect / save)
-    (void) get_feature_data(s_next++, 64);  // the reply lands in the feature cache
+    bt_request_feature(s_next++);  // the reply lands in the feature cache
 }
 
 void start_save(uint64_t written_us) {
@@ -138,8 +137,7 @@ void dse_task(bool may_use_test_slot) {
             return;
         case Phase::SavePoll:
             if (now - s_t0_us >= kSavePollFirstUs + kSavePollGapUs * s_polls) {
-                // lifetime: NOT-WORTH — a discarded copy per save status poll (a few per save)
-                (void) get_feature_data(0x81, 64);  // status poll, as the app does
+                bt_request_feature(0x81);  // status poll, as the app does
                 if (++s_polls >= kSavePolls) s_phase = Phase::SaveWait;
             }
             return;
@@ -151,8 +149,7 @@ void dse_task(bool may_use_test_slot) {
             if (now - s_last_get_us < kFetchGapUs) return;
             s_last_get_us = now;
             if (s_next <= kLastProfile) {
-                // lifetime: NOT-WORTH — a discarded copy per Edge profile fetch step (a few per connect / save)
-                (void) get_feature_data(s_next++, 64);
+                bt_request_feature(s_next++);
                 return;
             }
             // One gap after the last GET: its reply is in by now.

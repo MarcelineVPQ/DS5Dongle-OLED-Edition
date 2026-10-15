@@ -400,6 +400,8 @@ Every screen also paints **`>`** at the top-left edge (next to KEY0) and **`<`**
 
 Connection state, paired DualSense BD address, battery % with bar (`+` charging / `*` complete / `!` error), live analog stick positions (each stick box flashes inverse — a black dot on a white box — while its **L3 / R3** is clicked in), D-pad, face buttons (△ ◯ ✕ □), L1/R1, and L2/R2 analog trigger fill bars. The link indicator and battery use small pixel icons. While charging, a `~Nm` estimate of the time to 100% appears next to the battery.
 
+With no controller connected it says what to do: **Press PS to connect** (or *No DualSense paired*) and **Hold KEY0 for 2 s to pair a DualSense**. Holding KEY0 for 2 s there opens a 2-minute pairing window for the current slot (the board scans only in such a window: at boot, after a slot switch / forget / wipe, or this), and the screen then shows **Pairing: hold Create + PS** with the time left and a bar. This is the one KEY0 action besides "next screen", and only there: without a controller the board is off USB, so the app can't start pairing.
+
 <img src="./assets/oled/oled_sc01.jpg" alt="Status screen on the OLED" width="420">
 
 #### 2. Slots
@@ -500,11 +502,12 @@ The two physical buttons on the OLED add-on are **strictly navigation**:
 | Button | Action |
 |---|---|
 | **KEY0** short-press | Next screen (forward) |
+| **KEY0** held 2 s, Status screen, no controller | Pair now: a 2-minute pairing window for the current slot (anywhere else a KEY0 hold is still "next screen") |
 | **KEY1** short-press | Previous screen (backward) |
 | **KEY1** long-press (≥ 1.5 s) | Cycle OLED brightness level |
 | **KEY0 + KEY1** held together ≥ 1 s | `watchdog_reboot` — soft-reboot without unplugging USB |
 
-Per-screen state changes (cycling the trigger preset, cycling the lightbar mode, navigating Settings, switching slots, saving colors to favorite slots) all happen on the **DualSense controller buttons** — never on KEY0 / KEY1 — so the two physical buttons always mean the same thing across every screen. See each screen's section above for which controller button does what.
+Per-screen state changes (cycling the trigger preset, cycling the lightbar mode, navigating Settings, switching slots, saving colors to favorite slots) all happen on the **DualSense controller buttons** — never on KEY0 / KEY1 — so the two physical buttons always mean the same thing across every screen (the one exception: KEY0 held 2 s on the Status screen with no controller pairs, see Status). A save that fails outside Settings / Slots (the KEY1 brightness, the Lightbar screen's changes, the slot a connecting controller takes) shows a status line over the bottom row of whatever screen is up for 3 s, e.g. `Bright: Save FAIL`. See each screen's section above for which controller button does what.
 
 ### Pinout (standard Waveshare Pico HAT layout)
 

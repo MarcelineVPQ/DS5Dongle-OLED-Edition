@@ -367,8 +367,7 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
     // Accessories retries rather than keeping an empty snapshot. The GET still
     // goes to the controller, as upstream 8a2f576 does.
     if (dse_is_profile_report(report_id) && !dse_profiles_ready()) {
-        // lifetime: NOT-WORTH — a discarded copy per host GET of an Edge profile before they're ready
-        (void) get_feature_data(report_id, reqlen);
+        bt_request_feature(report_id);
         // error: NOT-WORTH — USB STALL on purpose until the Edge profiles are cached (PS Accessories retries); the read is started here
         return 0;
     }

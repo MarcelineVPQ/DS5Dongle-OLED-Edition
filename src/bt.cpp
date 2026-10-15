@@ -27,6 +27,8 @@
 #include "slots.h"
 #include "usb_power.h"
 #include "scan_policy.h"
+#include "oled.h"
+#include "oled_toast.h"
 #if ENABLE_BATT_LED
 #include "battery_led.h"
 #endif
@@ -126,7 +128,7 @@ static ScanPolicy g_scan;
 static bool g_hci_working = false;  // BTstack is up (HCI_STATE_WORKING)
 static bool g_inquiring = false;    // an inquiry is running (cleared on GAP_EVENT_INQUIRY_COMPLETE)
 
-static bool any_slot_paired() {
+bool bt_any_slot_paired() {
     // loop: NOT-WORTH — kNumSlots = 4, once per main-loop pass only while no controller is connected and no inquiry runs
     for (int i = 0; i < kNumSlots; i++) {
         if (slot_occupied(i)) return true;
@@ -154,6 +156,22 @@ static void inquiry_continue() {
 static void pairing_window_open() {
     g_scan.open(time_us_64());
     if (acl_handle == HCI_CON_HANDLE_INVALID && !device_found) inquiry_start();
+}
+
+// "Pair now" on the board (KEY0 held 2 s on the OLED's Status screen): a
+// pairing window for the current slot, when the boot / slot-action one ran out
+// with nothing connected. With no controller the board is off USB, so the app
+// can't ask for this; with one connected there is nothing to pair.
+bool bt_pair_now() {
+    // error: SHOWN — not a failure: the Status screen shows the controller (only that screen without one offers this)
+    if (bt_is_connected()) return false;
+    pairing_window_open();
+    return true;
+}
+
+uint32_t bt_pairing_seconds_left() {
+    if (bt_is_connected()) return 0;
+    return g_scan.prompt_seconds_left(time_us_64());
 }
 
 void bt_register_data_callback(bt_data_callback_t callback) {
@@ -300,7 +318,7 @@ void bt_connection_watchdog_tick() {
         // (src/scan_policy.h), instead of back-to-back ones.
         if (g_hci_working && !g_inquiring && acl_handle == HCI_CON_HANDLE_INVALID && !device_found) {
             // error: NOT-WORTH — not a failure: any_slot_paired() false only means nothing is paired
-            const bool paired = any_slot_paired();
+            const bool paired = bt_any_slot_paired();
             if (g_scan.idle_due(time_us_64(), paired)) inquiry_start();
         }
         return; // not armed
@@ -788,11 +806,11 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
                     if (own != g_current_slot) {
                         printf("[Slots] %s is slot %d's controller, switch %d -> %d\n",
                                bd_addr_to_str(current_device_addr), own, g_current_slot, own);
-                        // error: SILENT-BUG — nothing; the dongle is on the controller's slot now but a failed save boots it in the old slot (rare: flash lockout timeout) Change: show "Save FAIL" on the OLED (batch: an OLED toast on every screen)
-                        make_slot_current(own);
+                        // error: SHOWN — OLED status line "Slot: Save FAIL" on whichever screen is up (error pass F1; was SILENT-BUG: a failed save boots it in the old slot)
+                        if (!make_slot_current(own)) oled_notice(oled_toast::kSlot);
                     } else if (!slot_occupied(g_current_slot)) {
-                        // error: SILENT-BUG — nothing; a new controller's pairing works now but a failed slot save loses it at power-off (rare: flash lockout timeout) Change: show "Pair not saved" on the OLED (batch: an OLED toast on every screen)
-                        slot_assign(g_current_slot, current_device_addr);
+                        // error: SHOWN — OLED status line "Pair: Save FAIL" on whichever screen is up (error pass F1; was SILENT-BUG: the pairing is lost at power-off)
+                        if (!slot_assign(g_current_slot, current_device_addr)) oled_notice(oled_toast::kPair);
                         printf("[Slots] Assigned %s to slot %d\n",
                                bd_addr_to_str(current_device_addr), g_current_slot);
                         update_discoverable();
@@ -940,13 +958,10 @@ void CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
     }
 }
 
-// lifetime: NOT-WORTH — a ≤ 64 B copy per request (≤ 25/s, a few s per connect); fire-and-forget callers could skip it
-vector<uint8_t> get_feature_data(uint8_t reportId, uint16_t len) {
+// Sends the GET for a feature report unless the cache can answer: 0x81 (test
+// command results) and the Edge's profile reports are always asked again.
+void bt_request_feature(uint8_t reportId) {
     // 若为0x81则会请求新内容，其他若有旧数据则不进行请求
-    auto ret = vector<uint8_t>{};
-    if (feature_data.contains(reportId)) {
-        ret = feature_data[reportId];
-    }
     if (!feature_data.contains(reportId) ||
         // Get Test Command Result
         reportId == 0x81 ||
@@ -967,7 +982,25 @@ vector<uint8_t> get_feature_data(uint8_t reportId, uint16_t len) {
 #endif
         }
     }
+}
+
+// lifetime: NOT-WORTH — a ≤ 64 B copy per host GET feature report (the PC asks a few times per connect); fire-and-forget callers use bt_request_feature (lifetime pass batch 3)
+vector<uint8_t> get_feature_data(uint8_t reportId, uint16_t len) {
+    (void) len;
+    auto it = feature_data.find(reportId);
+    // lifetime: NOT-WORTH — the copy this function returns (see above)
+    vector<uint8_t> ret = it != feature_data.end() ? it->second : vector<uint8_t>{};
+    bt_request_feature(reportId);
     return ret;
+}
+
+uint16_t bt_feature_copy(uint8_t reportId, uint8_t *out, uint16_t cap) {
+    auto it = feature_data.find(reportId);
+    // error: NOT-WORTH — not a failure: 0 = the report hasn't arrived (the callers poll with a deadline)
+    if (it == feature_data.end()) return 0;
+    const size_t n = it->second.size() < cap ? it->second.size() : cap;
+    memcpy(out, it->second.data(), n);
+    return (uint16_t) n;
 }
 
 void bt_drop_feature(uint8_t reportId) {
@@ -997,15 +1030,11 @@ void set_feature_data(uint8_t reportId, uint8_t *data, uint16_t len) {
 }
 
 void init_feature() {
-    // lifetime: NOT-WORTH — once per connection
-    get_feature_data(0x09, 20);
-    // lifetime: NOT-WORTH — once per connection
-    get_feature_data(0x22, 64);
-    // lifetime: NOT-WORTH — once per connection
-    get_feature_data(0x05, 41);
+    bt_request_feature(0x09);
+    bt_request_feature(0x22);
+    bt_request_feature(0x05);
     // Last: its reply tells DualSense from Edge and connects USB, by when the
     // controller (which answers in order) has sent the three above.
     check_dse = true;
-    // lifetime: NOT-WORTH — once per connection
-    get_feature_data(0x20, 64);
+    bt_request_feature(0x20);
 }
