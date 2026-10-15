@@ -514,10 +514,12 @@ void CORE0_RAM_FUNC(audio_loop)() {
     // nothing would take the PCM, so don't convert and queue it only to drop
     // it (upstream 4929996 skips this work when the speaker is off).
     const bool spk_ready = g_spk_ready && speaker_output_on();
-    // Linux's mono Speaker device fills ch2 only: on the headset, play it in
-    // both ears (src/speaker_mono.h). Stereo (any non-zero ch1) is untouched.
+    // Linux's mono Speaker device fills ch2 only: play it on both channels
+    // (both headset ears). Stereo stays stereo on the headset and is mixed
+    // down to (ch1 + ch2) / 2 for the speaker, which plays one channel only
+    // (src/speaker_mono.h).
     static SpeakerMonoDetect speaker_mono;
-    bool spk_dup = false;
+    SpeakerMix spk_mix = SpeakerMix::Stereo;
     if (spk_ready) {
         bool l = false, r = false;
         // loop: HOT-PATH-OK — N = frames of one USB audio read (raw buffer); speaker mono detect
@@ -525,7 +527,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
             l |= raw[i * INPUT_CHANNELS] != 0;
             r |= raw[i * INPUT_CHANNELS + 1] != 0;
         }
-        spk_dup = speaker_mono.update(l, r, (uint32_t) frames) && speaker_to_headset();
+        spk_mix = speaker_mix_mode(speaker_mono.update(l, r, (uint32_t) frames), speaker_to_headset());
     }
 #endif
 
@@ -547,11 +549,12 @@ void CORE0_RAM_FUNC(audio_loop)() {
             if (b > native_max) native_max = b;
         }
  #if !DISABLE_SPEAKER_PROC
-        // speaker_volume can boost up to +12 dB: clip at full scale rather than
-        // hand the encoder samples past +-1.
+        // speaker_volume can boost up to +12 dB: speaker_frame clips at full
+        // scale rather than hand the encoder samples past +-1.
         if (spk_ready) {
-            audio_buf[audio_buf_pos++] = std::clamp(raw[i * INPUT_CHANNELS + (spk_dup ? 1 : 0)] / 32768.0f * audio_gain, -1.0f, 1.0f);
-            audio_buf[audio_buf_pos++] = std::clamp(raw[i * INPUT_CHANNELS + 1] / 32768.0f * audio_gain, -1.0f, 1.0f);
+            speaker_frame(raw[i * INPUT_CHANNELS], raw[i * INPUT_CHANNELS + 1], spk_mix, audio_gain,
+                          audio_buf[audio_buf_pos], audio_buf[audio_buf_pos + 1]);
+            audio_buf_pos += 2;
             if (audio_buf_pos == 512 * 2) {
                 static audio_raw_element element{};
                 memcpy(element.data, audio_buf, 512 * 2 * 4);
