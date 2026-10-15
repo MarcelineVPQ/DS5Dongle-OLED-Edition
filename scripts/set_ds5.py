@@ -192,7 +192,7 @@ def build_parser():
     p.add_argument('--inactive-disc', choices=['on', 'off'], help="silent disconnect on idle")
     p.add_argument('--pico-led', choices=['on', 'off'])
     p.add_argument('--polling', choices=POLL_ARG.keys(), help="USB HID polling rate")
-    p.add_argument('--audio-buffer', type=int, help="haptic buffer length [16, 128]")
+    p.add_argument('--audio-buffer', type=int, help="audio buffer length [32, 128] (16..31 read as 32, upstream #252)")
     p.add_argument('--controller-mode', choices=CTRL_MODE_ARG.keys())
     p.add_argument('--slot', type=int, choices=[0, 1, 2, 3], help="active multi-pairing slot")
     p.add_argument('--auto-haptics', choices=AUTO_HAP_ARG.keys(), help="Auto Haptics mode")

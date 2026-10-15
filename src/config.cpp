@@ -80,9 +80,13 @@ void config_valid() {
         body->polling_rate_mode = 1;
         printf("[Config] polling_rate_mode is invalid\n");
     }
-    if (body->audio_buffer_length < 16 || body->audio_buffer_length > 128) {
+    if (body->audio_buffer_length < 16 || body->audio_buffer_length > kAudioBufferMax) {
         body->audio_buffer_length = 64;
         printf("[Config] haptics_buffer_length is invalid\n");
+    } else if (body->audio_buffer_length < kAudioBufferMin) {
+        // Upstream #252: below 28 the speaker garbles; keep the user's low
+        // latency as close as works instead of jumping back to 64.
+        body->audio_buffer_length = kAudioBufferMin;
     }
     if (body->controller_mode > 2) {
         body->controller_mode = 2;

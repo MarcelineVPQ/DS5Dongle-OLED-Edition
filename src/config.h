@@ -7,6 +7,14 @@
 
 #include <cstdint>
 
+// The 0x39 report's AudioBufferLength floor. Since the packed 0x39 report
+// (two speaker frames per report, upstream PR #227) the controller's speaker
+// garbles below 28 and needs 32 to stay steady (upstream issue #252, still open
+// upstream, which keeps allowing 16). 16..31 from older firmware or an older
+// app reads as 32, the closest steady setting.
+constexpr uint8_t kAudioBufferMin = 32;
+constexpr uint8_t kAudioBufferMax = 128;
+
 struct __attribute__((packed)) Config_body {
     uint8_t config_version; // Config Version
     float haptics_gain; // [1.0,6.0] left grip (and both while the app links them)
@@ -15,7 +23,7 @@ struct __attribute__((packed)) Config_body {
     uint8_t disable_inactive_disconnect; // bool: 0 disable,1 enable
     uint8_t disable_pico_led; // bool
     uint8_t polling_rate_mode; // 0: 250Hz, 1: 500Hz, 2: real-time
-    uint8_t audio_buffer_length; // [16,128]
+    uint8_t audio_buffer_length; // [32,128] (kAudioBufferMin); 16..31 saved by older firmware read as 32
     uint8_t controller_mode; // 0: DS5, 1: DSE, 2: Auto
     uint8_t current_slot;    // [0..3] active multi-pairing slot (OLED Edition Phase G)
     // Audio Auto Haptics — derive haptic feedback from speaker audio for games that
