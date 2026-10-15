@@ -54,5 +54,9 @@ uint8_t cmd_controller_model();
 // chasing per-sample noise. Single source of truth — the OLED CPU screen and
 // the 0xfc web telemetry both call this so device and web always agree.
 uint16_t cpu_temp_raw_smoothed();
+// clk_sys as the on-chip frequency counter measures it, in kHz. Measured once
+// (the counter busy-waits a few ms on core0; clk_sys is fixed at boot), then
+// the same value for the CPU screen and 0xFC (cache pass batch 5).
+uint32_t measured_clk_khz();
 
 #endif //DS5_BRIDGE_CMD_H

@@ -18,7 +18,8 @@ extern std::map<uint8_t, std::vector<uint8_t>> g_fake_features;
 extern std::vector<std::vector<uint8_t>> g_fake_feature_sets;
 extern int g_fake_feature_gets;
 extern int g_fake_feature_copies;  // bt_feature_copy() calls (the no-heap 0x81 peek)
-extern long g_heap_allocs;         // test_heap.cpp: every operator new
+extern long g_heap_allocs;
+extern int g_fake_freq_counts;  // frequency_count_khz() calls (the busy-waiting clock counter)         // test_heap.cpp: every operator new
 extern void (*g_fake_feature_get_hook)(uint8_t id);
 extern std::vector<std::vector<uint8_t>> g_fake_control_sends;  // bt_send_control (raw, e.g. SET 0x65)
 extern GripWave g_fake_grip;  // the audio_grip_test_* fakes play it (cmd 0xF6 0x0E)

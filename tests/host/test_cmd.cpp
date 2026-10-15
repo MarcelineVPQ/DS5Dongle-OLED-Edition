@@ -534,3 +534,24 @@ TEST(cmd_fd_mic_level_section) {
     uint8_t old[44]{};
     CHECK_EQ(pico_cmd_get(0xFD, old, 44), 44);
 }
+
+// Cache pass batch 5: the measured clock (frequency_count_khz busy-waits a few
+// ms) is taken once for the whole run and shared by 0xFC and the OLED CPU
+// screen, which used to re-measure on every entry.
+TEST(cmd_measured_clock_is_measured_once) {
+    const int before = g_fake_freq_counts;
+    const uint32_t khz = measured_clk_khz();
+    CHECK_EQ(khz, (uint32_t) SYS_CLOCK_KHZ);
+    CHECK(g_fake_freq_counts - before <= 1);  // 0 if an earlier test measured it
+    const int after_first = g_fake_freq_counts;
+    uint8_t r[63];
+    // loop: NOT-WORTH — host test, repeated reads
+    for (int i = 0; i < 20; i++) {
+        CHECK_EQ(pico_cmd_get(0xFC, r, 11), 11);
+        uint32_t real;
+        std::memcpy(&real, r + 4, 4);
+        CHECK_EQ(real, khz);
+        CHECK_EQ(measured_clk_khz(), khz);
+    }
+    CHECK_EQ(g_fake_freq_counts, after_first);
+}

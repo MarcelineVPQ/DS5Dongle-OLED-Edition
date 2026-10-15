@@ -37,7 +37,8 @@ void adc_init() {}
 void adc_set_temp_sensor_enabled(bool) {}
 void adc_select_input(uint32_t) {}
 uint16_t adc_read() { return 876; }
-uint32_t frequency_count_khz(uint32_t) { return SYS_CLOCK_KHZ; }
+int g_fake_freq_counts = 0;
+uint32_t frequency_count_khz(uint32_t) { g_fake_freq_counts++; return SYS_CLOCK_KHZ; }
 vreg_voltage vreg_get_voltage() { return VREG_VOLTAGE_DEFAULT; }
 int g_fake_reboots = 0;
 void watchdog_reboot(uint32_t, uint32_t, uint32_t) { g_fake_reboots++; }

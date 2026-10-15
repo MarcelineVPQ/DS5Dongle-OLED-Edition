@@ -37,6 +37,15 @@
 constexpr uint8_t kGripDefaultTenths = 5;  // no duration byte: 0.5 s, as before 1.15
 constexpr uint8_t kGripMaxTenths = 50;     // 5 s
 
+uint32_t measured_clk_khz() {
+    // Lazily, on first use (the CPU screen or the app's first 0xFC read), so
+    // the few-ms busy-wait stays off the boot path and happens once.
+    // cache: OK — key=none (clk_sys, set once in main() before the loop); invalidated=never (the clock never changes after boot); bound=1 value
+    static uint32_t s_khz = 0;
+    if (s_khz == 0) s_khz = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
+    return s_khz;
+}
+
 uint16_t cpu_temp_raw_smoothed() {
     // One-time ADC bring-up. This is the only place the ADC is initialised
     // now (oled.cpp's CPU screen calls through here too). Runs on core0
@@ -626,21 +635,15 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         }
         const uint32_t set_khz = (uint32_t)SYS_CLOCK_KHZ;
 
-        // clk_sys is fixed at boot and frequency_count_khz() busy-waits a few
-        // ms — measure exactly once (lazily) and cache. Doing it here on the
-        // first poll keeps it off the boot path; one ~ms stall in a single
-        // GET_REPORT is acceptable.
-        static uint32_t cached_real_khz = 0;
-        if (cached_real_khz == 0) {
-            cached_real_khz = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-        }
+        // Measured once, shared with the OLED CPU screen (measured_clk_khz).
+        const uint32_t real_khz = measured_clk_khz();
 
         const uint16_t temp_raw = cpu_temp_raw_smoothed();
 
         const uint8_t vcode = (uint8_t)vreg_get_voltage();
 
         memcpy(buffer + 0, &set_khz,         4);
-        memcpy(buffer + 4, &cached_real_khz, 4);
+        memcpy(buffer + 4, &real_khz,        4);
         buffer[8] = vcode;
         memcpy(buffer + 9, &temp_raw,        2);
         if (reqlen >= want + kPerfReportBytes) return want + perf_serialize(buffer + want, kPerfReportBytes);
