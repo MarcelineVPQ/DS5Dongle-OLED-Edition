@@ -222,9 +222,11 @@ The [app](#️-get-started-download-the-app) does this for you. To flash by hand
 
 ### Pairing the Controller
 
-1. Put the DualSense controller into Bluetooth pairing mode
+1. Put the DualSense controller into Bluetooth pairing mode (hold Create + PS until the light bar flashes)
 2. Wait for the Pico2W to detect and connect
 3. Once connected, the device will appear on the host system
+
+The dongle looks for a controller in pairing mode for about 2 minutes after it's plugged in (about 40 seconds when the current slot already holds a controller), and again for 2 minutes after a pairing-slot switch, forget or wipe (app or OLED Slots screen). With no controller paired at all it keeps looking after that, 40 seconds of every 100. A paired controller doesn't need any of this: press PS and it connects. To pair a new controller later, switch to an empty slot (or plug the dongle in again) and then put the controller in pairing mode.
 
 ## Configuration
 

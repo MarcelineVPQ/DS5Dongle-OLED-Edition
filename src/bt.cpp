@@ -26,6 +26,7 @@
 #include "pico/util/queue.h"
 #include "slots.h"
 #include "usb_power.h"
+#include "scan_policy.h"
 #if ENABLE_BATT_LED
 #include "battery_led.h"
 #endif
@@ -118,6 +119,43 @@ static void update_discoverable() {
     }
 }
 
+// Inquiry (the active scan for a controller in pairing mode) runs only in a
+// pairing window, never forever: src/scan_policy.h has the policy. A paired
+// controller doesn't need it, it pages the dongle (page scan is always on).
+static ScanPolicy g_scan;
+static bool g_hci_working = false;  // BTstack is up (HCI_STATE_WORKING)
+static bool g_inquiring = false;    // an inquiry is running (cleared on GAP_EVENT_INQUIRY_COMPLETE)
+
+static bool any_slot_paired() {
+    // loop: NOT-WORTH — kNumSlots = 4, once per main-loop pass only while no controller is connected and no inquiry runs
+    for (int i = 0; i < kNumSlots; i++) {
+        if (slot_occupied(i)) return true;
+    }
+    // error: NOT-WORTH — not a failure: false = every slot is empty (the idle back-off may scan)
+    return false;
+}
+
+// One 30-unit inquiry (38.4 s), unless one is already running.
+static void inquiry_start() {
+    // error: NOT-WORTH — not a failure: one inquiry runs already, or BTstack isn't up yet (HCI_STATE_WORKING starts the boot one)
+    if (g_inquiring || !g_hci_working) return;
+    // error: NOT-WORTH — nothing; gap_inquiry_start only fails while an inquiry is still ending (the next pairing action / idle gap starts a new one) or the stack is off
+    if (gap_inquiry_start(30) == ERROR_CODE_SUCCESS) g_inquiring = true;
+}
+
+// An inquiry ended, or a connection attempt failed, with no controller
+// connected: scan on only inside the pairing window.
+static void inquiry_continue() {
+    if (g_scan.again(time_us_64())) inquiry_start();
+}
+
+// A pairing action (slot switch, forget, wipe): open the window and scan now
+// if no controller is connected (else the disconnect that follows starts it).
+static void pairing_window_open() {
+    g_scan.open(time_us_64());
+    if (acl_handle == HCI_CON_HANDLE_INVALID && !device_found) inquiry_start();
+}
+
 void bt_register_data_callback(bt_data_callback_t callback) {
     bt_data_callback = callback;
 }
@@ -149,6 +187,10 @@ bool bt_set_slot(int slot) {
     if (slot == g_current_slot) return true;
     // error: SHOWN — returned: 0xF6 0x04 answers CMD_RESULT_FAILED (the app's command error), the OLED shows "Save FAIL"
     const bool saved = make_slot_current(slot);
+    // A switch is how a new controller gets paired (into an empty slot), so
+    // it opens a pairing window; a running inquiry keeps going under the new
+    // slot's filter (applied per result).
+    pairing_window_open();
 
     if (bt_is_connected()) {
         // The narrator names the new slot first (if she's on); then the drop.
@@ -157,11 +199,6 @@ bool bt_set_slot(int slot) {
         if (voice_active()) voice_disconnect_after_line();
         // error: NOT-WORTH — nothing; false only when there is no ACL, i.e. already disconnected
         else bt_disconnect();
-    } else {
-        // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-        gap_inquiry_stop();
-        // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-        gap_inquiry_start(30);
     }
     update_discoverable();
     return saved;
@@ -183,6 +220,7 @@ bool bt_forget_slot(int slot) {
     const int other = had ? slot_owner_of(addr) : -1;
     if (had && other < 0) gap_drop_link_key_for_bd_addr(addr);
     update_discoverable();
+    pairing_window_open();  // room for a new controller: scan for one
     if (slot == g_current_slot && bt_is_connected()) {
         if (other >= 0 && memcmp(addr, current_device_addr, 6) == 0) {
             // The connected controller is still paired in `other`: go there.
@@ -218,6 +256,7 @@ bool bt_wipe_all_slots() {
     // error: SHOWN — returned: 0xF6 0x04/0x05/0x06 answer CMD_RESULT_FAILED (the app's command error), the OLED shows "Save FAIL" / "Wipe FAIL" (fixed in this pass: was dropped)
     const bool saved = slots_wipe_all();
     update_discoverable();
+    pairing_window_open();  // nothing paired now: scan for a controller
     if (bt_is_connected()) {
         // error: NOT-WORTH — nothing; false only when there is no ACL, i.e. already disconnected
         bt_disconnect();
@@ -256,7 +295,16 @@ bool bt_disconnect() {
 // (e.g. on the amber lightbar under USB 3.0 RF interference). Inert unless a
 // connection attempt is in flight, so it never touches a healthy session.
 void bt_connection_watchdog_tick() {
-    if (connect_attempt_started == 0) return; // not armed
+    if (connect_attempt_started == 0) {
+        // Idle with nothing paired in any slot: one inquiry per idle gap
+        // (src/scan_policy.h), instead of back-to-back ones.
+        if (g_hci_working && !g_inquiring && acl_handle == HCI_CON_HANDLE_INVALID && !device_found) {
+            // error: NOT-WORTH — not a failure: any_slot_paired() false only means nothing is paired
+            const bool paired = any_slot_paired();
+            if (g_scan.idle_due(time_us_64(), paired)) inquiry_start();
+        }
+        return; // not armed
+    }
     if (absolute_time_diff_us(connect_attempt_started, get_absolute_time())
             < CONNECT_WATCHDOG_TIMEOUT_US) {
         return;
@@ -271,13 +319,10 @@ void bt_connection_watchdog_tick() {
         bt_disconnect();
     } else {
         // No ACL yet (stalled before/at create-connection) — reset by hand
-        // and kick a fresh inquiry.
+        // and scan again if the pairing window is still open.
         device_found = false;
         new_pair = false;
-        // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-        gap_inquiry_stop();
-        // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-        gap_inquiry_start(30);
+        inquiry_continue();
         gap_connectable_control(1);
         update_discoverable();
     }
@@ -373,9 +418,15 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             if (state == HCI_STATE_WORKING) {
                 gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
                 page_scan_fast(true);
+                g_hci_working = true;
+                // Boot opens a pairing window: the full one with an empty
+                // slot, one inquiry when the slot holds a controller (it
+                // reconnects on its own with PS; the inquiry only re-pairs it
+                // if it lost its key).
+                g_scan.open(time_us_64(), slot_occupied(g_current_slot) ? ScanPolicy::kBootWindowUs
+                                                                       : ScanPolicy::kPairWindowUs);
                 printf("[BT] Stack ready, start inquiry\n");
-                // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-                gap_inquiry_start(30);
+                inquiry_start();
             }
             break;
         }
@@ -428,6 +479,9 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
         case GAP_EVENT_INQUIRY_COMPLETE:
         case HCI_EVENT_INQUIRY_COMPLETE: {
             printf("[HCI] Inquiry complete.\n");
+            // BTstack sends GAP_EVENT_INQUIRY_COMPLETE for every end (also a
+            // cancel), before the HCI event of a natural end.
+            if (event_type == GAP_EVENT_INQUIRY_COMPLETE) g_inquiring = false;
             if (device_found) {
                 printf("[HCI] Connecting to %s...\n", bd_addr_to_str(current_device_addr));
                 new_pair = true;
@@ -438,9 +492,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 break;
             }
             if (event_type == HCI_EVENT_INQUIRY_COMPLETE) {
-                printf("[HCI] Restart inquiry\n");
-                // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-                gap_inquiry_start(30);
+                printf("[HCI] Inquiry ended, scan on only in the pairing window\n");
+                inquiry_continue();
                 gap_connectable_control(1);
                 update_discoverable();
             }
@@ -454,9 +507,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 device_found = false;
                 new_pair = false;
                 connect_attempt_started = 0; // disarm; failed before an ACL existed
-                printf("[HCI] Create connection rejected, restart inquiry\n");
-                // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-                gap_inquiry_start(30);
+                printf("[HCI] Create connection rejected\n");
+                inquiry_continue();
             }
             break;
         }
@@ -491,9 +543,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 device_found = false;
                 new_pair = false;
                 connect_attempt_started = 0; // disarm; no ACL was established
-                printf("[HCI] ACL connect failed status=0x%02X, restart inquiry\n", status);
-                // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-                gap_inquiry_start(30);
+                printf("[HCI] ACL connect failed status=0x%02X\n", status);
+                inquiry_continue();
             }
             break;
         }
@@ -549,6 +600,9 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 printf("[HCI] Authentication failed, drop stored key for %s\n", bd_addr_to_str(current_device_addr));
                 gap_drop_link_key_for_bd_addr(current_device_addr);
                 connect_attempt_started = 0; // disarm; teardown below re-inquires
+                // The controller has to be paired again (Create + PS): give it
+                // a pairing window (the disconnect below starts the inquiry).
+                g_scan.open(time_us_64());
                 // ACL is still up — route through the clean disconnect path
                 // (HCI_EVENT_DISCONNECTION_COMPLETE restarts inquiry) rather
                 // than leaving a half-open ACL.
@@ -628,9 +682,11 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
 #if ENABLE_BATT_LED
             battery_led_on_disconnect();
 #endif
-            printf("[HCI] Disconnected reason=0x%02X, start inquiry\n", reason);
-            // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
-            gap_inquiry_start(30);
+            printf("[HCI] Disconnected reason=0x%02X\n", reason);
+            // A paired controller comes back by paging us (page scan is fast
+            // again above); inquiry only inside a pairing window (a slot
+            // switch's, a failed re-pair's), src/scan_policy.h.
+            inquiry_continue();
             break;
         }
 
@@ -755,6 +811,7 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
                     printf("[L2CAP] HID Interrupt opened cid=0x%04X\n", local_cid);
                     hid_interrupt_cid = local_cid;
                     page_scan_fast(false);
+                    g_scan.close();  // connected: the pairing window is over
 
                     if (!get_config().disable_pico_led) {
                         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);

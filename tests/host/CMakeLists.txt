@@ -37,6 +37,7 @@ add_executable(host_tests
         test_amp_volume.cpp
         test_voice_cue.cpp
         test_slots.cpp
+        test_scan_policy.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
         ${FW}/src/remap.cpp
