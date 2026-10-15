@@ -107,6 +107,9 @@ uint32_t audio_usb_frames() { return 8; }
 uint32_t audio_bt_packets() { return 9; }
 uint32_t audio_mic_frames() { return 10; }
 uint32_t audio_mic_plc_frames() { return 11; }
+uint32_t audio_mic_level_drops() { return 0x01020304; }
+uint8_t audio_mic_level() { return 4; }
+uint8_t audio_mic_level_max() { return 6; }
 uint8_t audio_peak_speaker() { return 12; }
 uint8_t audio_peak_haptic() { return 13; }
 GripWave g_fake_grip;

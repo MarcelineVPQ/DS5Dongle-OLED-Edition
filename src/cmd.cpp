@@ -725,8 +725,13 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         //   [32..35] uint32  host 0x02 OUT reports received total
         //   [36..39] uint32  ...of those, with Allow*TriggerFFB set
         //   [40..43] uint32  ...forwarded as BT 0x31 sub-0x10
-        constexpr uint16_t want = 44;
-        // loop: NOT-WORTH — ≤ 44 bytes zeroed, per 0xFD diagnostic GET
+        // Section 3: mic jitter buffer (src/mic_level.h), 0.9.5.
+        //   [44..47] uint32  frames the level control dropped since boot
+        //   [48]     uint8   frames queued at the last frame boundary (x 10 ms)
+        //   [49]     uint8   the highest level this mic session
+        // Hosts asking for 44 bytes get exactly what they did before.
+        constexpr uint16_t want = 50;
+        // loop: NOT-WORTH — ≤ 50 bytes zeroed, per 0xFD diagnostic GET
         for (uint16_t i = 0; i < want && i < reqlen; i++) buffer[i] = 0;
 
         const uint32_t bt31    = g_bt_31_packets;
@@ -753,6 +758,10 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         if ((32 + 4) <= reqlen) memcpy(buffer + 32, &out02,   4);
         if ((36 + 4) <= reqlen) memcpy(buffer + 36, &out02_t, 4);
         if ((40 + 4) <= reqlen) memcpy(buffer + 40, &out02_b, 4);
+        const uint32_t mic_drops = audio_mic_level_drops();
+        if ((44 + 4) <= reqlen) memcpy(buffer + 44, &mic_drops, 4);
+        if (48 < reqlen) buffer[48] = audio_mic_level();
+        if (49 < reqlen) buffer[49] = audio_mic_level_max();
         return (reqlen < want) ? reqlen : want;
     }
     if (report_id == 0xfe) {

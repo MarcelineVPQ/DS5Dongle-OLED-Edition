@@ -78,7 +78,7 @@ CORE0=""
   crc32_lookup_table _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv _Z13mic_add_queuePKh
 "
 # Inline helpers audio_loop calls per frame (src/haptics_decimate.h,
-# src/audio_levels.h, and the haptic feedback test's grip_test_task with
+# src/audio_levels.h, src/mic_level.h, and the haptic feedback test's grip_test_task with
 # src/grip_wave.h): normally folded into audio_loop, but an out-of-line copy
 # must be in RAM too. TinyUSB 0.21's single-item tu_fifo_read / tu_fifo_write
 # have no caller in this firmware (the linker drops them); renamed anyway, so checked if linked.
@@ -87,7 +87,8 @@ CORE0_OPTIONAL=""
   audio.cpp:_ZL14grip_test_taskv _ZN8GripWave4nextEPaff _ZN8GripWave4fillEPaiff _ZNK8GripWave6activeEv
   _ZN16AudioReportClock3dueEy _ZN16AudioReportClock4sentEy _ZN16AudioReportClock5resetEv
   _ZNK21NativeHapticsPresence6silentEv _ZN21NativeHapticsPresence6recordEt
-  _ZNK9AudioPeak5levelEy _ZN9AudioPeak6recordEty"
+  _ZNK9AudioPeak5levelEy _ZN9AudioPeak6recordEty
+  _ZN8MicLevel6sampleEji _ZN8MicLevel4dropEji _Z14mic_frame_peakPKsi"
 # FUNC/OBJECT symbols as "file:name addr" (locals, grouped after their FILE
 # entry) and "name addr" (globals and weak), one per line.
 TABLE="$("$READELF" -sW "$ELF" | awk '

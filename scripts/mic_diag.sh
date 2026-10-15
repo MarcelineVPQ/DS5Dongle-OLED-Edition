@@ -141,13 +141,16 @@ bt_trace() {
     #     where AllowRight/LeftTriggerFFB was set, and of those forwarded
     #     as BT 0x31 sub-0x10. Lets the user triage adaptive-trigger
     #     issues without needing an OLED in the loop.
-    # The ioctl buffer is 45 bytes (44 payload + 1 byte that the kernel
-    # fills with the report ID).
+    #   Section 3 (bytes 44..49, firmware 0.9.5+) — mic jitter buffer:
+    #     frames its level control dropped, the level now and the highest
+    #     this mic session (x 10 ms = the mic delay the buffer adds).
+    # The ioctl buffer is 51 bytes (50 payload + 1 byte that the kernel
+    # fills with the report ID); older firmware answers 44.
     python3 - <<'PY'
 import fcntl, glob, struct, sys, time
 
 VID, PID = 0x054c, 0x0ce6
-IOCTL_SIZE = 45  # 1 byte report ID + 44 bytes firmware payload
+IOCTL_SIZE = 51  # 1 byte report ID + 50 bytes firmware payload (44 before 0.9.5)
 
 def find_dongle():
     for path in sorted(glob.glob('/dev/hidraw*')):
@@ -172,9 +175,9 @@ if f is None:
 def query():
     buf = bytearray(IOCTL_SIZE); buf[0] = 0xFD
     ioctl_num = (3 << 30) | (IOCTL_SIZE << 16) | (ord('H') << 8) | 0x07
-    fcntl.ioctl(f, ioctl_num, buf)
+    n = fcntl.ioctl(f, ioctl_num, buf)
     # Kernel prepends the report ID at byte 0; firmware payload starts at byte 1.
-    return bytes(buf[1:])
+    return bytes(buf[1:max(1, n)])
 
 def decode(b):
     return {
@@ -191,6 +194,10 @@ def decode(b):
         'host02':     struct.unpack('<I', b[32:36])[0] if len(b) >= 36 else 0,
         'host02_trig':struct.unpack('<I', b[36:40])[0] if len(b) >= 40 else 0,
         'host02_tx':  struct.unpack('<I', b[40:44])[0] if len(b) >= 44 else 0,
+        'mic_lvl':    len(b) >= 50,
+        'mic_drops':  struct.unpack('<I', b[44:48])[0] if len(b) >= 48 else 0,
+        'mic_level':  b[48] if len(b) >= 50 else 0,
+        'mic_max':    b[49] if len(b) >= 50 else 0,
     }
 
 s1 = query(); time.sleep(1.0); s2 = query()
@@ -224,6 +231,16 @@ elif d2['host02_trig'] > 0 and d2['host02_tx'] < d2['host02_trig']:
     print('         Likely the speaker-active gate in main.cpp swallowed them.')
 elif d2['host02_trig'] > 0:
     print('verdict: full chain reached the controller. Tension still missing -> Sony BT limit.')
+
+# Mic jitter-buffer section (firmware 0.9.5+)
+print()
+print('-- Mic jitter buffer (level control) --')
+if not d2['mic_lvl']:
+    print('not reported by this firmware (before 0.9.5)')
+else:
+    print(f'level now: {d2["mic_level"]} frames (~{d2["mic_level"] * 10} ms)   '
+          f'highest this session: {d2["mic_max"]} frames (~{d2["mic_max"] * 10} ms)')
+    print(f'frames dropped by the level control: {d2["mic_drops"]} ({d2["mic_drops"] - d1["mic_drops"]}/s)')
 PY
 }
 

@@ -38,6 +38,7 @@ add_executable(host_tests
         test_voice_cue.cpp
         test_slots.cpp
         test_scan_policy.cpp
+        test_mic_level.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
         ${FW}/src/remap.cpp

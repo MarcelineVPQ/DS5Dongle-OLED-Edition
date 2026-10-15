@@ -519,3 +519,18 @@ TEST(cmd_extra_remap_failed_save_is_failed_not_invalid) {
     pico_cmd_set(PICO_CMD_SET, bad, sizeof(bad));
     CHECK_EQ(last_result(), CMD_RESULT_INVALID);
 }
+
+// 0xFD section 3 (0.9.5): the mic jitter buffer's level control, after the
+// 44 bytes older hosts ask for (they get exactly those).
+TEST(cmd_fd_mic_level_section) {
+    fresh();
+    uint8_t r[63]{};
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 50);
+    uint32_t drops = 0;
+    std::memcpy(&drops, r + 44, 4);
+    CHECK_EQ(drops, 0x01020304u);  // fakes.cpp
+    CHECK_EQ(r[48], 4);
+    CHECK_EQ(r[49], 6);
+    uint8_t old[44]{};
+    CHECK_EQ(pico_cmd_get(0xFD, old, 44), 44);
+}

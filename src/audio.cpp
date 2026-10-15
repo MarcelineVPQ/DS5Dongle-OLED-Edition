@@ -10,6 +10,7 @@
 #include "core0_ram.h"
 #include "grip_wave.h"
 #include "haptics_decimate.h"
+#include "mic_level.h"
 #include "resample.h"
 #include "speaker_mono.h"
 #include "tusb.h"
@@ -105,6 +106,11 @@ static volatile uint32_t g_mic_last_real_us = 0;      // core1 writes, core0 rea
 static volatile bool     g_mic_session      = false;  // real frames arrived within MIC_SESSION_US
 static volatile uint32_t g_mic_plc_frames = 0;        // concealed frames generated (Diag)
 uint32_t audio_mic_plc_frames() { return g_mic_plc_frames; }
+// The jitter buffer's level control (src/mic_level.h); core0 only (mic_drain).
+static MicLevel g_mic_level;
+uint32_t audio_mic_level_drops() { return g_mic_level.drops; }
+uint8_t audio_mic_level() { return g_mic_level.level; }
+uint8_t audio_mic_level_max() { return g_mic_level.max_level; }
 
 // Host has the mic IN interface open (alt != 0). Set from tud_audio_set_itf_cb.
 // The DS5 only streams its mic while something is actually recording — before,
@@ -258,7 +264,11 @@ static void mic_drain() {
     tu_fifo_t *ff = tud_audio_get_ep_in_ff();
     if (ff == nullptr) return;
 
-    if (!started && queue_get_level(&mic_decode_fifo) >= MIC_PLAYOUT_START) started = true;
+    const uint32_t now = time_us_32();
+    if (!started && queue_get_level(&mic_decode_fifo) >= MIC_PLAYOUT_START) {
+        started = true;
+        g_mic_level.start(now);
+    }
     if (started && !g_mic_session && queue_is_empty(&mic_decode_fifo) && !have) {
         started = false; // session over — re-buffer when the mic comes back
     }
@@ -267,9 +277,19 @@ static void mic_drain() {
     while (tu_fifo_remaining(ff) >= MIC_SLICE_BYTES) {
         static int16_t slice[MIC_SLICE_FRAMES * 2];
         if (!have) {
+            const int queued = started ? (int) queue_get_level(&mic_decode_fifo) : 0;
             if (started && queue_try_remove(&mic_decode_fifo, &frame)) {
                 have = true;
                 offset = 0;
+                // Level control: when the buffer stayed above its 3-frame
+                // target for 1 s, skip one frame, a quiet one if one comes
+                // within 0.5 s (src/mic_level.h). `queued` counts this frame
+                // too; armed means more than 3, so a next frame is there.
+                if (g_mic_level.sample(now, queued) && queued > 1
+                    && g_mic_level.drop(now, mic_frame_peak(frame.mono, MIC_FRAMES))) {
+                    // error: NOT-WORTH — nothing; queued > 1 means a frame is waiting, and only this core removes from mic_decode_fifo
+                    queue_try_remove(&mic_decode_fifo, &frame);
+                }
             } else {
                 memset(slice, 0, sizeof(slice));
                 // error: LOGGED-OK — g_mic_last_wrote / last_want in OLED Diag + 0xF5; a short USB write is an underrun the PC's audio stack conceals
