@@ -437,12 +437,12 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
                 page_scan_fast(true);
                 g_hci_working = true;
-                // Boot opens a pairing window: the full one with an empty
-                // slot, one inquiry when the slot holds a controller (it
-                // reconnects on its own with PS; the inquiry only re-pairs it
-                // if it lost its key).
-                g_scan.open(time_us_64(), slot_occupied(g_current_slot) ? ScanPolicy::kBootWindowUs
-                                                                       : ScanPolicy::kPairWindowUs);
+                // Every boot opens the 2-min pairing window, also when the
+                // slot holds a controller (owner decision 2026-10-15; was one
+                // 38 s inquiry). With a paired slot it is silent (the Status
+                // screen stays "Press PS to connect"): that controller still
+                // connects at once with PS (page scan), which closes it.
+                g_scan.open(time_us_64(), ScanPolicy::kPairWindowUs, !slot_occupied(g_current_slot));
                 printf("[BT] Stack ready, start inquiry\n");
                 inquiry_start();
             }

@@ -5,9 +5,12 @@
 // stays on the whole time (fast while no controller is connected). So the
 // inquiry runs only in a pairing window, never forever:
 //
-//   - at boot: kPairWindowUs when the current slot is empty, kBootWindowUs
-//     (one inquiry) when it holds a controller (re-pairing a controller that
-//     lost its key, e.g. after a PS5, still works after a replug);
+//   - at boot: kPairWindowUs, also when the current slot holds a controller
+//     (owner decision 2026-10-15; was one 38 s inquiry). With a paired slot
+//     the window is silent (no countdown: the Status screen still says
+//     "Press PS to connect"): its controller connects at once with PS (page
+//     scan), which closes the window, and a controller that lost its key
+//     re-pairs with Create + PS;
 //   - on a pairing action: switching slot, forgetting a slot, wiping all
 //     slots (OLED Slots screen or the app's 0xF6 0x04/0x05/0x06), and after a
 //     failed authentication (the controller has to be paired again): kPairWindowUs;
@@ -20,8 +23,8 @@
 //     longer scans back to back).
 //
 // The Status screen shows a pairing window ("Pairing: hold Create + PS" and
-// the time left, prompt_seconds_left()); boot's one inquiry with a paired slot
-// doesn't count, that controller just needs PS.
+// the time left, prompt_seconds_left()); boot's silent window with a paired
+// slot doesn't count, that controller just needs PS.
 //
 // A controller connecting closes the window. Before (to 0.9.5-dev): a 30-unit
 // inquiry (38.4 s) restarted forever while no controller was connected: radio
@@ -38,21 +41,21 @@
 
 struct ScanPolicy {
     static constexpr uint64_t kPairWindowUs = 120000000;  // inquiries may start for 2 min
-    static constexpr uint64_t kBootWindowUs = 30000000;   // boot with a paired slot: one inquiry
     static constexpr uint64_t kIdleGapUs = 60000000;      // nothing paired: quiet between inquiries
 
     bool window = false;       // a pairing window is open
-    bool prompt = false;       // ...and it is one the Status screen counts down (not boot's one inquiry)
+    bool prompt = false;       // ...and it is one the Status screen counts down (not boot's silent one)
     uint64_t window_end = 0;   // inquiries may start until then
     uint64_t quiet_since = 0;  // the last inquiry ended (the idle gap's clock)
 
     // Open (or extend) a pairing window of `len_us` from now. A full-length
-    // window is a pairing prompt; boot's short one (a paired slot) is not.
-    void open(uint64_t now, uint64_t len_us = kPairWindowUs) {
+    // window is a pairing prompt (the Status screen's countdown) unless
+    // `shown` is false: boot's window with a paired slot is silent.
+    void open(uint64_t now, uint64_t len_us = kPairWindowUs, bool shown = true) {
         const uint64_t end = now + len_us;
         if (!window || end > window_end) window_end = end;
         if (!window) prompt = false;
-        if (len_us >= kPairWindowUs) prompt = true;
+        if (len_us >= kPairWindowUs && shown) prompt = true;
         window = true;
     }
     // A controller connected: no more inquiries until the next window.

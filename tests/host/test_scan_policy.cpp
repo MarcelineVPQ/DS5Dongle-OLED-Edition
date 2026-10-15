@@ -34,10 +34,34 @@ TEST(scan_policy_window_bounds_the_inquiry) {
     CHECK(!p.window);
 }
 
-TEST(scan_policy_boot_with_a_paired_slot_is_one_inquiry) {
+// Every boot opens the full 2-min window, also with a paired slot (owner
+// decision 2026-10-15; was one 38 s inquiry). With a paired slot it is
+// silent: no countdown, so the Status screen stays "Press PS to connect".
+// PS from the paired controller connects during it (page scan; close() on
+// connect) and nothing scans after.
+TEST(scan_policy_boot_with_a_paired_slot_is_a_silent_full_window) {
     ScanPolicy p;
-    p.open(0, ScanPolicy::kBootWindowUs);
-    CHECK_EQ(inquiries_in(p, 0, 10 * 60 * kS, true), 1);
+    p.open(0, ScanPolicy::kPairWindowUs, /*shown=*/false);  // bt.cpp HCI_STATE_WORKING, paired slot
+    CHECK_EQ(p.prompt_seconds_left(0), 0u);
+    CHECK_EQ(p.prompt_seconds_left(60 * kS), 0u);
+    CHECK_EQ(inquiries_in(p, 0, 10 * 60 * kS, true), 4);
+    CHECK(!p.window);
+    // Empty slot: the same window, with the countdown (unchanged).
+    ScanPolicy e;
+    e.open(0, ScanPolicy::kPairWindowUs, /*shown=*/true);
+    CHECK_EQ(e.prompt_seconds_left(0), 120u);
+    // KEY0 pair-now during a silent boot window shows the countdown.
+    ScanPolicy k;
+    k.open(0, ScanPolicy::kPairWindowUs, false);
+    k.open(30 * kS);
+    CHECK_EQ(k.prompt_seconds_left(30 * kS), 120u);
+    // PS 10 s after boot: the controller connects, the window closes at once.
+    ScanPolicy q;
+    q.open(0, ScanPolicy::kPairWindowUs, false);
+    q.close();
+    CHECK_EQ(q.prompt_seconds_left(10 * kS), 0u);
+    CHECK(!q.again(48 * kS));  // the running inquiry's end starts no other
+    CHECK(!q.idle_due(48 * kS + 3600 * kS, true));
 }
 
 TEST(scan_policy_nothing_paired_backs_off) {
@@ -74,7 +98,7 @@ TEST(scan_policy_connect_closes_and_action_reopens) {
 TEST(scan_policy_open_never_shortens_a_window) {
     ScanPolicy p;
     p.open(0);                                 // ends at 120 s
-    p.open(10 * kS, ScanPolicy::kBootWindowUs);  // would end at 40 s
+    p.open(10 * kS, 30 * kS);                  // would end at 40 s
     CHECK(p.again(100 * kS));
     p.open(110 * kS);                          // extends to 230 s
     CHECK(p.again(200 * kS));
@@ -112,9 +136,9 @@ TEST(scan_policy_prompt_counts_down_whole_seconds) {
     CHECK_EQ(changes, 120);
 }
 
-TEST(scan_policy_boot_inquiry_is_no_prompt_but_pair_now_is) {
+TEST(scan_policy_short_window_is_no_prompt_but_pair_now_is) {
     ScanPolicy p;
-    p.open(0, ScanPolicy::kBootWindowUs);  // boot with a paired slot: just press PS
+    p.open(0, 30 * kS);                    // a window shorter than 2 min shows no countdown
     CHECK_EQ(p.prompt_seconds_left(kS), 0u);
     p.open(5 * kS);                        // KEY0 held 2 s: pair now
     CHECK_EQ(p.prompt_seconds_left(5 * kS), 120u);

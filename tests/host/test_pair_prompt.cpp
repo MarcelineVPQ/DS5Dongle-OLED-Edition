@@ -93,3 +93,15 @@ TEST(pair_prompt_redraws_once_a_second_at_most) {
     }
     CHECK_EQ(changes, 120);  // 2:00 -> 0:01 is 119, then the "Press PS" text
 }
+
+// Boot with a paired slot (owner decision 2026-10-15): the 2-min window runs
+// but is silent. Every frame of it, as oled.cpp draws it from
+// bt_pairing_seconds_left(), is the plain "Press PS to connect" screen, pixel
+// for pixel the screen outside any window: no countdown, no bar, no redraw.
+TEST(pair_prompt_silent_boot_window_keeps_press_ps) {
+    ScanPolicy p;
+    p.open(0, ScanPolicy::kPairWindowUs, /*shown=*/false);
+    const BitCanvas plain = frame(true, 0);
+    // loop: NOT-WORTH — host test, every OLED frame (100 ms) of the window
+    for (uint64_t t = 0; t <= 125'000'000; t += 100'000) CHECK(frame(true, p.prompt_seconds_left(t)).same(plain));
+}
