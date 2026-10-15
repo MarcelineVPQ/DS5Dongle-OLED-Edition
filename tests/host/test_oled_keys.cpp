@@ -210,3 +210,40 @@ TEST(oled_keys_chord_is_not_a_hold) {
     CHECK(k.reboot >= 1);
     CHECK_EQ(k.hold0, 0);
 }
+
+// PR #23 (CLF184): KEY1's long press changes brightness once, at 1.5 s while
+// still held; letting go then doesn't go back a screen. A short KEY1 is still
+// back, the KEY0+KEY1 chord still cancels it, and KEY0's 2 s pair-now is
+// unaffected.
+TEST(oled_keys_key1_hold_fires_while_held) {
+    Board k;
+    k.hold = true;  // Status with no controller: pair-now is armed for KEY0
+    k.run(1'400'000, false, true);  // held, under 1.5 s: nothing yet
+    CHECK_EQ(k.bright, 0);
+    k.run(200'000, false, true);    // past 1.5 s, still held: fires now
+    CHECK_EQ(k.bright, 1);
+    k.run(3'000'000, false, true);  // keeps holding: once per hold
+    CHECK_EQ(k.bright, 1);
+    k.run(100'000);                 // release: no back
+    CHECK_EQ(k.back, 0);
+    CHECK_EQ(k.bright, 1);
+    k.run(100'000, false, true);    // a short KEY1 is still back
+    k.run(100'000);
+    CHECK_EQ(k.back, 1);
+    CHECK_EQ(k.bright, 1);
+    // The chord: KEY1 first, KEY0 joins before 1.5 s -> reboot, no brightness.
+    k.run(500'000, false, true);
+    k.run(1'500'000, true, true);
+    k.run(100'000);
+    CHECK(k.reboot >= 1);
+    CHECK_EQ(k.bright, 1);
+    CHECK_EQ(k.back, 1);
+    CHECK_EQ(k.hold0, 0);
+    // KEY0 2 s pair-now still works and doesn't touch KEY1's events.
+    k.run(100'000);
+    k.run(2'100'000, true);
+    k.run(100'000);
+    CHECK_EQ(k.hold0, 1);
+    CHECK_EQ(k.next, 0);
+    CHECK_EQ(k.bright, 1);
+}
