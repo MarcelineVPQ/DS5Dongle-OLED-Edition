@@ -58,3 +58,77 @@ TEST(speaker_mono_count_saturates_while_on) {
     CHECK_EQ(d.right_only, at);
     CHECK(d.mono);
 }
+
+// ---- What the encoder gets: speaker_mix_mode + speaker_frame ----
+
+static void frame(int16_t l, int16_t r, SpeakerMix m, float gain, float &ol, float &or_) {
+    speaker_frame(l, r, m, gain, ol, or_);
+}
+
+TEST(speaker_mix_mode_picks_by_route_and_mono) {
+    CHECK(speaker_mix_mode(false, false) == SpeakerMix::MixDown);  // stereo to the speaker
+    CHECK(speaker_mix_mode(false, true) == SpeakerMix::Stereo);    // stereo to the headset
+    CHECK(speaker_mix_mode(true, false) == SpeakerMix::DupRight);  // mono Speaker device, never halved
+    CHECK(speaker_mix_mode(true, true) == SpeakerMix::DupRight);   // both headset ears
+}
+
+TEST(speaker_mixdown_carries_both_channels_on_both) {
+    float l, r;
+    // Hard left: before, the speaker (right channel) played nothing.
+    frame(16384, 0, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == 0.25f && r == 0.25f);
+    // Hard right: the same level as hard left.
+    frame(0, 16384, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == 0.25f && r == 0.25f);
+    // Centred (L == R): unity, no level change.
+    frame(12000, 12000, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == 12000 / 32768.0f && r == l);
+    // Opposite phase cancels, as any mono sum does.
+    frame(8000, -8000, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == 0.0f && r == 0.0f);
+}
+
+TEST(speaker_mixdown_never_clips_at_unity_gain) {
+    float l, r;
+    const int16_t ext[] = {-32768, -32767, -1, 0, 1, 32767};
+    // loop: NOT-WORTH — host test, 6 x 6 extremes
+    for (int16_t a : ext) {
+        // loop: NOT-WORTH — host test, inner of 6 x 6
+        for (int16_t b : ext) {
+            frame(a, b, SpeakerMix::MixDown, 1.0f, l, r);
+            CHECK(l >= -1.0f && l <= 1.0f);
+            CHECK(l == r);
+            // exact: (a + b) / 2 in float, no rounding, no wrap (int16 sums wrap)
+            CHECK(l == ((float) a + (float) b) / 65536.0f);
+        }
+    }
+    frame(32767, 32767, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == 32767 / 32768.0f);
+    frame(-32768, -32768, SpeakerMix::MixDown, 1.0f, l, r);
+    CHECK(l == -1.0f);
+}
+
+TEST(speaker_frame_gain_then_clip) {
+    float l, r;
+    // +12 dB (x3.98) on a mixdown of loud stereo: clipped at full scale.
+    frame(30000, 20000, SpeakerMix::MixDown, 3.98f, l, r);
+    CHECK(l == 1.0f && r == 1.0f);
+    frame(-30000, -20000, SpeakerMix::MixDown, 3.98f, l, r);
+    CHECK(l == -1.0f && r == -1.0f);
+    // -6 dB on a quiet one: exact.
+    frame(4000, 2000, SpeakerMix::MixDown, 0.5f, l, r);
+    CHECK(l == 1500 / 32768.0f && r == l);
+    // muted
+    frame(30000, -30000, SpeakerMix::Stereo, 0.0f, l, r);
+    CHECK(l == 0.0f && r == 0.0f);
+}
+
+TEST(speaker_frame_stereo_and_dup_unchanged) {
+    float l, r;
+    frame(1000, -2000, SpeakerMix::Stereo, 1.0f, l, r);  // headset stereo: as before
+    CHECK(l == 1000 / 32768.0f && r == -2000 / 32768.0f);
+    frame(0, 5000, SpeakerMix::DupRight, 1.0f, l, r);    // mono device: ch2 on both, full level
+    CHECK(l == 5000 / 32768.0f && r == l);
+    frame(-32768, 32767, SpeakerMix::Stereo, 2.0f, l, r);
+    CHECK(l == -1.0f && r == 1.0f);
+}

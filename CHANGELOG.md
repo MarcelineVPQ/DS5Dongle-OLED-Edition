@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Fixed
+- **The controller's speaker plays both channels** (headset audit 2026-10, fix 9). The speaker plays one channel of the stereo stream (the right one), so on Windows, macOS and Linux's stereo Headphones profile anything panned left was lost. Routed to the speaker (Audio output Speaker, or Auto with no headset), stereo is now mixed down to (left + right) / 2 on both channels: a centred sound keeps its level, a hard-panned one plays at half (-6 dB) instead of not at all, and the sum can't clip. Linux's mono Speaker profile (left silent) is never halved, and the headset keeps true stereo (`src/speaker_mono.h`, host-tested: gain, no clipping, every route).
+
 ## [0.9.5-dev.16-oled-edition] - 2026-10-16
 
 ### Fixed
