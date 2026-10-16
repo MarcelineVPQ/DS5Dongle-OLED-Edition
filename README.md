@@ -1,6 +1,6 @@
 # Pico2W DualSense 5 Bridge — OLED Edition
 
-[中文](./README.CN.md)
+**English** · [中文](README.CN.md) · [Deutsch](README.DE.md) · [Español](README.ES.md) · [Français](README.FR.md) · [日本語](README.JA.md) · [Português (Brasil)](README.PT-BR.md)
 
 > Turn a Raspberry Pi Pico2W into a wireless adapter for the DualSense (DS5) controller — with an optional on-board status display.
 
