@@ -467,6 +467,7 @@ OLED 插件上的两个物理按键**只用于导航**：
 - **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** —— 独立地重新发现了上游 `3a31bd7` 破坏扬声器 / HD 触觉输出的回归（提交 `c7a8d3c`）；我们 `src/audio.cpp` 中的修复恢复了同样的 SetStateData 子报告。也是音频自动触感 DSP（单极点低通 + 包络跟随器，见 Settings → Auto Haptics）以及“不要把 USB 端 UAC1 音量同步到持久化配置”修复的来源。
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** —— 一个同类的 Pico DualSense 桥接项目。`src/remap.{h,cpp}` 中的按键重映射应用逻辑和数字控件集合移植自它。它的音频架构（设备端 Opus 编码 vs 可选的主机端编码配套应用）也是我们诊断扬声器节奏（“颤音”）问题时的参考。感谢它打下的基础。
 - **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** —— 我们分支版网页配置应用 [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) 的基础。该分支把上游 13 字节的 Config_body 布局改为我们的 19 字节布局，并为我们的新增功能（多槽配对、Auto Haptics）添加了界面。
+- **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)**（作者 **Zacksly**）—— 配置工具（桌面应用与网页工具）“按键配置”页面所用的 DualSense 控制器轮廓与按键图标，采用 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) 授权（已重新着色为 `currentColor` 并裁剪以适配主题）。
 
 ## 路线图
 - 请查看 [DS5Dongle plan](https://github.com/users/awalol/projects/5)

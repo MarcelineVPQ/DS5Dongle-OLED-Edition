@@ -467,6 +467,7 @@ USB を抜かずにボードを再起動する方法は 2 つあります — �
 - **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — スピーカー／HD ハプティクスの出力を壊したアップストリームの `3a31bd7` の不具合を独自に再発見しました（コミット `c7a8d3c`）。私たちの `src/audio.cpp` の修正は、同じ SetStateData サブレポートを復元しています。Audio Auto Haptics の DSP（1 極の LP + エンベロープフォロワー、Settings → Auto Haptics を参照）と、「USB 側の UAC1 音量を保存される設定に同期しない」修正の出どころでもあります。
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** — 兄弟プロジェクトにあたる Pico の DualSense ブリッジ。`src/remap.{h,cpp}` のボタン割り当ての適用ロジックとデジタル操作のセットは、ここから移植しています。そのオーディオの構成（本体での Opus エンコード、またはオプションのホスト側エンコード用コンパニオンアプリ）は、私たちのスピーカーの周期（「うなり」）の問題を調べる際の参考にもなりました。土台となる成果に感謝します。
 - **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — フォークした Web 設定アプリ [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) のベース。このフォークはアップストリームの 13 バイトの Config_body レイアウトを私たちの 19 バイトのレイアウトに合わせ、追加機能（複数スロットのペアリング、Auto Haptics）の UI を加えています。
+- **Zacksly** 氏の **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)**：設定ツール（デスクトップアプリと Web ツール）の「ボタンの割り当て」ページで使っている DualSense コントローラーの輪郭とボタンアイコン。[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) ライセンス（`currentColor` に色を変更し、テーマに合わせてトリミング）。
 
 ## ロードマップ
 - [DS5Dongle plan](https://github.com/users/awalol/projects/5) をご覧ください
