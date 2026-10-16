@@ -6,7 +6,7 @@
 
 > **OLED Edition** es un fork de **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) que añade un módulo de pantalla opcional Pico-OLED-1.3 de 128×64 con 11 pantallas (estado, emparejamiento de varios mandos en 4 ranuras, selector de color de la barra luminosa con favoritos y efectos predefinidos, prueba de gatillos, inclinación del giroscopio, panel táctil, diagnóstico, CPU/reloj, intensidad de la señal BT, vúmetros de audio y un menú de ajustes persistente), además de un reinicio por software con una combinación de botones del DS5. Upstream es la fuente de referencia del firmware del puente; este fork lo sigue y añade funciones encima.
 
-> **🧪 ¿Quieres las funciones más nuevas? Prueba el canal de desarrollo.** En la app: **Ajustes de la app → Actualizaciones → Desarrollo** (antes te pregunta; **Volver a estable** te devuelve cuando quieras). Las versiones de desarrollo son más nuevas y están menos probadas que la estable. La actual, **0.9.5-dev.13**, añade respecto a la estable 0.9.4:
+> **🧪 ¿Quieres las funciones más nuevas? Prueba el canal de desarrollo.** En la app: **Ajustes de la app → Actualizaciones → Desarrollo** (antes te pregunta; **Volver a estable** te devuelve cuando quieras). Las versiones de desarrollo pasan las mismas pruebas automáticas en cada cambio; las estables además pasan todas las comprobaciones de lanzamiento en hardware real y en Windows, y un tiempo de uso diario. La actual, **0.9.5-dev.13**, añade respecto a la estable 0.9.4:
 >
 > - **DualSense Edge:** reasigna el botón Fn y los botones posteriores, perfiles personalizados del Edge en PlayStation Accessories, y su propio dibujo y vista en la OLED
 > - **Joysticks:** curvas de respuesta y pruebas de joystick
@@ -42,6 +42,68 @@ Tu mando se dibuja con sus propios colores y se mueve mientras lo usas; haz clic
 La app se comunica con el firmware **v0.8 o posterior** a través de una pequeña interfaz USB de configuración (la calibración y la háptica por lado necesitan **v0.9**; la app ofrece la actualización). Los juegos no la ven, así que la placa sigue pareciendo exactamente un DualSense real. Código de la app: **[MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web)**.
 
 > **La herramienta de configuración en el navegador se ha retirado**: la app de escritorio hace todo lo que hacía y más. Su antigua dirección, [marcelinevpq.github.io/DS5Dongle-OLED-Config-Web](https://marcelinevpq.github.io/DS5Dongle-OLED-Config-Web/), es ahora la página de descarga de la app. Para flashear una Pico sin la app, mantén pulsado BOOTSEL al conectarla y copia el `.uf2` de la versión en la unidad que aparece.
+
+## 🔄 Actualizaciones e instalación del firmware, sin complicaciones
+
+**La app se mantiene al día sola.**
+
+- **Firmadas y comprobadas.** Cada actualización viene de un único feed firmado con nuestra clave Ed25519. La app ignora un feed sin una firma válida, comprueba el tamaño y el SHA-256 de cada descarga antes de instalarla y nunca instala por sí sola una versión más antigua.
+- **Dos canales:** **Estable** para todos, **Desarrollo** para las funciones más nuevas. **Volver a estable** devuelve la app y el firmware a la última versión estable.
+- **Tú decides:** con **Instalar actualizaciones automáticamente** (la app lo pregunta una vez), las actualizaciones se descargan y se comprueban en segundo plano, y la nueva versión arranca la próxima vez que abres la app. Con **Buscar actualizaciones automáticamente** desactivado, la app solo se conecta cuando pulsas un botón de comprobar.
+- **Según el sistema:** en Linux, el AppImage deja la nueva versión a su lado y la entrada del menú la sigue. En Windows, el instalador por usuario funciona sin permisos de administrador. En macOS, la app muestra la actualización con un enlace a la versión publicada.
+
+**El firmware se instala con un clic.**
+
+- **Incluido:** cada versión de la app lleva el firmware con el que se compiló y probó, así que una placa nueva se puede preparar sin conexión. El firmware más nuevo llega por el mismo feed firmado.
+- **Primera configuración:** conecta la Pico manteniendo pulsado BOOTSEL (una Pico nueva no necesita el botón). La app la encuentra e instala el firmware.
+- **Actualizaciones:** sin botón y sin copiar a una unidad. La app reinicia la placa en BOOTSEL ella misma, escribe el firmware por USB y vuelve a conectar.
+- **Comprobado antes de escribir:** el SHA-256 del archivo debe coincidir con el feed y debe ser firmware para este chip. Un archivo que falla no escribe nada.
+- **Comprobado después de escribir:** la app espera a que arranque el nuevo firmware. Si la placa vuelve en BOOTSEL, la app lo dice y ofrece **Instalar de nuevo**. Mientras se escribe el firmware, la app no se reinicia, no se cierra y no se actualiza.
+- **Tu configuración se queda:** los ajustes, los emparejamientos, la calibración y la asignación de botones están en su propia parte de la memoria flash. Una actualización solo escribe el firmware.
+
+## 🔬 Cómo se construye y se prueba
+
+Cada cambio pasa todas las comprobaciones automáticas. Cada versión añade más. La lista completa, con los archivos detrás de cada comprobación: [docs/QUALITY.md](docs/QUALITY.md) (en inglés).
+
+**Cada cambio**
+
+- **App:** más de 1600 pruebas (unitarias, de integración y de seguridad) en Linux, Windows y macOS, además de comprobación de tipos, ESLint y Prettier.
+- **Firmware:** 185 pruebas en el PC de la lógica del firmware con AddressSanitizer y UndefinedBehaviorSanitizer, y cinco compilaciones del firmware (Pico 2 W, Pico W, depuración y dos variantes). La compilación falla si el código crítico en tiempo sale de la RAM o cambia la configuración de la flash.
+- **Reglas de la app:** los ajustes de seguridad de Electron, nada de HTML inseguro, un único sistema de temas sin colores sueltos, nada de código ni archivos duplicados sin veredicto.
+- **Veredictos por escrito:** cada bucle que espera o corre en una ruta crítica, cada ruta de error, cada caché y cada recurso que toma el código (un temporizador, un oyente, un dispositivo) lleva un comentario con su veredicto. Uno nuevo sin veredicto hace fallar la comprobación.
+- **Análisis de seguridad:** Semgrep, Gitleaks y npm audit, también cada semana.
+
+**Cada versión de desarrollo**
+
+- **Comprobador de la interfaz:** su propia copia de la app con una placa simulada abre cada página en los 7 idiomas en dos tamaños de ventana. Falla con texto recortado, contraste por debajo de WCAG AA o un control sin nombre.
+- **Presupuestos de recursos** medidos en Linux y en una máquina virtual con Windows 11.
+- **Prueba en Windows** de la app instalada en una máquina virtual con Windows 11, y una **prueba rápida en macOS** en un Mac real de GitHub Actions (instalada como lo hace un usuario, arrancada y manejada).
+
+**Antes de una versión estable**
+
+- **La comprobación completa de la interfaz:** cada pantalla y panel, los 7 idiomas, ambos tamaños, cada tema y estilo, cada combinación de colores de ambos modelos de mando.
+- **La medición larga de presupuestos,** con una prueba de 30 minutos del crecimiento de la memoria, en Linux y Windows.
+- **Comprobaciones con hardware** en una placa real con un DualSense: vista en vivo, vibración háptica, barra de luz, asignación de botones, ranuras, gatillos, contadores de audio, reinicio y BOOTSEL, primera configuración, el actualizador, juegos.
+- **Uso diario:** la aprobación de la propia desarrolladora tras usar la versión en el día a día.
+
+**Eficiencia**
+
+- **Presupuestos que detienen la versión:** como mucho 10 imágenes por segundo en una página en reposo, menos del 2 % de un núcleo de CPU visible y en reposo, menos del 0,5 % oculta en la bandeja, como mucho 275 MB de memoria y menos de 5 MB de crecimiento en 30 minutos. Un presupuesto que falla se arregla, no se sube. Las últimas cifras: [BUDGETS.md](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/BUDGETS.md).
+- **Dibujo en la GPU:** los efectos los dibuja la tarjeta gráfica, y no se dibuja nada con la ventana oculta.
+- **Firmware:** la ruta de audio corre desde la RAM, y la app muestra cuánto tarda cada parte del firmware.
+
+**Seguridad y confianza**
+
+- **Feed firmado** (Ed25519) y descargas comprobadas con SHA-256, como arriba.
+- **Descargas verificables:** cada archivo de una versión tiene una atestación de compilación. `gh attestation verify FILE -R MarcelineVPQ/DS5Dongle-OLED-Edition` muestra que lo compiló el flujo de publicación de este repositorio a partir de su etiqueta.
+- **App blindada:** ventana aislada (sandbox), Content Security Policy estricta, cada mensaje de la ventana se comprueba por su remitente y se valida, acceso USB limitado a la placa y al cargador de arranque de la Pico. Versiones exactas de las dependencias, elegidas al menos 2 semanas después de publicarse. La auditoría: [SECURITY_AUDIT.md](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/SECURITY_AUDIT.md).
+- **Un DualSense real para los juegos:** el descriptor USB de la placa es idéntico byte a byte al de Sony (289 bytes), y la interfaz del configurador va aparte, así que los juegos nunca la ven.
+
+**Accesibilidad e idiomas**
+
+- **7 idiomas, completos:** una prueba falla si a un idioma le falta un texto, y las funciones del mando usan los nombres oficiales de Sony en cada idioma.
+- **Legible y con nombre:** el comprobador de la interfaz revisa el contraste y los nombres de los controles en cada idioma; el texto debe caber en cada tamaño.
+- **A tu manera:** modos de visión del color, Reducir movimiento y uso con teclado en cada menú desplegable.
 
 ---
 

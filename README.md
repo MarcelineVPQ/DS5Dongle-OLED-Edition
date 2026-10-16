@@ -6,7 +6,7 @@
 
 > **OLED Edition** is a fork of **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) that adds an optional Pico-OLED-1.3 128×64 display add-on with 11 screens (status, 4-slot multi-controller pairing, lightbar color picker with favorites and effect presets, trigger test, gyro tilt, touchpad, diagnostics, CPU/clock, BT signal strength, audio VU meters, and a persistent settings menu), plus a DS5 button-combo soft-reboot. Upstream is the authoritative source for the core bridge firmware; this fork tracks it and layers add-on features on top.
 
-> **🧪 Want the newest features? Try the Development channel.** In the app: **App settings → Updates → Development** (it asks first; **Back to stable** returns you any time). Development builds are newer and less tested than stable. The current one, **0.9.5-dev.13**, adds over stable 0.9.4:
+> **🧪 Want the newest features? Try the Development channel.** In the app: **App settings → Updates → Development** (it asks first; **Back to stable** returns you any time). Development builds pass the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The current one, **0.9.5-dev.13**, adds over stable 0.9.4:
 >
 > - **DualSense Edge:** remap the Fn and back buttons, Edge profiles in PlayStation Accessories, and its own drawing and OLED view
 > - **Sticks:** response curves and stick tests
@@ -42,6 +42,68 @@ Your controller is drawn in its own colors and moves as you use it; click any pa
 The app talks to firmware **v0.8 or newer** through a small configurator USB interface (calibration and the per-grip haptics need **v0.9**; the app offers the update). Games never see it, so the dongle still looks exactly like a real DualSense. App source: **[MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web)**.
 
 > **The browser config tool has been retired**: the desktop app does everything it did and more. Its old address, [marcelinevpq.github.io/DS5Dongle-OLED-Config-Web](https://marcelinevpq.github.io/DS5Dongle-OLED-Config-Web/), is now the app's download page. To flash a Pico without the app, hold BOOTSEL while plugging it in and copy the `.uf2` from the release onto the drive that appears.
+
+## 🔄 Updates and firmware installs, done for you
+
+**The app keeps itself up to date.**
+
+- **Signed and checked.** Every update comes from one feed signed with our Ed25519 key. The app ignores a feed without a valid signature, checks each download's size and SHA-256 before installing it, and never installs an older version by itself.
+- **Two channels:** **Stable** for everyone, **Development** for the newest features. **Back to stable** returns both the app and the firmware to the latest stable release.
+- **Your choice:** with **Install updates automatically** on (the app asks once), updates download and get checked in the background, and the new version starts the next time you open the app. With **Check for updates automatically** off, the app goes online only when you press a check button.
+- **Per system:** on Linux the AppImage puts the new version beside itself and the menu entry follows it. On Windows the per-user installer runs without admin rights. On macOS the app shows the update with a link to the release.
+
+**Firmware installs in one click.**
+
+- **Bundled:** every app release carries the firmware it was built and tested with, so a new board can be set up offline. Newer firmware comes from the same signed feed.
+- **First-time setup:** plug the Pico in while holding BOOTSEL (a brand-new Pico needs no button). The app finds it and installs the firmware.
+- **Updates:** no button and no drive copying. The app restarts the board into BOOTSEL itself, writes the firmware over USB and reconnects.
+- **Checked before writing:** the file's SHA-256 must match the feed, and it must be firmware for this chip. A file that fails writes nothing.
+- **Checked after writing:** the app waits for the new firmware to start. If the board comes back in BOOTSEL instead, the app says so and offers **Install again**. While firmware is being written, the app won't restart, quit or update itself.
+- **Your setup stays:** settings, pairings, calibration and button assignments live in their own part of the flash. An update writes only the firmware.
+
+## 🔬 How it's built and tested
+
+Every change runs the full set of automated checks. Every release adds more on top. The complete list, with the files behind each check: [docs/QUALITY.md](docs/QUALITY.md) (English).
+
+**Every change**
+
+- **App:** over 1,600 tests (unit, integration and security) on Linux, Windows and macOS, plus typecheck, ESLint and Prettier.
+- **Firmware:** 185 host tests of the firmware's logic with AddressSanitizer and UndefinedBehaviorSanitizer, and five firmware builds (Pico 2 W, Pico W, debug and two variants). The build fails if the time-critical code leaves RAM or the flash setup changes.
+- **App rule gates:** the Electron security settings, no unsafe HTML, one theme system with no stray colors, no duplicate code or files without a verdict.
+- **Written verdicts:** every loop that waits or runs on a hot path, every error path, every cache and every resource the code takes (a timer, a listener, a device) carries a comment with its verdict. A new one without a verdict fails the check.
+- **Security scans:** Semgrep, Gitleaks and npm audit, also weekly.
+
+**Every development build**
+
+- **UI checker:** its own copy of the app with a simulated board opens every page in all 7 languages at two window sizes. It fails on clipped text, contrast below WCAG AA, or a control without a name.
+- **Resource budgets** measured on Linux and in a Windows 11 VM.
+- **Windows** test of the installed app in a Windows 11 VM, and a **macOS** smoke test on a real Mac in GitHub Actions (installed the way a user does, started and driven).
+
+**Before a stable release**
+
+- **The full UI check:** every screen and panel, all 7 languages, both sizes, every theme and style, every colorway of both controller models.
+- **The long budget run,** with a 30-minute soak for memory growth, on Linux and Windows.
+- **Hardware checks** on a real board with a DualSense: live view, haptics, light bar, button assignments, slots, triggers, audio counters, restart and BOOTSEL, first-time setup, the updater, games.
+- **Everyday use:** the owner's own sign-off after using the build day to day.
+
+**Efficiency**
+
+- **Budgets that fail the release:** at most 10 frames a second on an idle page, under 2% of one CPU core while shown and idle, under 0.5% hidden in the tray, at most 275 MB of memory, and under 5 MB of growth in 30 minutes. A failing budget gets fixed, not raised. Latest numbers: [BUDGETS.md](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/BUDGETS.md).
+- **GPU rendering:** effects draw on the graphics card, and nothing draws while the window is hidden.
+- **Firmware:** the audio path runs from RAM, and the app shows how long each part of the firmware takes.
+
+**Security & trust**
+
+- **Signed feed** (Ed25519) and SHA-256-checked downloads, as above.
+- **Verifiable downloads:** each release file has a build attestation. `gh attestation verify FILE -R MarcelineVPQ/DS5Dongle-OLED-Edition` shows it was built by this repository's release workflow from its tag.
+- **Locked-down app:** sandboxed window, strict Content Security Policy, every message from the window checked for its sender and validated, USB access limited to the board and the Pico bootloader. Exact dependency versions, picked at least 2 weeks after their release. The audit: [SECURITY_AUDIT.md](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/SECURITY_AUDIT.md).
+- **A real DualSense to games:** the board's USB descriptor is byte-identical to Sony's (289 bytes), and the configurator interface is separate, so games never see it.
+
+**Accessibility & languages**
+
+- **7 languages, complete:** a test fails if any language misses a string, and controller features use Sony's official names in each language.
+- **Readable and named:** the UI checker checks contrast and control names in every language; text must fit at every size.
+- **Your way:** color vision modes, Reduce motion, and keyboard use in every popup menu.
 
 ---
 
