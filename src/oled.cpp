@@ -270,6 +270,7 @@ void hw_reset() {
 }
 
 void sh1107_set_contrast(uint8_t value) {
+    // error: NOT-WORTH — the panel already has this contrast; no SPI command is needed
     if (value == current_contrast) return;
     current_contrast = value;
     cmd(0x81); cmd(value);
@@ -667,6 +668,7 @@ void handle_buttons() {
     }
     if (ev & oledkeys::kBrightness) {  // KEY1 long press
         bright_idx = (bright_idx + 1) % kNumBrightLevels;
+        sh1107_set_contrast(kBrightLevels[bright_idx]);
         // Persist so the choice survives a power cycle (issue #9). Keep
         // settings_local in sync too, so a later Settings-screen save can't
         // clobber screen_brightness with its stale snapshot.

@@ -504,7 +504,7 @@ The two physical buttons on the OLED add-on are **strictly navigation**:
 | **KEY0** short-press | Next screen (forward) |
 | **KEY0** held 2 s, Status screen, no controller | Pair now: a 2-minute pairing window for the current slot (anywhere else a KEY0 hold is still "next screen") |
 | **KEY1** short-press | Previous screen (backward) |
-| **KEY1** long-press (≥ 1.5 s) | Cycle OLED brightness level |
+| **KEY1** held for more than 1.5 s | Change brightness once while held; release does not go back |
 | **KEY0 + KEY1** held together ≥ 1 s | `watchdog_reboot` — soft-reboot without unplugging USB |
 
 Per-screen state changes (cycling the trigger preset, cycling the lightbar mode, navigating Settings, switching slots, saving colors to favorite slots) all happen on the **DualSense controller buttons** — never on KEY0 / KEY1 — so the two physical buttons always mean the same thing across every screen (the one exception: KEY0 held 2 s on the Status screen with no controller pairs, see Status). A save that fails outside Settings / Slots (the KEY1 brightness, the Lightbar screen's changes, the slot a connecting controller takes) shows a status line over the bottom row of whatever screen is up for 3 s, e.g. `Bright: Save FAIL`. See each screen's section above for which controller button does what.

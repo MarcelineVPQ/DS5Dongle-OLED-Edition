@@ -8,16 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
-## [0.9.5-dev.14-oled-edition] - 2026-10-16
-
-### Added
-- **Every build checks that a firmware update can't reach your saved setup.** Settings, pairing slots, button assignments, calibration and the controllers' link keys live at the end of the flash; `tools/check_flash_reserved.py` reads where that area starts from the built firmware and fails the build if the firmware image, or any block of its UF2, would overwrite it. It runs on the standard, 320 MHz and Pico W builds and on every release.
-
 ### Changed
-- **OLED Settings has separate Hap Left and Hap Right controls** (PR #22, thanks to CLF184) in place of the linked Hap Gain item. Each grip is adjusted independently with the D-pad, then applied and saved with Triangle. Saving or resetting settings also keeps the current screen brightness in sync with the stored setting.
-- **The README in all 7 languages the app ships** (Chinese, German, Spanish, French, Japanese and Brazilian Portuguese besides English), with one language bar at the top; it now points to the Development channel, says how updates and firmware installs work, and how the firmware is built and tested. `tools/check_readmes.py` keeps them in step on every build.
-
-## [0.9.5-dev.13-oled-edition] - 2026-10-15
+- **KEY1 changes brightness as soon as it has been held for more than 1.5 seconds.** It changes one level per hold, before saving the setting. Letting go after a long press no longer waits to apply the change or goes back a page; a short press still goes back.
 
 ### Added
 - **Pair now on the board** (no protocol change). With no controller connected the board is off USB, so once the pairing window has run out the app can't open a new one; now **KEY0 held 2 s on the OLED's Status screen** (only there, only with no controller) opens a 2-minute pairing window for the current slot. It fires while still held and its release doesn't change screens; everywhere else a KEY0 hold is "next screen" as before, the app's remote long press (1.6 s) can't reach it, and the KEY0 + KEY1 reboot chord cancels it (`src/oled_keys.h`, host-tested).

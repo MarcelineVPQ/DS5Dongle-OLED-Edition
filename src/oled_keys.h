@@ -30,7 +30,7 @@ enum Event : uint8_t {
     kActivity = 0x01,    // a key went down or was released after a press: wake the screen
     kNext = 0x02,        // KEY0 released: next screen
     kBack = 0x04,        // KEY1 short press released: previous screen
-    kBrightness = 0x08,  // KEY1 long press released: next brightness level
+    kBrightness = 0x08,  // KEY1 held past the long-press threshold: next brightness level
     kReboot = 0x10,      // KEY0 + KEY1 held kChordHoldUs
     kHold0 = 0x20,       // KEY0 held kHoldUs where the screen allows it (k0_hold)
 };
@@ -41,15 +41,16 @@ struct Buttons {
     uint32_t k0_t_us = 0;        // last accepted KEY0 press (debounce)
     uint32_t k1_t_us = 0;        // last accepted KEY1 press (debounce)
     bool k0_armed = false;       // KEY0 pressed, fires on release
-    bool k1_armed = false;       // KEY1 pressed, fires on release
+    bool k1_armed = false;       // KEY1 pressed, pending short release or long hold
+    bool k1_long_fired = false;  // brightness already changed during this press
     uint32_t k1_press_us = 0;    // when KEY1 went down (short vs long)
     uint32_t chord_since_us = 0; // 0 = no chord held
 };
 
 // One pass of the key logic. k0_down / k1_down = the key is held now;
 // k0_hold = the screen up now has a KEY0 hold action (false: as before).
-// Arm on a debounced press, fire on release; the chord cancels both armed
-// presses so whichever key is let go first doesn't also navigate.
+// Short presses fire on release; KEY1's long press fires once while held.
+// The chord cancels both armed presses so releasing either doesn't navigate.
 inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now, bool k0_hold = false) {
     uint8_t ev = 0;
     if (k0_down && k1_down) {
@@ -79,11 +80,16 @@ inline uint8_t step(Buttons &b, bool k0_down, bool k1_down, uint32_t now, bool k
         b.k1_t_us = now;
         b.k1_press_us = now;
         b.k1_armed = true;
+        b.k1_long_fired = false;
         ev |= kActivity;
+    }
+    if (b.k1_armed && !b.k1_long_fired && (now - b.k1_press_us) > kLongPressUs) {
+        b.k1_long_fired = true;
+        ev |= kActivity | kBrightness;
     }
     if (!k1_down && b.k1_prev_down && b.k1_armed) {
         b.k1_armed = false;
-        ev |= kActivity | ((now - b.k1_press_us) > kLongPressUs ? kBrightness : kBack);
+        ev |= kActivity | (b.k1_long_fired ? 0 : kBack);
     }
 
     b.k0_prev_down = k0_down;
