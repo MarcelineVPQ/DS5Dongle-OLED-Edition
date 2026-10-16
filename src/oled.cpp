@@ -303,24 +303,21 @@ void sh1107_init() {
 // lives near the other text-drawing helpers below.
 void draw_button_chrome();
 
-// 129 SPI transactions per frame (was one per byte, ~1,150), and none at all
+// At most 129 SPI transactions per frame; unchanged rows send nothing. No SPI
 // when the frame equals what the panel already shows (static screens, the dim
 // pulse between moves). fb_shown_seq still counts every frame for the mirror.
-// An unchanged frame still goes out every kResendFrames, so a panel whose RAM
-// got disturbed (ESD, a loose ribbon) heals within ~2 s like before.
+// A full frame goes out every kResendFrames flushes, even during animation,
+// so a panel whose RAM got disturbed heals within ~2 s.
 constexpr uint8_t kResendFrames = 20;
-uint8_t frames_skipped = 0;
+uint8_t flushes_since_full = 0;
 void flush_fb_raw() {
     fb_shown_seq++;
-    if (panel_in_sync && frames_skipped < kResendFrames &&
-        memcmp(fb_shown, fb, sizeof(fb_shown)) == 0) {
-        frames_skipped++;
-        return;
-    }
-    frames_skipped = 0;
-    memcpy(fb_shown, fb, sizeof(fb_shown));
+    const bool full = !panel_in_sync || ++flushes_since_full >= kResendFrames;
+    if (full) flushes_since_full = 0;
+    if (!full && memcmp(fb_shown, fb, sizeof(fb_shown)) == 0) return;
     SpiSink sink;
-    oled_flush::stream_frame(fb, sink);
+    oled_flush::stream_frame(fb, sink, full ? nullptr : fb_shown);
+    memcpy(fb_shown, fb, sizeof(fb_shown));
     panel_in_sync = true;
 }
 
@@ -834,74 +831,105 @@ struct FbCanvas {
     void filled(int x, int y, int w, int h) { rect_filled(x, y, w, h); }
     void text(int x, int y, const char *s) { draw_text(x, y, s); }
     void invert(int x, int y, int w, int h) { rect_invert(x, y, w, h); }
+    void clear(int x, int y, int w, int h) { rect_clear(x, y, w, h); }
 };
 static_assert(oled_pad::kW == kW && oled_pad::kLeft >= kContentX, "glyph vs. screen / chrome");
 
 // The model comes from the colorway read at connect (cmd_controller_model,
 // the identity's [26]): 1 = Edge adds its Fn / back buttons; 0xFF (not known
 // yet, or a build without the vendor interface) draws a standard DualSense.
-__attribute__((noinline)) void render_status_pad() {
+__attribute__((noinline)) void render_status_pad(bool force) {
+    static oled_pad::Cache cache;
     FbCanvas c;
-    oled_pad::draw(c, interrupt_in_data, cmd_controller_model() == 1);
+    oled_pad::draw_changed(c, interrupt_in_data, cmd_controller_model() == 1, cache, force);
 }
 
 __attribute__((noinline)) void render_screen() {
-    fb_clear();
-
+    // Restore the cached page underneath a status line on its expiry frame.
+    (void)g_toast.current(time_us_64());
+    if (g_toast.take_ended()) ++fb_generation;
     const bool connected = bt_is_connected();
+    static uint32_t seen_generation = ~0u;
+    static bool last_connected = false;
+    static uint8_t last_addr[6]{}, last_pwr = 0;
+    static ChargeEta last_eta{};
+    const bool force = seen_generation != fb_generation || connected != last_connected;
+    if (force) {
+        fb_clear();
+        seen_generation = fb_generation;
+    }
+    last_connected = connected;
 
     // FIRMWARE_VERSION is set via CMake (the release tag, or a Git stamp for
     // dev builds); shown without "-oled-edition", scrolling if still too long.
-    draw_title_scrolling(kContentX, 120, 0, kStatusTitle.s, kStatusTitle.n);
-    draw_icon(120, 0, connected ? kIconLinkOn : kIconLinkOff, 8, 8);
+    if (force || kStatusTitle.n * 6 - 1 > 120 - kContentX) {
+        rect_clear(kContentX, 0, kW - kContentX, 8);
+        draw_title_scrolling(kContentX, 120, 0, kStatusTitle.s, kStatusTitle.n);
+        draw_icon(120, 0, connected ? kIconLinkOn : kIconLinkOff, 8, 8);
+    }
 
     if (connected) {
         uint8_t a[6];
         bt_get_addr(a);
-        char buf[24];
-        snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 a[0], a[1], a[2], a[3], a[4], a[5]);
-        draw_text(kContentX, 9, buf);
-
         const uint8_t pwr = interrupt_in_data[52];
-        int pct = (pwr & 0x0F) * 10;
-        if (pct > 100) pct = 100;
-        const uint8_t pstate = pwr >> 4;
-        char marker = ' ';
-        if (pstate == 1) marker = '+';      // Charging
-        else if (pstate == 2) marker = '*'; // Complete
-        else if (pstate >= 0xA) marker = '!'; // Error
-        char bbuf[16];
-        snprintf(bbuf, sizeof(bbuf), "%3d%%%c", pct, marker);
-        draw_text(oled_pad::kBattTextX, oled_pad::kBattY, bbuf);
-        FbCanvas c;
-        oled_pad::battery(c, pct);  // x 36..91, over the stick boxes' inner edges
+        const ChargeEta eta = g_charge_eta;
+        if (force || memcmp(last_addr, a, sizeof(a)) != 0 || pwr != last_pwr ||
+            eta.charging != last_eta.charging || eta.valid != last_eta.valid ||
+            eta.provisional != last_eta.provisional || eta.minutes != last_eta.minutes) {
+            memcpy(last_addr, a, sizeof(a));
+            last_pwr = pwr;
+            last_eta = eta;
+            rect_clear(kContentX, 9, kW - kContentX, 17);
+            char buf[24];
+            snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+                     a[0], a[1], a[2], a[3], a[4], a[5]);
+            draw_text(kContentX, 9, buf);
 
-        // Charge ETA, right of the battery (mirrored from the level text). Shown only
-        // while charging: "~43m?" is the provisional default-rate estimate shown
-        // immediately on plug-in; the "?" drops to "~43m" once a real 10% step
-        // has been timed and the measured rate takes over. See sample_charge_eta().
-        if (g_charge_eta.charging) {
-            char ebuf[8];
-            if (g_charge_eta.valid)
-                snprintf(ebuf, sizeof(ebuf), "~%dm%s", g_charge_eta.minutes,
-                         g_charge_eta.provisional ? "?" : "");
-            else
-                snprintf(ebuf, sizeof(ebuf), "~--m");
-            draw_text(oled_pad::kEtaX, oled_pad::kBattY, ebuf);
+            int pct = (pwr & 0x0F) * 10;
+            if (pct > 100) pct = 100;
+            const uint8_t pstate = pwr >> 4;
+            char marker = ' ';
+            if (pstate == 1) marker = '+';      // Charging
+            else if (pstate == 2) marker = '*'; // Complete
+            else if (pstate >= 0xA) marker = '!'; // Error
+            char bbuf[16];
+            snprintf(bbuf, sizeof(bbuf), "%3d%%%c", pct, marker);
+            draw_text(oled_pad::kBattTextX, oled_pad::kBattY, bbuf);
+            FbCanvas c;
+            oled_pad::battery(c, pct);  // x 36..91, over the stick boxes' inner edges
+
+            // Charge ETA, right of the battery (mirrored from the level text). Shown only
+            // while charging: "~43m?" is the provisional default-rate estimate shown
+            // immediately on plug-in; the "?" drops to "~43m" once a real 10% step
+            // has been timed and the measured rate takes over. See sample_charge_eta().
+            if (eta.charging) {
+                char ebuf[8];
+                if (eta.valid)
+                    snprintf(ebuf, sizeof(ebuf), "~%dm%s", eta.minutes,
+                             eta.provisional ? "?" : "");
+                else
+                    snprintf(ebuf, sizeof(ebuf), "~--m");
+                draw_text(oled_pad::kEtaX, oled_pad::kBattY, ebuf);
+            }
         }
 
         // The controller glyph (src/oled_pad.h): sticks, L2/R2, L1/R1,
         // Create/Options, d-pad and face buttons (+ an Edge's Fn / back buttons),
         // mirrored around x = 63.5.
-        render_status_pad();
+        render_status_pad(force);
     } else {
-        // Press PS / pair-now hint, or "Pairing: hold Create + PS" and the
-        // window's time left (whole seconds: the frame, and so the flush,
-        // changes at most once a second).
-        FbCanvas c;
-        // error: NOT-WORTH — not a failure: false = every slot is empty, the screen says "No DualSense paired"
-        pair_prompt::draw(c, bt_any_slot_paired(), bt_pairing_seconds_left());
+        static bool last_paired = false;
+        static uint32_t last_secs = 0;
+        // error: NOT-WORTH — false means no slot is paired, which selects the pairing hint
+        const bool paired = bt_any_slot_paired();
+        const uint32_t secs = bt_pairing_seconds_left();
+        if (force || paired != last_paired || secs != last_secs) {
+            last_paired = paired;
+            last_secs = secs;
+            rect_clear(kContentX, 9, kW - kContentX, kH - 9);
+            FbCanvas c;
+            pair_prompt::draw(c, paired, secs);
+        }
     }
 
     flush_fb();

@@ -5,6 +5,7 @@
 #define DS5_BRIDGE_OLED_FLUSH_H
 
 #include <stdint.h>
+#include <string.h>
 
 namespace oled_flush {
 
@@ -29,23 +30,30 @@ struct BitReverseTable {
 };
 inline constexpr BitReverseTable kBitReverse{};
 
-// One frame: page 0, then for each framebuffer row (a panel column, the
+// One frame: page 0, then for each changed framebuffer row (a panel column, the
 // display is mounted rotated) the two column-address commands and the row's
 // 16 bytes. Sink needs cmd(const uint8_t*, int) and data(const uint8_t*, int);
 // each call is one chip-select frame with D/C held (0 = command, 1 = data).
+// previous == nullptr forces a full frame (boot and periodic panel recovery).
 template <class Sink>
-void stream_frame(const uint8_t *fb, Sink &sink) {
-    const uint8_t page = 0xB0;
-    sink.cmd(&page, 1);
-    // loop: HOT-PATH-OK — 64 rows, only when the frame changed (memcmp skip), 129 SPI frames
+void stream_frame(const uint8_t *fb, Sink &sink, const uint8_t *previous = nullptr) {
+    bool started = false;
+    // loop: HOT-PATH-OK — 64 rows; unchanged rows send nothing, at most 129 SPI frames
     for (int j = 0; j < kH; j++) {
+        const uint8_t *src = fb + j * kRowBytes;
+        if (previous && memcmp(src, previous + j * kRowBytes, kRowBytes) == 0) continue;
+        if (!started) {
+            const uint8_t page = 0xB0;
+            sink.cmd(&page, 1);
+            started = true;
+        }
         const uint8_t col = static_cast<uint8_t>(kH - 1 - j);
         const uint8_t addr[2] = {static_cast<uint8_t>(0x00 + (col & 0x0F)),
                                  static_cast<uint8_t>(0x10 + (col >> 4))};
         sink.cmd(addr, 2);
         uint8_t row[kRowBytes];
         // loop: HOT-PATH-OK — 16 bytes bit-reversed per row, only when the frame changed
-        for (int i = 0; i < kRowBytes; i++) row[i] = kBitReverse.v[fb[j * kRowBytes + i]];
+        for (int i = 0; i < kRowBytes; i++) row[i] = kBitReverse.v[src[i]];
         sink.data(row, kRowBytes);
     }
 }

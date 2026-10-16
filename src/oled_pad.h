@@ -13,6 +13,7 @@
 // (tests/host/test_oled_pad.cpp checks the mirror symmetry).
 #pragma once
 #include <cstdint>
+#include <cstring>
 
 namespace oled_pad {
 
@@ -127,14 +128,9 @@ void trigger(Canvas &c, int x, uint8_t v) {
 // [8] L1 R1 L2 R2 Create Options L3 R3 (bits 0..7), and on an Edge (`edge`)
 // [9] bits 4..7 Fn L, Fn R, LB, RB.
 template <class Canvas>
-void draw(Canvas &c, const uint8_t *in, bool edge = false) {
+void draw_buttons(Canvas &c, const uint8_t *in, bool edge) {
     const uint8_t b7 = in[7];
     const uint8_t b8 = in[8];
-
-    stick(c, kLeft, in[0], in[1], b8 & 0x40);
-    stick(c, mirror_left(kLeft, kBox), in[2], in[3], b8 & 0x80);
-    trigger(c, kTrigX, in[4]);
-    trigger(c, mirror_left(kTrigX, kTrigW), in[5]);
 
     button(c, kShoulderX, kTop, kShoulderW, kShoulderH, b8 & 0x01, false);  // L1
     button(c, mirror_left(kShoulderX, kShoulderW), kTop, kShoulderW, kShoulderH,
@@ -171,6 +167,63 @@ void draw(Canvas &c, const uint8_t *in, bool edge = false) {
         button(c, mirror_left(kBackX, kBackW), kEdgeY, kBackW, kEdgeH,
                b9 & 0x80, false);                                                    // RB
     }
+}
+
+template <class Canvas>
+void draw(Canvas &c, const uint8_t *in, bool edge = false) {
+    stick(c, kLeft, in[0], in[1], in[8] & 0x40);
+    stick(c, mirror_left(kLeft, kBox), in[2], in[3], in[8] & 0x80);
+    trigger(c, kTrigX, in[4]);
+    trigger(c, mirror_left(kTrigX, kTrigW), in[5]);
+    draw_buttons(c, in, edge);
+}
+
+// Only the Status glyph uses this cache. The caller forces a redraw after
+// another screen or the dim pulse has replaced the framebuffer.
+struct Cache {
+    uint8_t in[10]{};
+    bool edge = false, valid = false;
+};
+
+template <class Canvas>
+void draw_changed(Canvas &c, const uint8_t *in, bool edge, Cache &cache, bool force = false) {
+    if (force || !cache.valid) {
+        c.clear(kLeft, kTop, kW - 2 * kLeft, kBox);
+        draw(c, in, edge);
+    } else {
+        // loop: HOT-PATH-OK — two sticks and two trigger bars at 10 Hz
+        for (int i = 0; i < 2; i++) {
+            const int x = i ? mirror_left(kLeft, kBox) : kLeft;
+            const int cx = x + 3 + stick_offset(in[2 * i]);
+            const int cy = kTop + 3 + stick_offset(in[2 * i + 1]);
+            const int old_x = x + 3 + stick_offset(cache.in[2 * i]);
+            const int old_y = kTop + 3 + stick_offset(cache.in[2 * i + 1]);
+            const bool click = (in[8] & (0x40 << i)) != 0;
+            const bool old_click = (cache.in[8] & (0x40 << i)) != 0;
+            const bool moved = cx != old_x || cy != old_y;
+            if (click != old_click || (click && moved)) {
+                c.clear(x, kTop, kBox, kBox);
+                stick(c, x, in[2 * i], in[2 * i + 1], click);
+            } else if (moved) {
+                c.clear(old_x - 1, old_y - 1, 3, 3);
+                c.filled(cx - 1, cy - 1, 3, 3);
+            }
+            if (trigger_fill(in[4 + i]) != trigger_fill(cache.in[4 + i])) {
+                const int tx = i ? mirror_left(kTrigX, kTrigW) : kTrigX;
+                c.clear(tx, kTop, kTrigW, kBox);
+                trigger(c, tx, in[4 + i]);
+            }
+        }
+        if (edge != cache.edge || in[7] != cache.in[7] ||
+            (in[8] & 0x33) != (cache.in[8] & 0x33) ||
+            (edge && (in[9] & 0xF0) != (cache.in[9] & 0xF0))) {
+            c.clear(kShoulderX, kTop, kW - 2 * kShoulderX, kBox);
+            draw_buttons(c, in, edge);
+        }
+    }
+    std::memcpy(cache.in, in, sizeof(cache.in));
+    cache.edge = edge;
+    cache.valid = true;
 }
 
 }  // namespace oled_pad
