@@ -8,8 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Added
+- **Every build checks that a firmware update can't reach your saved setup.** Settings, pairing slots, button assignments, calibration and the controllers' link keys live at the end of the flash; `tools/check_flash_reserved.py` reads where that area starts from the built firmware and fails the build if the firmware image, or any block of its UF2, would overwrite it. It runs on the standard, 320 MHz and Pico W builds and on every release.
+
 ### Changed
-- **OLED Settings has separate Hap Left and Hap Right controls** in place of the linked Hap Gain item. Each grip is adjusted independently with the D-pad, then applied and saved with Triangle. Saving or resetting settings also keeps the current screen brightness in sync with the stored setting.
+- **OLED Settings has separate Hap Left and Hap Right controls** (PR #22, thanks to CLF184) in place of the linked Hap Gain item. Each grip is adjusted independently with the D-pad, then applied and saved with Triangle. Saving or resetting settings also keeps the current screen brightness in sync with the stored setting.
+- **The README in all 7 languages the app ships** (Chinese, German, Spanish, French, Japanese and Brazilian Portuguese besides English), with one language bar at the top; it now points to the Development channel, says how updates and firmware installs work, and how the firmware is built and tested. `tools/check_readmes.py` keeps them in step on every build.
 
 ## [0.9.5-dev.13-oled-edition] - 2026-10-15
 
