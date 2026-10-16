@@ -59,7 +59,7 @@ The app talks to firmware **v0.8 or newer** through a small configurator USB int
 - **Updates:** no button and no drive copying. The app restarts the board into BOOTSEL itself, writes the firmware over USB and reconnects.
 - **Checked before writing:** the file's SHA-256 must match the feed, and it must be firmware for this chip. A file that fails writes nothing.
 - **Checked after writing:** the app waits for the new firmware to start. If the board comes back in BOOTSEL instead, the app says so and offers **Install again**. While firmware is being written, the app won't restart, quit or update itself.
-- **Your setup stays:** settings, pairings, calibration and button assignments live in their own part of the flash. An update writes only the firmware.
+- **Your setup stays:** settings, pairings, calibration and button assignments live in their own part of the flash. Every firmware build is checked to stay clear of it, and an app test checks that an update writes only the sectors of the firmware file.
 
 ## 🔬 How it's built and tested
 

@@ -31,6 +31,10 @@ uint32_t calc_config_crc(const Config &con) {
     return crc32(reinterpret_cast<const uint8_t *>(&con.body), sizeof(Config_body));
 }
 
+// The start of saved state in flash, as an address, for tools/check_flash_reserved.py
+// (flash_layout.h). Nothing reads it: CMakeLists.txt keeps it in the image.
+extern "C" __attribute__((used)) const uint32_t ds5_reserved_flash_start = XIP_BASE + RESERVED_FLASH_OFFSET;
+
 const Config *flash_config() {
     return reinterpret_cast<const Config *>(XIP_BASE + CONFIG_FLASH_OFFSET);
 }

@@ -59,7 +59,7 @@ O app conversa com firmware **v0.8 ou mais novo** por uma pequena interface USB 
 - **Atualizações:** sem botão e sem copiar para um drive. O app reinicia a placa em BOOTSEL sozinho, grava o firmware por USB e reconecta.
 - **Conferido antes de gravar:** o SHA-256 do arquivo precisa bater com o feed, e ele precisa ser firmware para este chip. Um arquivo que falha não grava nada.
 - **Conferido depois de gravar:** o app espera o novo firmware iniciar. Se a placa voltar em BOOTSEL, o app avisa e oferece **Instalar de novo**. Enquanto o firmware é gravado, o app não reinicia, não fecha e não se atualiza.
-- **Sua configuração fica:** configurações, pareamentos, calibração e atribuição de botões ficam numa parte própria da memória flash. Uma atualização grava só o firmware.
+- **Sua configuração fica:** configurações, pareamentos, calibração e atribuição de botões ficam numa parte própria da memória flash. Cada compilação do firmware é verificada para não chegar a essa parte, e um teste do app confere que uma atualização grava só os setores do arquivo de firmware.
 
 ## 🔬 Como é construído e testado
 

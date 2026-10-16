@@ -59,7 +59,7 @@ L'app communique avec le firmware **v0.8 ou plus récent** via une petite interf
 - **Mises à jour :** pas de bouton, pas de copie sur un lecteur. L'app redémarre elle-même la carte en BOOTSEL, écrit le firmware par USB et se reconnecte.
 - **Vérifié avant l'écriture :** le SHA-256 du fichier doit correspondre au flux, et ce doit être un firmware pour cette puce. Un fichier qui échoue n'écrit rien.
 - **Vérifié après l'écriture :** l'app attend que le nouveau firmware démarre. Si la carte revient en BOOTSEL à la place, l'app le dit et propose **Réinstaller**. Pendant l'écriture du firmware, l'app ne redémarre pas, ne se ferme pas et ne se met pas à jour.
-- **Ta configuration reste :** réglages, appairages, calibrage et attribution des touches sont dans leur propre partie de la mémoire flash. Une mise à jour n'écrit que le firmware.
+- **Ta configuration reste :** réglages, appairages, calibrage et attribution des touches sont dans leur propre partie de la mémoire flash. Chaque compilation du firmware est vérifiée pour ne jamais atteindre cette partie, et un test de l'app vérifie qu'une mise à jour n'écrit que les secteurs du fichier de firmware.
 
 ## 🔬 Comment c'est construit et testé
 

@@ -27,12 +27,13 @@ A rule that matters gets a gate (a script or test that fails the build), not jus
 | Every loop that waits or sits on a hot path has a verdict | Linux | `app:tools/list_loops.mjs`, `app:docs/LOOP_PASS_2026-10.md` |
 | Every cache, memo and mirror has a verdict (key, invalidation, bound) | Linux | `app:tools/list_caches.mjs`, `app:docs/CACHE_PASS_2026-10.md` |
 | Every error path has a verdict, no silent failure | Linux | `app:tools/list_errors.mjs`, `app:docs/ERROR_PASS_2026-10.md` |
+| Every acquisition (listener, timer, subscription, stream, device, process, observer) names its release point | Linux | `app:tools/list_lifetimes.mjs`, `app:docs/LIFETIME_PASS_2026-10.md` |
 | Every setting is a row inside a section | Linux | `app:tools/list_settings.mjs` |
 | Long hints sit behind the ⓘ unless they must stay visible | Linux | `app:tools/list_hints.mjs` |
 
-`npm run check` runs all of the above locally (typecheck, lint, format, every gate, the tests) and adds the lifetime gate: every listener, timer, subscription, stream, device, process and observer names its release point (`app:tools/list_lifetimes.mjs`, `app:docs/LIFETIME_PASS_2026-10.md`). A pre-commit hook runs most gates before a commit is made.
+`npm run check` runs the same set locally (typecheck, lint, format, every gate, the tests), and a pre-commit hook runs the gates before a commit is made.
 
-Tests worth naming: every locale has exactly the strings English has (`app:tests/unit/i18n.test.ts`); tile words fit in every language (`app:tests/unit/i18nFit.test.ts`); dependencies are exact versions (`app:tests/unit/dependencies.test.ts`); every inline lint suppression is listed (`app:tests/unit/lintSuppressions.test.ts`); with automatic update checks off nothing goes online (`app:tests/integration/updateConsent.test.ts`); the window, session, CSP and USB allowlists can't drift (`app:tests/security/`). The integration tests drive the app's protocol client against a fake board that follows the firmware's command rules (`app:tests/support/fakeDongle.ts`).
+Tests worth naming: every locale has exactly the strings English has (`app:tests/unit/i18n.test.ts`); tile words fit in every language (`app:tests/unit/i18nFit.test.ts`); dependencies are exact versions (`app:tests/unit/dependencies.test.ts`); every inline lint suppression is listed (`app:tests/unit/lintSuppressions.test.ts`); with automatic update checks off nothing goes online (`app:tests/integration/updateConsent.test.ts`); a firmware write erases and writes exactly the sectors the UF2's blocks cover, with no other flash call (`app:tests/unit/uf2Regions.test.ts`); the window, session, CSP and USB allowlists can't drift (`app:tests/security/`). The integration tests drive the app's protocol client against a fake board that follows the firmware's command rules (`app:tests/support/fakeDongle.ts`).
 
 ### Security scans (app)
 
@@ -50,6 +51,7 @@ Tests worth naming: every locale has exactly the strings English has (`app:tests
 | Five firmware builds: standard (Pico 2 W), debug, without the battery LED, the 320 MHz fallback, Pico W | |
 | Time-critical code stays in RAM | `tools/check_ram_residency.sh` |
 | The flash (XIP) setup is the expected one | `tools/check_xip_setup.sh` |
+| No UF2 block (rounded up to the sector the app erases) and not the image's end reaches saved state: settings, slots, button assignments, calibration, BTstack's link keys, from `RESERVED_FLASH_OFFSET` (`src/flash_layout.h`) up. The limit is read from the built ELF (`ds5_reserved_flash_start`), so the layout is written down once. Standard, 320 MHz and Pico W builds, and the release build | `tools/check_flash_reserved.py` |
 | The 7 READMEs match README.md (headings, links, language bar, dev version) | `tools/check_readmes.py` |
 | `lib/*` stay submodule links | `tools/check_gitlinks.sh` |
 
@@ -92,7 +94,7 @@ Firmware: the audio path and other time-critical code run from RAM (checked in C
 - **Build provenance:** every release file gets a signed attestation from the release workflow. Check a download with `gh attestation verify FILE -R MarcelineVPQ/DS5Dongle-OLED-Edition`.
 - **The app** ([`app:docs/SECURITY_AUDIT.md`](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/SECURITY_AUDIT.md)): sandboxed renderer with context isolation and no Node access; a strict Content Security Policy (`script-src 'self'`, no remote origins); one fixed IPC table where every message checks its sender and is validated with zod; WebUSB limited to the board and the RP2350 bootloader; navigation locked to the app's own page; privileged actions only through fixed programs and arguments, after the user agreed. Dependencies are exact versions chosen at least two weeks after release.
 - **No network unless allowed:** with *Check for updates automatically* off, the app fetches nothing on its own.
-- **Faithful to the controller:** the board's DualSense HID descriptor stays byte-identical to a real DualSense (289 bytes) and its feature reports return the controller's real data, so games use their native DualSense path. The configurator talks over a separate USB interface that games never see.
+- **Faithful to the controller:** the board's DualSense HID descriptor stays byte-identical to a real DualSense (289 bytes; the size is a compile-time check, and games' native DualSense detection accepted it in A/B tests against a wired controller in 0.6.12. There is no automated byte-for-byte comparison yet: the repository has no captured reference descriptor from a real controller) and its feature reports return the controller's real data, so games use their native DualSense path. The configurator talks over a separate USB interface that games never see.
 
 ## Accessibility & languages
 

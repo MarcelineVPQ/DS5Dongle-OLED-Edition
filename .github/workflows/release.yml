@@ -156,6 +156,7 @@ jobs:
           cmake --build build/standard --target ds5-bridge
           tools/check_ram_residency.sh build/standard/ds5-bridge-oled.elf
           tools/check_xip_setup.sh build/standard/ds5-bridge-oled.elf 2 11
+          python3 tools/check_flash_reserved.py build/standard/ds5-bridge-oled.elf build/standard/ds5-bridge-oled.uf2
           mkdir -p artifacts
           cp build/standard/ds5-bridge-oled.uf2 "artifacts/ds5-bridge-oled-$TAG.uf2"
           # What the app bundles: the same UF2 plus its version and hash.

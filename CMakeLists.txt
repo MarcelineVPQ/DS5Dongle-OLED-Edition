@@ -452,6 +452,9 @@ target_link_libraries(ds5-bridge
 # Count every flash_safe_execute() (ours and BTstack's link-key storage) for
 # the 0xF5 diagnostics; see __wrap_flash_safe_execute in src/main.cpp.
 target_link_options(ds5-bridge PRIVATE -Wl,--wrap=flash_safe_execute)
+# Keep the start of saved state in the image (src/config.cpp; nothing reads it)
+# for tools/check_flash_reserved.py: a required symbol is a --gc-sections root.
+target_link_options(ds5-bridge PRIVATE -Wl,--require-defined=ds5_reserved_flash_start)
 
 pico_add_extra_outputs(ds5-bridge)
 

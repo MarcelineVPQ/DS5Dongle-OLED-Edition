@@ -128,6 +128,7 @@ jobs:
           cmake --build build/standard --target ds5-bridge
           tools/check_ram_residency.sh build/standard/ds5-bridge-oled.elf
           tools/check_xip_setup.sh build/standard/ds5-bridge-oled.elf 2 11
+          python3 tools/check_flash_reserved.py build/standard/ds5-bridge-oled.elf build/standard/ds5-bridge-oled.uf2
           mkdir -p artifacts
           cp build/standard/ds5-bridge-oled.uf2 artifacts/ds5-bridge-oled.uf2
 
@@ -162,6 +163,7 @@ jobs:
             -DVERSION="$FIRMWARE_VERSION"
           cmake --build build/oc320 --target ds5-bridge
           tools/check_xip_setup.sh build/oc320/ds5-bridge-oled.elf 4 13
+          python3 tools/check_flash_reserved.py build/oc320/ds5-bridge-oled.elf build/oc320/ds5-bridge-oled.uf2
 
       - name: Build Pico W firmware
         run: |
@@ -173,6 +175,7 @@ jobs:
           cmake --build build/picow --target ds5-bridge
           tools/check_ram_residency.sh build/picow/ds5-bridge-oled.elf
           tools/check_xip_setup.sh build/picow/ds5-bridge-oled.elf
+          python3 tools/check_flash_reserved.py build/picow/ds5-bridge-oled.elf build/picow/ds5-bridge-oled.uf2
           cp build/picow/ds5-bridge-oled.uf2 artifacts/ds5-bridge-oled-picow.uf2
 
       - name: Upload standard UF2 artifact

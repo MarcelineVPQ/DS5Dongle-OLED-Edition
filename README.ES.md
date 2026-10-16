@@ -59,7 +59,7 @@ La app se comunica con el firmware **v0.8 o posterior** a través de una pequeñ
 - **Actualizaciones:** sin botón y sin copiar a una unidad. La app reinicia la placa en BOOTSEL ella misma, escribe el firmware por USB y vuelve a conectar.
 - **Comprobado antes de escribir:** el SHA-256 del archivo debe coincidir con el feed y debe ser firmware para este chip. Un archivo que falla no escribe nada.
 - **Comprobado después de escribir:** la app espera a que arranque el nuevo firmware. Si la placa vuelve en BOOTSEL, la app lo dice y ofrece **Instalar de nuevo**. Mientras se escribe el firmware, la app no se reinicia, no se cierra y no se actualiza.
-- **Tu configuración se queda:** los ajustes, los emparejamientos, la calibración y la asignación de botones están en su propia parte de la memoria flash. Una actualización solo escribe el firmware.
+- **Tu configuración se queda:** los ajustes, los emparejamientos, la calibración y la asignación de botones están en su propia parte de la memoria flash. Cada compilación del firmware se comprueba para que no llegue a esa parte, y una prueba de la app comprueba que una actualización solo escribe los sectores del archivo de firmware.
 
 ## 🔬 Cómo se construye y se prueba
 

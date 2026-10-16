@@ -59,7 +59,7 @@ Die App spricht mit Firmware **v0.8 oder neuer** über eine kleine USB-Schnittst
 - **Updates:** keine Taste, kein Kopieren auf ein Laufwerk. Die App startet das Board selbst in BOOTSEL neu, schreibt die Firmware über USB und verbindet sich wieder.
 - **Vor dem Schreiben geprüft:** Der SHA-256 der Datei muss zum Feed passen, und es muss Firmware für diesen Chip sein. Eine Datei, die durchfällt, schreibt nichts.
 - **Nach dem Schreiben geprüft:** Die App wartet, bis die neue Firmware startet. Kommt das Board stattdessen in BOOTSEL zurück, sagt die App das und bietet **Erneut installieren** an. Während die Firmware geschrieben wird, startet die App nicht neu, beendet sich nicht und aktualisiert sich nicht.
-- **Deine Einrichtung bleibt:** Einstellungen, Kopplungen, Kalibrierung und Tastenbelegungen liegen in einem eigenen Bereich des Flash-Speichers. Ein Update schreibt nur die Firmware.
+- **Deine Einrichtung bleibt:** Einstellungen, Kopplungen, Kalibrierung und Tastenbelegungen liegen in einem eigenen Bereich des Flash-Speichers. Jeder Firmware-Build wird geprüft, dass er diesen Bereich nicht berührt, und ein App-Test prüft, dass ein Update nur die Sektoren der Firmware-Datei schreibt.
 
 ## 🔬 Wie es gebaut und getestet wird
 
