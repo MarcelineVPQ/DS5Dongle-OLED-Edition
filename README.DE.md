@@ -412,6 +412,8 @@ Live-Spitzenwertanzeigen für den Lautsprecher- und den Haptik-Audiopfad. Nützl
 
 Editor für die dauerhafte Konfiguration. Richtungstasten ▲▼ bewegen die Auswahl, ▶◀ ändern Werte, △ speichert in den Flash. Enthält die Konfigurationsfelder der Firmware (Haptik-Verstärkung, Lautsprecherlautstärke, Inaktivitäts-Timeout, Abfragerate), die Regler für Audio Auto Haptics und zwei Aktionen, die durch Halten bestätigt werden:
 
+`Hap Left` und `Hap Right` stellen jeden Griff einzeln ein. Drücke △, um die Änderungen zu übernehmen und zu speichern.
+
 <img src="./assets/oled/oled_sc11.jpg" alt="Bildschirm Settings auf dem OLED" width="420">
 
 - **AutoHap Off / Fallback / Mix / Replace** — wählt den Modus von Audio Auto Haptics. Standard `Off`: Haptik kommt nur vom Spiel. `Fallback` erzeugt abgeleitetes Rumble nur, wenn das Spiel keine nativen Haptikdaten sendet (z. B. Ghost of Tsushima unter Linux) — es vibriert dann allerdings auch bei Musik und Desktop-Audio mit; Spiele, die *doch* native Haptik senden (Spider-Man Remastered), laufen unverändert durch. `Mix` legt das abgeleitete Signal über das native, `Replace` ignoriert das native ganz.

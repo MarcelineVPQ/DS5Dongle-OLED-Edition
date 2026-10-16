@@ -135,7 +135,7 @@ constexpr int kNumLbModes = 9;
 // Each setting defines its display, storage and adjustment in one place.
 enum SetKind : uint8_t { SK_NUM, SK_BOOL, SK_POWER, SK_ACTION };
 enum SetFormat : uint8_t { SF_PLAIN, SF_OFF0, SF_GAME0, SF_PC0, SF_REDUCE };
-enum : uint8_t { SIF_WRAP = 1, SIF_FLOAT = 2, SIF_FLOAT10 = 4, SIF_GRID = 8, SIF_LINK_GRIPS = 16 };
+enum : uint8_t { SIF_WRAP = 1, SIF_FLOAT = 2, SIF_FLOAT10 = 4, SIF_GRID = 8 };
 enum : uint8_t { ACT_NONE, ACT_RESET, ACT_WIPE };
 struct SetItem {
     const char *label, *unit, *hint;
@@ -155,7 +155,8 @@ static const char* const kSpkOut[] = {"Auto", "SPK", "Hset", "off"};
 static const char* const kMicIn[] = {"Auto", "Int", "Hset"};
 #define CFG_OFF(field) static_cast<uint8_t>(offsetof(Config_body, field))
 static const SetItem kSetItems[] = {
-    {"Hap Gain", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT10 | SIF_LINK_GRIPS, ACT_NONE, CFG_OFF(haptics_gain), 10, 60, 5},
+    {"Hap Left", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT10, ACT_NONE, CFG_OFF(haptics_gain), 10, 60, 5},
+    {"Hap Right", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT10, ACT_NONE, CFG_OFF(haptics_gain_right), 10, 60, 5},
     {"Spk Vol", "dB", nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT | SIF_GRID, ACT_NONE, CFG_OFF(speaker_volume), -100, 12, 5},
     {"Inact", "min", nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(inactive_time), 10, 60, 5},
     {"InactDC", nullptr, nullptr, kDisabled, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disable_inactive_disconnect), 0, 1, 1},
@@ -1625,7 +1626,6 @@ void settings_adjust(int delta) {
         memcpy(&value, p, sizeof(value)); // packed floats need not be aligned
         value = adjust(value);
         memcpy(p, &value, sizeof(value));
-        if (it.flags & SIF_LINK_GRIPS) settings_local.haptics_gain_right = adjust(settings_local.haptics_gain_right);
     } else {
         *p = static_cast<uint8_t>(adjust(*p));
     }
@@ -1663,6 +1663,7 @@ void settings_handle_input() {
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
             if (config_save()) {
                 settings_local = get_config();
+                bright_idx = settings_local.screen_brightness;
                 settings_power = config_power_flags();
                 lightbar_load_config(); // refresh RAM lightbar state (no reboot here)
                 settings_dirty = false;
@@ -1678,6 +1679,7 @@ void settings_handle_input() {
     if (!tri_now && tri_prev) {
         if (!is_hold_item && !settings_reset_triggered) {
             set_config(settings_local);
+            bright_idx = get_config().screen_brightness;
             config_set_power_flags(settings_power);
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
             const bool saved = config_save();
@@ -1698,11 +1700,6 @@ __attribute__((noinline)) void format_settings_item(int idx, char* line, size_t 
     if (it.flags & SIF_FLOAT10) {
         float f; memcpy(&f, p, sizeof(f));
         const int g = static_cast<int>(f * 10.0f + 0.5f);
-        const int r = static_cast<int>(settings_local.haptics_gain_right * 10.0f + 0.5f);
-        if ((it.flags & SIF_LINK_GRIPS) && g != r) {
-            snprintf(line, n, "%s Hap L%d.%d R%d.%d", cur, g / 10, g % 10, r / 10, r % 10);
-            return;
-        }
         snprintf(value, sizeof(value), "%d.%dx", g / 10, g % 10);
     } else if (it.flags & SIF_FLOAT) {
         float f; memcpy(&f, p, sizeof(f));

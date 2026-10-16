@@ -412,6 +412,8 @@ Medidores de pico en directo de las rutas de audio del altavoz y de la háptica.
 
 Editor de configuración persistente. Los botones de dirección ▲▼ mueven la selección, ▶◀ ajustan los valores, △ guarda en la flash. Incluye los campos de configuración del firmware (ganancia háptica, volumen del altavoz, tiempo de inactividad, frecuencia de sondeo), los controles de Audio Auto Haptics y dos acciones que se confirman manteniendo pulsado:
 
+`Hap Left` y `Hap Right` ajustan cada empuñadura por separado. Pulsa △ para aplicar y guardar los cambios.
+
 <img src="./assets/oled/oled_sc11.jpg" alt="Pantalla Settings en la OLED" width="420">
 
 - **AutoHap Off / Fallback / Mix / Replace**: elige el modo de Audio Auto Haptics. Predeterminado `Off`: la háptica solo viene del juego. `Fallback` genera vibración derivada solo cuando el juego no envía datos hápticos nativos (p. ej., Ghost of Tsushima en Linux); ten en cuenta que también vibra con la música y el audio del escritorio; los juegos que *sí* envían háptica nativa (Spider-Man Remastered) pasan sin cambios. `Mix` añade la derivada encima de la nativa, `Replace` ignora la nativa por completo.

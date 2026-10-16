@@ -412,6 +412,8 @@ Crête-mètres en direct pour les chaînes audio du haut-parleur et de l'haptiqu
 
 Éditeur de configuration persistante. ▲▼ des touches directionnelles déplacent la sélection, ▶◀ ajustent les valeurs, △ enregistre en flash. Contient les champs de configuration du firmware (gain haptique, volume du haut-parleur, délai d'inactivité, fréquence d'interrogation), les réglages Audio Auto Haptics, et deux actions à confirmer par appui long :
 
+`Hap Left` et `Hap Right` règlent chaque poignée séparément. Appuie sur △ pour appliquer et enregistrer les modifications.
+
 <img src="./assets/oled/oled_sc11.jpg" alt="Écran Réglages sur l'OLED" width="420">
 
 - **AutoHap Off / Fallback / Mix / Replace** : choisit le mode Audio Auto Haptics. Par défaut `Off` : l'haptique vient uniquement du jeu. `Fallback` ne déclenche des vibrations dérivées que quand le jeu n'envoie aucune donnée haptique native (par ex. Ghost of Tsushima sous Linux) ; note qu'il vibre aussi avec la musique et l'audio du bureau ; les jeux qui *envoient* de l'haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute le signal dérivé par-dessus le natif, `Replace` ignore entièrement le natif.

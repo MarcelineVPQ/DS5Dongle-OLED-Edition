@@ -412,6 +412,8 @@ Live peak meters for the speaker and haptic audio paths. Useful for verifying au
 
 Persistent config editor. D-pad ▲▼ moves the selection, ▶◀ adjusts values, △ saves to flash. Includes the firmware-config fields (haptics gain, speaker volume, inactive timeout, polling rate), the Audio Auto Haptics controls, and two hold-to-confirm actions:
 
+`Hap Left` and `Hap Right` adjust each grip separately. Press △ to apply and save the changes.
+
 <img src="./assets/oled/oled_sc11.jpg" alt="Settings screen on the OLED" width="420">
 
 - **AutoHap Off / Fallback / Mix / Replace** — selects the Audio Auto Haptics mode. Default `Off`: haptics come only from the game. `Fallback` fires derived rumble only when the game sends no native haptic data (e.g. Ghost of Tsushima on Linux) — note it also vibrates along with music and desktop audio; games that *do* send native haptics (Spider-Man Remastered) pass through unchanged. `Mix` adds derived on top of native, `Replace` ignores native entirely.

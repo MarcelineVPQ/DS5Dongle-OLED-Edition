@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Changed
+- **OLED Settings has separate Hap Left and Hap Right controls** in place of the linked Hap Gain item. Each grip is adjusted independently with the D-pad, then applied and saved with Triangle. Saving or resetting settings also keeps the current screen brightness in sync with the stored setting.
+
 ## [0.9.5-dev.13-oled-edition] - 2026-10-15
 
 ### Added

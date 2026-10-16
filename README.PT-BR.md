@@ -412,6 +412,8 @@ Medidores de pico ao vivo para os caminhos de áudio do alto-falante e da respos
 
 Editor de configuração persistente. Botões de direção ▲▼ movem a seleção, ▶◀ ajustam valores, △ salva na flash. Inclui os campos de configuração do firmware (ganho da resposta tátil, volume do alto-falante, tempo de inatividade, taxa de polling), os controles do Audio Auto Haptics e duas ações confirmadas segurando o botão:
 
+`Hap Left` e `Hap Right` ajustam cada empunhadura separadamente. Pressione △ para aplicar e salvar as alterações.
+
 <img src="./assets/oled/oled_sc11.jpg" alt="Tela Settings na OLED" width="420">
 
 - **AutoHap Off / Fallback / Mix / Replace**: escolhe o modo do Audio Auto Haptics. Padrão `Off`: a resposta tátil vem só do jogo. `Fallback` gera vibração derivada só quando o jogo não envia dados táteis nativos (por exemplo Ghost of Tsushima no Linux); note que ele também vibra junto com música e áudio do desktop; jogos que *enviam* resposta tátil nativa (Spider-Man Remastered) passam sem alteração. `Mix` soma o derivado ao nativo, `Replace` ignora o nativo por completo.
