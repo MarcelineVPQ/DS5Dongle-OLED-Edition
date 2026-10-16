@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.9.5-dev.14-oled-edition] - 2026-10-16
+
 ### Added
 - **Every build checks that a firmware update can't reach your saved setup.** Settings, pairing slots, button assignments, calibration and the controllers' link keys live at the end of the flash; `tools/check_flash_reserved.py` reads where that area starts from the built firmware and fails the build if the firmware image, or any block of its UF2, would overwrite it. It runs on the standard, 320 MHz and Pico W builds and on every release.
 
