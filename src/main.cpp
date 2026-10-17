@@ -273,7 +273,8 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
 
 // Invoked when received GET_REPORT control request
 // Application must fill buffer report's content and return its length.
-// Return zero will cause the stack to STALL request
+// Returning zero: for report id 0 (or wLength <= 1) TinyUSB STALLs the request;
+// for any other id it answers that id alone (a 1-byte reply), not a STALL.
 static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer,
                                 uint16_t reqlen);
 
@@ -343,7 +344,7 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
             if (reqlen >= 6) bt_get_addr(buffer);
             return reqlen;
         }
-        // error: NOT-WORTH — USB STALL; a zero/short GET from the host OS, which retries with the right length
+        // error: NOT-WORTH — a 1-byte reply (only the report id, not a STALL); a short GET from the host OS, which retries with the right length
         if (reqlen < 5) return 0;                  // 0x20 / 0x05 stub: zeros + valid crc32
         uint8_t tmp[2 + 64];
         tmp[0] = 0xA3; tmp[1] = report_id;
@@ -360,16 +361,18 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
         return pico_cmd_get(report_id, buffer, reqlen);
     }
 
-    // The dongle's controller test owns the 0x81 result slot: busy (stall).
-    // error: NOT-WORTH — USB STALL on purpose: the app's controller test owns 0x81 for a few seconds; PC tools retry
+    // The dongle's controller test owns the 0x81 result slot: busy (the reply
+    // is only the report id, which TinyUSB sends for a 0 return; not a STALL).
+    // error: NOT-WORTH — a 1-byte reply (only the report id) on purpose: the app's controller test owns 0x81 for a few seconds; PC tools retry
     if (report_id == 0x81 && ctrl_test_owns_0x81()) return 0;
 
-    // Edge profiles before the connect fetch is done: refused (stall), so PS
+    // Edge profiles before the connect fetch is done: refused (only the report
+    // id comes back, a 1-byte reply rather than a STALL), so PS
     // Accessories retries rather than keeping an empty snapshot. The GET still
     // goes to the controller, as upstream 8a2f576 does.
     if (dse_is_profile_report(report_id) && !dse_profiles_ready()) {
         bt_request_feature(report_id);
-        // error: NOT-WORTH — USB STALL on purpose until the Edge profiles are cached (PS Accessories retries); the read is started here
+        // error: NOT-WORTH — a 1-byte reply (only the report id) on purpose until the Edge profiles are cached (PS Accessories retries); the read is started here
         return 0;
     }
 

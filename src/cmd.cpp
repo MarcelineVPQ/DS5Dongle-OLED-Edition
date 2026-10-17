@@ -408,7 +408,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     // curve 9 bytes [type, p1x,p1y .. p4x,p4y] (41 bytes).
     if (report_id == PICO_CMD_CURVES) {
         constexpr uint16_t kLen = 5 + 4 * sizeof(StickCurve);
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen < kLen) return 0;
         const uint8_t slot = (uint8_t) bt_get_slot();
         StickCurve saved[2], active[2];
@@ -424,7 +424,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         return kLen;
     }
     if (report_id == PICO_CMD_REMAP_EXTRA) {
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen < 5 + kRemapExtraCount) return 0;
         buffer[0] = 'R';
         buffer[1] = 'X';
@@ -436,7 +436,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         return 5 + kRemapExtraCount;
     }
     if (report_id == PICO_CMD_CALIB) {
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen < 1 + kCalibBodySize) return 0;
         buffer[0] = (uint8_t) bt_get_slot();
         calib_get(buffer[0], buffer + 1);
@@ -458,7 +458,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
             0x20 |  // live input report (0xF0)
             0x40 |  // unsaved-settings flag (identity [19] bit 0)
             0x80;   // narrator firmware lines (0x0B, 0x0C; config narrator_voice)
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen < 20) return 0;
         memset(buffer, 0, reqlen);
         buffer[0] = 'D'; buffer[1] = 'S'; buffer[2] = '5'; buffer[3] = 'O';
@@ -565,7 +565,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         // Range (0 = in it, negative = weaker; not dBm), -128 = no reading
         // (no link, none yet, or the last read failed; src/rssi_poll.h).
         // Firmware before 0.9.5-dev.16 sent 0 for no reading.
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen == 0) return 0;  // nothing to answer: don't ask the controller
         int8_t rssi = 0;
         // error: SHOWN — false = no reading, sent as -128 (kRssiNoReading); the app shows "—", scripts/set_ds5.py "unknown"
@@ -581,7 +581,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         constexpr uint16_t want = 28;
         if (reqlen < want) {
             printf("[HID] 0xfa reqlen=%u too small for slots payload (%u)\n", reqlen, want);
-            // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+            // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
             return 0;
         }
         // loop: NOT-WORTH — 4 slot addresses, per 0xFA host GET
@@ -601,7 +601,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         constexpr uint16_t want = 18;
         if (reqlen < want) {
             printf("[HID] 0xfb reqlen=%u too small for diag payload (%u)\n", reqlen, want);
-            // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+            // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
             return 0;
         }
         // From the 64-bit timer: the 32-bit µs one wrapped every 71 min 35 s.
@@ -636,7 +636,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         constexpr uint16_t want = 11;
         if (reqlen < want) {
             printf("[HID] 0xfc reqlen=%u too small for cpu payload (%u)\n", reqlen, want);
-            // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+            // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
             return 0;
         }
         const uint32_t set_khz = (uint32_t)SYS_CLOCK_KHZ;
@@ -659,7 +659,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         // [0..3] uint32 total GET_REPORTs, [4] next ring index, then 16 x
         // (report id, bytes answered), oldest first starting at [4].
         const uint32_t c = g_get_count;
-        // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
         if (reqlen < 37) return 0;
         memcpy(buffer, &c, 4);
         buffer[4] = static_cast<uint8_t>(c % 16);
@@ -792,7 +792,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         }
         return lim;
     }
-    // error: NOT-WORTH — USB STALL; an unknown report id (the app only asks the ids identity lists)
+    // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); an unknown report id (the app only asks the ids identity lists)
     return 0;
 }
 
