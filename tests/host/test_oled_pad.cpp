@@ -6,6 +6,7 @@
 // battery row must span the stick boxes' inner edges, mirrored.
 #include <cstring>
 #include <iterator>
+#include <random>
 #include <vector>
 #include "oled_pad.h"
 #include "test.h"
@@ -30,6 +31,10 @@ struct Frame {
     void invert(int x, int y, int w, int h) {
         for (int j = 0; j < h; j++)
             for (int i = 0; i < w; i++) px(x + i, y + j, !p[y + j][x + i]);
+    }
+    void clear(int x, int y, int w, int h) {
+        for (int j = 0; j < h; j++)
+            for (int i = 0; i < w; i++) px(x + i, y + j, false);
     }
 };
 
@@ -344,4 +349,39 @@ TEST(oled_pad_battery_spans_the_boxes) {
                                                                : oled_pad::kBattY + oled_pad::kBattH / 2][x]);
     }
     CHECK_EQ(last, oled_pad::kBattFill);
+}
+
+// PR #21: the Status glyph redraws only what changed (draw_changed with a
+// cache). After any sequence of controller states the frame must be pixel-
+// identical to a fresh full draw of the last state: sticks moving, clicking
+// while moving, triggers, every button byte, Edge on/off, forced redraws.
+TEST(oled_pad_partial_redraw_equals_full_draw) {
+    std::mt19937 rng(2121);
+    for (int run = 0; run < 40; run++) {
+        Frame f;
+        oled_pad::Cache cache;
+        Report r;
+        bool edge = run & 1;
+        for (int step = 0; step < 400; step++) {
+            const unsigned what = rng() % 10;
+            if (what < 4) {           // a stick axis, small or large move
+                const int a = (int) (rng() % 4);
+                r.d[a] = (rng() & 1) ? (uint8_t) rng() : (uint8_t) (r.d[a] + (int) (rng() % 7) - 3);
+            } else if (what < 6) {
+                r.d[4 + rng() % 2] = (uint8_t) rng();
+            } else if (what == 6) {
+                r.d[7] = (uint8_t) ((rng() & 0xF0) | (rng() % 9));
+            } else if (what == 7) {
+                r.d[8] ^= (uint8_t) (1u << (rng() % 8));  // incl. L3 / R3 clicks
+            } else if (what == 8) {
+                r.d[9] ^= (uint8_t) (0x10u << (rng() % 4));
+            } else if (rng() % 8 == 0) {
+                edge = !edge;
+            }
+            const bool force = rng() % 50 == 0;
+            oled_pad::draw_changed(f, r.d, edge, cache, force);
+            const Frame full = render(r, edge);
+            CHECK(std::memcmp(f.p, full.p, sizeof(f.p)) == 0);
+        }
+    }
 }

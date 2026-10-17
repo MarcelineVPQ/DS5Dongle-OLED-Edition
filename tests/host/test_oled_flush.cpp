@@ -69,3 +69,50 @@ TEST(oled_flush_same_bytes_as_before) {
         compare(fb);
     }
 }
+
+// PR #21: a partial flush (previous frame given) sends, after the page
+// command, exactly the changed rows, each with the same column address and
+// bytes as the full frame; an unchanged frame sends nothing. So the panel
+// ends up as if the full frame had been sent.
+namespace {
+struct RowChunks {
+    bool page_first = false;
+    std::vector<std::vector<uint16_t>> rows;  // 2 address bytes + 16 data bytes each
+};
+RowChunks split(const Wire &w) {
+    RowChunks c;
+    if (w.bytes.empty()) return c;
+    c.page_first = w.bytes[0] == 0xB0;
+    for (size_t i = 1; i + 18 <= w.bytes.size(); i += 18)
+        c.rows.emplace_back(w.bytes.begin() + (long) i, w.bytes.begin() + (long) i + 18);
+    CHECK_EQ((w.bytes.size() - 1) % 18, 0u);
+    return c;
+}
+}  // namespace
+
+TEST(oled_flush_partial_sends_changed_rows_only) {
+    std::mt19937 rng(21);
+    uint8_t prev[oled_flush::kFbBytes], fb[oled_flush::kFbBytes];
+    for (auto &b : prev) b = (uint8_t) rng();
+    std::memcpy(fb, prev, sizeof(fb));
+    Wire none;
+    oled_flush::stream_frame(fb, none, prev);
+    CHECK_EQ(none.transactions, 0);
+    for (int n = 0; n < 300; n++) {
+        std::memcpy(prev, fb, sizeof(fb));
+        const int changes = (int) (rng() % 12);
+        for (int k = 0; k < changes; k++) fb[rng() % oled_flush::kFbBytes] = (uint8_t) rng();
+        Wire full, part;
+        oled_flush::stream_frame(fb, full);
+        oled_flush::stream_frame(fb, part, prev);
+        const RowChunks f = split(full), p = split(part);
+        std::vector<std::vector<uint16_t>> want;
+        for (int j = 0; j < oled_flush::kH; j++)
+            if (std::memcmp(fb + j * oled_flush::kRowBytes, prev + j * oled_flush::kRowBytes,
+                            oled_flush::kRowBytes) != 0)
+                want.push_back(f.rows[(size_t) j]);
+        CHECK(p.rows == want);
+        if (!want.empty()) CHECK(p.page_first);
+        CHECK_EQ(part.transactions, want.empty() ? 0 : 1 + 2 * (int) want.size());
+    }
+}
