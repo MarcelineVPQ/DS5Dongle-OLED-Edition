@@ -44,6 +44,7 @@ add_executable(host_tests
         test_oled_toast.cpp
         test_settings_merge.cpp
         test_diag_rows.cpp
+        test_mic_session.cpp
         test_heap.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
