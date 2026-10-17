@@ -572,10 +572,16 @@ int main() {
     if (stdio_usb_connected()) sleep_ms(150);
 #endif
 
-    // error: LOGGED-OK — printf and main() returns: no radio, nothing can run; the board shows no OLED/USB activity, a hardware fault
+    // A failed radio start is retried by a reboot, not left hanging: main()
+    // returning (as before) stopped the board for good, before the watchdog
+    // was armed, until it was unplugged.
+    // error: LOGGED-OK — printf, then a reboot to retry: nothing can run without the radio; a fault that persists shows as a board that never comes up
     if (cyw43_arch_init()) {
-        printf("Failed to initialize CYW43\n");
-        return 1;
+        printf("Failed to initialize CYW43, rebooting\n");
+        sleep_ms(500);
+        watchdog_reboot(0, 0, 0);
+        // loop: NOT-WORTH — boot failure: waits the few µs for the watchdog reset
+        for (;;) tight_loop_contents();
     }
 #ifdef CYW43_WL_GPIO_SMPS_PIN
     // The Pico W's SMPS in PWM mode: no coil whine under light load (upstream 23a55da, #207).
