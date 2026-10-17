@@ -13,6 +13,7 @@
 #include "signal_screen.h"
 #include "oled_toast.h"
 #include "settings_merge.h"
+#include "settings_menu.h"
 #include "diag_rows.h"
 #include "audio.h"
 #include "config.h"
@@ -137,66 +138,12 @@ int current_screen = 0;
 constexpr int kLbModeHost = 8;
 constexpr int kNumLbModes = 9;
 
-// Each setting defines its display, storage and adjustment in one place.
-enum SetKind : uint8_t { SK_NUM, SK_BOOL, SK_POWER, SK_ACTION };
-enum SetFormat : uint8_t { SF_PLAIN, SF_OFF0, SF_GAME0, SF_PC0, SF_REDUCE };
-enum : uint8_t { SIF_WRAP = 1, SIF_FLOAT = 2, SIF_FLOAT10 = 4, SIF_GRID = 8 };
-enum : uint8_t { ACT_NONE, ACT_RESET, ACT_WIPE };
-struct SetItem {
-    const char *label, *unit, *hint;
-    const char* const* names;
-    SetKind kind;
-    SetFormat fmt;
-    uint8_t flags, act, off; // Config_body offset, or the mask for SK_POWER
-    int16_t lo, hi, step;
-};
-static const char* const kOnOff[] = {"off", "on"};
-static const char* const kDisabled[] = {"on", "off"};
-static const char* const kPoll[] = {"250Hz", "500Hz", "RT"};
-static const char* const kCtrl[] = {"DS5", "DSE", "Auto"};
-static const char* const kAutoHap[] = {"Off", "Fallback", "Mix", "Replace"};
-static const char* const kAHLp[] = {"80Hz", "160Hz", "250Hz", "400Hz"};
-static const char* const kSpkOut[] = {"Auto", "SPK", "Hset", "off"};
-static const char* const kMicIn[] = {"Auto", "Int", "Hset"};
-#define CFG_OFF(field) static_cast<uint8_t>(offsetof(Config_body, field))
-static const SetItem kSetItems[] = {
-    {"Hap Left", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT10, ACT_NONE, CFG_OFF(haptics_gain), 10, 60, 5},
-    {"Hap Right", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT10, ACT_NONE, CFG_OFF(haptics_gain_right), 10, 60, 5},
-    {"Spk Vol", "dB", nullptr, nullptr, SK_NUM, SF_PLAIN, SIF_FLOAT | SIF_GRID, ACT_NONE, CFG_OFF(speaker_volume), -100, 12, 5},
-    {"Inact", "min", nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(inactive_time), 10, 60, 5},
-    {"InactDC", nullptr, nullptr, kDisabled, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disable_inactive_disconnect), 0, 1, 1},
-    {"Pico LED", nullptr, nullptr, kDisabled, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disable_pico_led), 0, 1, 1},
-    {"Poll", nullptr, nullptr, kPoll, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(polling_rate_mode), 0, 2, 1},
-    {"AudBuf", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(audio_buffer_length), kAudioBufferMin, kAudioBufferMax, 4},
-    {"Ctrl", nullptr, nullptr, kCtrl, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(controller_mode), 0, 2, 1},
-    {"AutoHap", nullptr, nullptr, kAutoHap, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(auto_haptics_enable), 0, 3, 1},
-    {"AH Gain", "%", nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(auto_haptics_gain), 0, 200, 10},
-    {"AH LP", nullptr, nullptr, kAHLp, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(auto_haptics_lowpass), 0, 3, 1},
-    {"ScrDim", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_dim_timeout), 0, 250, 1},
-    {"ScrOff", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_off_timeout), 0, 250, 1},
-    {"BT Mic", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(bt_mic_enable), 0, 1, 1},
-    {"CtrlWake", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(controller_wakes_display), 0, 1, 1},
-    {"TrigEff", nullptr, nullptr, nullptr, SK_NUM, SF_REDUCE, 0, ACT_NONE, CFG_OFF(trigger_reduce), 0, 10, 1},
-    {"SpkBoost", nullptr, nullptr, nullptr, SK_NUM, SF_GAME0, 0, ACT_NONE, CFG_OFF(speaker_gain), 0, 7, 1},
-    {"VolLock", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(lock_volume), 0, 1, 1},
-    {"SPK Out", nullptr, nullptr, kSpkOut, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(speaker_select), 0, 3, 1},
-    {"Mic In", nullptr, nullptr, kMicIn, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(mic_select), 0, 2, 1},
-    {"Mic Lvl", nullptr, nullptr, nullptr, SK_NUM, SF_PC0, 0, ACT_NONE, CFG_OFF(mic_level), 0, kMicLevelMax, 4},
-    {"Echo Cancel", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(mic_echo_cancel), 0, 1, 1},
-    {"Sleep CtrlOff", nullptr, nullptr, nullptr, SK_POWER, SF_PLAIN, 0, ACT_NONE, POWER_SLEEP_CONTROLLER_OFF, 0, 1, 1},
-    {"PS Wakes PC", nullptr, nullptr, nullptr, SK_POWER, SF_PLAIN, 0, ACT_NONE, POWER_PS_WAKES_PC, 0, 1, 1},
-    {"Reset to defaults", nullptr, "Hold Tri 2s = RESET", nullptr, SK_ACTION, SF_PLAIN, 0, ACT_RESET, 0, 0, 0, 1},
-    {"Wipe all slots", nullptr, "Hold Tri 2s = WIPE", nullptr, SK_ACTION, SF_PLAIN, 0, ACT_WIPE, 0, 0, 0, 1},
-};
-#undef CFG_OFF
-constexpr int kNumSettingsItems = sizeof(kSetItems) / sizeof(kSetItems[0]);
+// The Settings screen's items, groups, buttons and drawing: src/settings_menu.h.
 Config_body settings_local{};
 uint8_t settings_power = POWER_FLAGS_DEFAULT;  // PC sleep options (Config::power_flags, not in the body)
-int settings_sel = 0;
+settings_menu::Nav settings_nav;
 bool settings_dirty = false;
 bool settings_init_done = false;
-uint8_t settings_last_dpad = 8;  // 8 = released
-uint8_t settings_last_face = 0;
 // Save / reset / wipe feedback: 2 s in the footer, not over the title.
 const char* settings_save_status = "";
 uint32_t settings_status_until_us = 0;
@@ -204,12 +151,9 @@ void settings_show_status(const char *text) {
     settings_save_status = text;
     settings_status_until_us = (uint32_t)time_us_32() + 2000000;
 }
-
-// Factory-reset hold-Triangle-2s state. Borrowed from zurce/DS5Dongle-OLED's
-// "hold to wipe" UX pattern (https://github.com/zurce/DS5Dongle-OLED).
-uint32_t settings_tri_press_us = 0;
-bool settings_reset_triggered = false;
-constexpr uint32_t kResetHoldUs = 2000000;
+// Reset and Wipe take a 2 s Triangle hold (settings_menu::kHoldUs), borrowed
+// from zurce/DS5Dongle-OLED's "hold to wipe" UX pattern
+// (https://github.com/zurce/DS5Dongle-OLED).
 
 uint8_t lb_r = 0, lb_g = 0, lb_b = 0;
 
@@ -1626,175 +1570,62 @@ __attribute__((noinline)) void render_screen_vu() {
 }
 
 void settings_adjust(int delta) {
-    const SetItem &it = kSetItems[settings_sel];
     settings_dirty = true;
-    // error: NOT-WORTH — Reset/Wipe have no editable value; Triangle runs the action
-    if (it.kind == SK_ACTION) return;
-    uint8_t *p = it.kind == SK_POWER ? &settings_power
-        : reinterpret_cast<uint8_t*>(&settings_local) + it.off;
-    if (it.kind == SK_BOOL || it.kind == SK_POWER) {
-        *p ^= it.kind == SK_POWER ? it.off : 1;
-        return;
-    }
-    auto adjust = [&](float current) {
-        int v = it.flags & SIF_FLOAT10 ? static_cast<int>(current * 10.0f + 0.5f) : static_cast<int>(current);
-        if (it.flags & SIF_GRID) {
-            const auto floor_grid = [&](int x) { return x >= 0 ? x / it.step * it.step : -((-x + it.step - 1) / it.step * it.step); };
-            const auto ceil_grid = [&](int x) { return -floor_grid(-x); };
-            // loop: NOT-WORTH — abs(delta) steps, one on each D-pad adjustment
-            for (int i = 0; i < (delta < 0 ? -delta : delta); ++i)
-                v = delta > 0 ? floor_grid(v) + it.step : ceil_grid(v) - it.step;
-        } else v += delta * it.step;
-        if (it.flags & SIF_WRAP) {
-            if (v < it.lo) v = it.hi;
-            if (v > it.hi) v = it.lo;
-        } else {
-            if (v < it.lo) v = it.lo;
-            if (v > it.hi) v = it.hi;
-        }
-        return it.flags & SIF_FLOAT10 ? v / 10.0f : static_cast<float>(v);
-    };
-    if (it.flags & (SIF_FLOAT | SIF_FLOAT10)) {
-        float value;
-        memcpy(&value, p, sizeof(value)); // packed floats need not be aligned
-        value = adjust(value);
-        memcpy(p, &value, sizeof(value));
-    } else {
-        *p = static_cast<uint8_t>(adjust(*p));
-    }
+    settings_menu::adjust(settings_menu::kItems[settings_nav.item()], settings_local, settings_power, delta);
 }
 
 // The body a Triangle-save writes: the live config with only the fields the
 // Settings screen shows taken from its copy (src/settings_merge.h).
 static Config_body settings_to_save() {
-    settings_merge::Field fields[kNumSettingsItems];
-    size_t n = 0;
-    // loop: NOT-WORTH — ~25 Settings items, once per Triangle save
-    for (const SetItem &it : kSetItems) {
-        if (it.kind == SK_POWER || it.kind == SK_ACTION) continue;  // not body fields
-        const bool is_float = (it.flags & (SIF_FLOAT | SIF_FLOAT10)) != 0;
-        fields[n++] = {it.off, static_cast<uint8_t>(is_float ? sizeof(float) : 1)};
-    }
+    settings_merge::Field fields[settings_menu::kNumItems];
+    const size_t n = settings_menu::merge_fields(fields);
     return settings_merge::apply(get_config(), settings_local, fields, n);
 }
 
 void settings_handle_input() {
     // Controller or the app's virtual buttons (g_in: released with neither).
-    const uint8_t dpad = (uint8_t)(g_in.b7 & 0x0F);
-    const uint8_t face = (uint8_t)(g_in.b7 & 0xF0);
-
-    // Edge-trigger on D-pad direction CHANGE; only pure N/E/S/W to avoid diagonals
-    if (dpad != settings_last_dpad && dpad != 8) {
-        if      (dpad == 0) settings_sel = (settings_sel - 1 + kNumSettingsItems) % kNumSettingsItems;
-        else if (dpad == 4) settings_sel = (settings_sel + 1) % kNumSettingsItems;
-        else if (dpad == 6) settings_adjust(-1);
-        else if (dpad == 2) settings_adjust(+1);
-    }
-    settings_last_dpad = dpad;
-
-    // Triangle handling — Reset and Wipe-slots items both require a 2 s hold;
-    // every other item saves edits on a normal short press.
-    const bool tri_now = (face & 0x80) != 0;
-    const bool tri_prev = (settings_last_face & 0x80) != 0;
-    const uint8_t action = kSetItems[settings_sel].act;
-    const bool is_hold_item = action != ACT_NONE;
-    if (tri_now && !tri_prev) {
-        settings_tri_press_us = (uint32_t)time_us_32();
-        settings_reset_triggered = false;
-    }
-    if (is_hold_item && tri_now && !settings_reset_triggered
-        && ((uint32_t)time_us_32() - settings_tri_press_us) >= kResetHoldUs) {
-        settings_reset_triggered = true;
-        if (action == ACT_RESET) {
-            // Pairings are kept and the radio stays on its slot, as 0xF6 0x09.
-            config_default_keep_slot((uint8_t)bt_get_slot());
-            // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
-            if (config_save()) {
-                settings_local = get_config();
-                bright_idx = settings_local.screen_brightness;
-                settings_power = config_power_flags();
-                lightbar_load_config(); // refresh RAM lightbar state (no reboot here)
-                settings_dirty = false;
-                settings_show_status("Reset!");
-            } else {
-                settings_show_status("Reset FAIL");
-            }
-        } else {
-            // error: SHOWN — OLED footer "Wipe FAIL" (fixed in this pass: always said "Slots wiped!")
-            settings_show_status(bt_wipe_all_slots() ? "Slots wiped!" : "Wipe FAIL");
-        }
-    }
-    if (!tri_now && tri_prev) {
-        if (!is_hold_item && !settings_reset_triggered) {
-            // Only this screen's fields from its copy: the lightbar, the
-            // slot, brightness and the narrator keep their live values.
-            set_config(settings_to_save());
+    const settings_menu::Step s = settings_nav.step((uint8_t)(g_in.b7 & 0x0F), (uint8_t)(g_in.b7 & 0xF0),
+                                                    (uint32_t)time_us_32());
+    if (s.adjust) settings_adjust(s.adjust);
+    if (s.action == settings_menu::kReset) {
+        // Pairings are kept and the radio stays on its slot, as 0xF6 0x09.
+        config_default_keep_slot((uint8_t)bt_get_slot());
+        // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
+        if (config_save()) {
             settings_local = get_config();
-            bright_idx = get_config().screen_brightness;
-            config_set_power_flags(settings_power);
-            // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
-            const bool saved = config_save();
-            settings_show_status(saved ? "Saved!" : "Save FAIL");
-            if (saved) settings_dirty = false;  // a failed save keeps the (*) marker
-        }
-        settings_reset_triggered = false;
-    }
-    settings_last_face = face;
-}
-
-__attribute__((noinline)) void format_settings_item(int idx, char* line, size_t n) {
-    const SetItem &it = kSetItems[idx];
-    const char *cur = idx == settings_sel ? ">" : " ";
-    if (it.kind == SK_ACTION) { snprintf(line, n, "%s %s", cur, it.label); return; }
-    const uint8_t *p = reinterpret_cast<const uint8_t*>(&settings_local) + it.off;
-    char value[16];
-    if (it.flags & SIF_FLOAT10) {
-        float f; memcpy(&f, p, sizeof(f));
-        const int g = static_cast<int>(f * 10.0f + 0.5f);
-        snprintf(value, sizeof(value), "%d.%dx", g / 10, g % 10);
-    } else if (it.flags & SIF_FLOAT) {
-        float f; memcpy(&f, p, sizeof(f));
-        snprintf(value, sizeof(value), "%+d%s", static_cast<int>(f), it.unit ? it.unit : "");
-    } else {
-        const uint8_t v = it.kind == SK_POWER ? (settings_power & it.off) != 0 : *p;
-        if (it.names || it.kind == SK_BOOL || it.kind == SK_POWER) {
-            const char* const* names = it.names ? it.names : kOnOff;
-            const unsigned index = it.kind == SK_BOOL || it.kind == SK_POWER ? v != 0 : v % (it.hi + 1);
-            snprintf(value, sizeof(value), "%s", names[index]);
-        } else if (v == 0 && it.fmt != SF_PLAIN) {
-            snprintf(value, sizeof(value), "%s", it.fmt == SF_OFF0 ? "off" : it.fmt == SF_PC0 ? "PC" : "game");
+            bright_idx = settings_local.screen_brightness;
+            settings_power = config_power_flags();
+            lightbar_load_config(); // refresh RAM lightbar state (no reboot here)
+            settings_dirty = false;
+            settings_show_status("Reset!");
         } else {
-            snprintf(value, sizeof(value), "%s%u%s", it.fmt == SF_REDUCE ? "-" : "", v, it.unit ? it.unit : "");
+            settings_show_status("Reset FAIL");
         }
+    } else if (s.action == settings_menu::kWipe) {
+        // error: SHOWN — OLED footer "Wipe FAIL" (fixed in this pass: always said "Slots wiped!")
+        settings_show_status(bt_wipe_all_slots() ? "Slots wiped!" : "Wipe FAIL");
+    } else if (s.action == settings_menu::kSave) {
+        // Only this screen's fields from its copy: the lightbar, the
+        // slot, brightness and the narrator keep their live values.
+        set_config(settings_to_save());
+        settings_local = get_config();
+        bright_idx = get_config().screen_brightness;
+        config_set_power_flags(settings_power);
+        // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
+        const bool saved = config_save();
+        settings_show_status(saved ? "Saved!" : "Save FAIL");
+        if (saved) settings_dirty = false;  // a failed save keeps the (*) marker
     }
-    snprintf(line, n, "%s %s %s", cur, it.label, value);
 }
 
 __attribute__((noinline)) void render_screen_settings() {
     fb_clear();
-    char buf[24];
-    snprintf(buf, sizeof(buf), "Settings %s", settings_dirty ? "(*)" : "   ");
-    draw_text(kContentX, 0, buf);
-
-    constexpr int kVisible = 5;
-    int top = 0;
-    if (settings_sel >= kVisible) top = settings_sel - kVisible + 1;
-    char line[28];
-    // loop: HOT-PATH-OK — kVisible = 5 settings rows, settings screen at 10 Hz
-    for (int i = 0; i < kVisible && top + i < kNumSettingsItems; i++) {
-        format_settings_item(top + i, line, sizeof(line));
-        draw_text(kContentX, 9 + i * 9, line);
-    }
-
     const bool status_live = settings_save_status[0]
         && (int32_t)(time_us_32() - settings_status_until_us) < 0;
-    if (status_live) {
-        draw_text(kContentX, 56, settings_save_status);
-    } else if (kSetItems[settings_sel].hint) {
-        draw_text(kContentX, 56, kSetItems[settings_sel].hint);
-    } else {
-        draw_text(kContentX, 56, "DP nav/adj  Tri=save");
-    }
+    const settings_menu::View v{settings_local, settings_power, get_config(), config_power_flags(),
+                                settings_dirty, status_live ? settings_save_status : nullptr};
+    FbCanvas c;
+    settings_menu::draw(c, settings_nav, v);
     flush_fb();
 }
 

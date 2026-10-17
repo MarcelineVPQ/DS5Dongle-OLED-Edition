@@ -43,6 +43,7 @@ add_executable(host_tests
         test_pair_prompt.cpp
         test_oled_toast.cpp
         test_settings_merge.cpp
+        test_settings_menu.cpp
         test_diag_rows.cpp
         test_mic_session.cpp
         test_config_fixtures.cpp
