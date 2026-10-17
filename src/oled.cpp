@@ -12,6 +12,7 @@
 #include "pair_prompt.h"
 #include "signal_screen.h"
 #include "oled_toast.h"
+#include "settings_merge.h"
 #include "audio.h"
 #include "config.h"
 #include "state_mgr.h"
@@ -1673,6 +1674,20 @@ void settings_adjust(int delta) {
     }
 }
 
+// The body a Triangle-save writes: the live config with only the fields the
+// Settings screen shows taken from its copy (src/settings_merge.h).
+static Config_body settings_to_save() {
+    settings_merge::Field fields[kNumSettingsItems];
+    size_t n = 0;
+    // loop: NOT-WORTH — ~25 Settings items, once per Triangle save
+    for (const SetItem &it : kSetItems) {
+        if (it.kind == SK_POWER || it.kind == SK_ACTION) continue;  // not body fields
+        const bool is_float = (it.flags & (SIF_FLOAT | SIF_FLOAT10)) != 0;
+        fields[n++] = {it.off, static_cast<uint8_t>(is_float ? sizeof(float) : 1)};
+    }
+    return settings_merge::apply(get_config(), settings_local, fields, n);
+}
+
 void settings_handle_input() {
     // Controller or the app's virtual buttons (g_in: released with neither).
     const uint8_t dpad = (uint8_t)(g_in.b7 & 0x0F);
@@ -1701,7 +1716,8 @@ void settings_handle_input() {
         && ((uint32_t)time_us_32() - settings_tri_press_us) >= kResetHoldUs) {
         settings_reset_triggered = true;
         if (action == ACT_RESET) {
-            config_default();
+            // Pairings are kept and the radio stays on its slot, as 0xF6 0x09.
+            config_default_keep_slot((uint8_t)bt_get_slot());
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
             if (config_save()) {
                 settings_local = get_config();
@@ -1720,7 +1736,10 @@ void settings_handle_input() {
     }
     if (!tri_now && tri_prev) {
         if (!is_hold_item && !settings_reset_triggered) {
-            set_config(settings_local);
+            // Only this screen's fields from its copy: the lightbar, the
+            // slot, brightness and the narrator keep their live values.
+            set_config(settings_to_save());
+            settings_local = get_config();
             bright_idx = get_config().screen_brightness;
             config_set_power_flags(settings_power);
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"

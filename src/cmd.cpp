@@ -273,9 +273,8 @@ void cmd_task() {
         case 0x09: {
             // Defaults, but the active slot stays (pairings are kept, and the
             // radio is on it); applied like a host config write (Pico LED).
-            config_default();
-            Config_body body = get_config();
-            body.current_slot = (uint8_t) bt_get_slot();
+            config_default_keep_slot((uint8_t) bt_get_slot());
+            const Config_body body = get_config();
             set_config((const uint8_t *) &body, sizeof(body));
             // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte, the app's command error (save failed)
             result = config_save() ? CMD_RESULT_OK : CMD_RESULT_FAILED;

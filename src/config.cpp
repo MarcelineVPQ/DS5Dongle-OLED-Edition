@@ -200,6 +200,12 @@ void config_default() {
     config_valid();
 }
 
+void config_default_keep_slot(uint8_t slot) {
+    config_default();
+    config.body.current_slot = slot;
+    config_valid();  // an out-of-range slot reads as 0, as on load
+}
+
 static bool write_config(Config &con) {
     con.crc32 = calc_config_crc(con);
     alignas(4) uint8_t page[FLASH_PAGE_SIZE];
