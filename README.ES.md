@@ -499,7 +499,7 @@ Los dos botones físicos del módulo OLED son **solo de navegación**:
 |---|---|
 | **KEY0** pulsación corta | Pantalla siguiente (avanzar) |
 | **KEY1** pulsación corta | Pantalla anterior (retroceder) |
-| **KEY1** pulsación larga (≥ 1,5 s) | Cambia el nivel de brillo de la OLED |
+| **KEY1** mantenido más de 1,5 s | Cambia el brillo una vez mientras se mantiene; al soltar no vuelve atrás |
 | **KEY0 + KEY1** mantenidos a la vez ≥ 1 s | `watchdog_reboot`: reinicio por software sin desconectar el USB |
 
 Los cambios de estado de cada pantalla (cambiar el efecto de gatillo, cambiar el modo de la barra luminosa, navegar por Settings, cambiar de ranura, guardar colores en las ranuras de favoritos) se hacen todos con los **botones del mando DualSense**, nunca con KEY0 / KEY1, así que los dos botones físicos siempre significan lo mismo en todas las pantallas. Consulta la sección de cada pantalla más arriba para saber qué botón del mando hace qué.

@@ -499,7 +499,7 @@ Les deux boutons physiques du module OLED servent **uniquement à la navigation*
 |---|---|
 | **KEY0** appui court | Écran suivant (avancer) |
 | **KEY1** appui court | Écran précédent (reculer) |
-| **KEY1** appui long (≥ 1,5 s) | Changer le niveau de luminosité de l'OLED |
+| **KEY1** maintenu plus de 1,5 s | Change la luminosité une fois pendant l'appui ; relâcher ne revient pas en arrière |
 | **KEY0 + KEY1** maintenus ensemble ≥ 1 s | `watchdog_reboot` : redémarrage logiciel sans débrancher l'USB |
 
 Les changements d'état propres à chaque écran (changer le préréglage des gâchettes, changer le mode de la barre lumineuse, naviguer dans Settings, changer d'emplacement, enregistrer des couleurs dans les emplacements favoris) se font tous avec les **touches de la manette DualSense**, jamais avec KEY0 / KEY1 ; les deux boutons physiques veulent donc toujours dire la même chose sur chaque écran. Voir la section de chaque écran plus haut pour savoir quelle touche de la manette fait quoi.

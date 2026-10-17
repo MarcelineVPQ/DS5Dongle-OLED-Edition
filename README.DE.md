@@ -499,7 +499,7 @@ Die zwei physischen Tasten des OLED-Add-ons dienen **ausschließlich der Navigat
 |---|---|
 | **KEY0** kurz drücken | Nächster Bildschirm (vorwärts) |
 | **KEY1** kurz drücken | Vorheriger Bildschirm (rückwärts) |
-| **KEY1** lang drücken (≥ 1,5 s) | Helligkeitsstufe des OLEDs durchschalten |
+| **KEY1** länger als 1,5 s gedrückt | Helligkeit wechselt einmal, noch während gedrückt; Loslassen geht nicht zurück |
 | **KEY0 + KEY1** gemeinsam ≥ 1 s halten | `watchdog_reboot` — Soft-Reboot ohne USB-Abziehen |
 
 Zustandsänderungen auf einzelnen Bildschirmen (Trigger-Vorlage wechseln, Modus der Leuchtleiste wechseln, in Settings navigieren, Plätze wechseln, Farben in Favoritenplätzen speichern) passieren alle über die **Tasten des DualSense-Controllers** — nie über KEY0 / KEY1 —, sodass die zwei physischen Tasten auf jedem Bildschirm immer dasselbe bedeuten. Welche Controller-Taste was tut, steht oben im Abschnitt des jeweiligen Bildschirms.
