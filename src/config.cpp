@@ -5,6 +5,7 @@
 #include "config.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 
 #include "utils.h"
@@ -13,6 +14,7 @@
 #include "hardware/flash.h"
 #include "flash_safe.h"
 #include "flash_layout.h"
+#include "pico/btstack_flash_bank.h"
 #include "hardware/sync.h"
 #include "pico/cyw43_arch.h"
 
@@ -167,24 +169,71 @@ bool config_unsaved() {
            saved->power_flags != config.power_flags;
 }
 
-void config_load() {
-    memcpy(&config, flash_config(), sizeof(Config));
+// A saved page is intact when its magic is ours and its CRC matches the body
+// its writer saved: `size` bytes (a body saved by older firmware is shorter,
+// its CRC covers only its own length, and the flash after it reads 0xFF).
+static bool config_page_intact(const Config *page) {
+    // error: NOT-WORTH — nothing; reads which copy to start from (blank or another firmware's sector), not a failure
+    if (page->magic != CONFIG_MAGIC) return false;
+    // error: LOGGED-OK — the caller prints it and loads defaults (shown as unsaved settings in the app); a size past the page can't be ours
+    if (page->size == 0 || page->size > FLASH_PAGE_SIZE - offsetof(Config, body)) return false;
+    // error: LOGGED-OK — the caller prints a CRC mismatch and loads defaults (shown as unsaved settings in the app)
+    return page->crc32 == crc32(reinterpret_cast<const uint8_t *>(page) + offsetof(Config, body), page->size);
+}
 
-    // First boot after the sector move: carry saved settings over from the
-    // old last-sector location if they're intact (magic + CRC), then persist.
-    // error: LOGGED-OK — printf in config_valid; first boot / erased sector, defaults are the right answer; shown as unsaved settings in the app
-    if (config.magic != CONFIG_MAGIC) {
-        Config legacy{};
-        memcpy(&legacy, reinterpret_cast<const Config *>(XIP_BASE + LEGACY_CONFIG_FLASH_OFFSET), sizeof(Config));
+// The sector config used before 31055a1 (the last one). On the Pico W that is
+// inside BTstack's link-key bank (the last two sectors there), so it's never
+// ours to erase; on the Pico 2 W the bank sits below it.
+static constexpr bool kLegacyOutsideBank =
+    LEGACY_CONFIG_FLASH_OFFSET >= PICO_FLASH_BANK_STORAGE_OFFSET + PICO_FLASH_BANK_TOTAL_SIZE ||
+    LEGACY_CONFIG_FLASH_OFFSET + FLASH_SECTOR_SIZE <= PICO_FLASH_BANK_STORAGE_OFFSET;
+
+static const Config *legacy_config() {
+    return reinterpret_cast<const Config *>(XIP_BASE + LEGACY_CONFIG_FLASH_OFFSET);
+}
+
+// Erase the legacy copy once the new sector holds a verified one, so a later
+// bad new copy (power lost during a save) can't bring the old settings back.
+static void invalidate_legacy_config() {
+    // error: NOT-WORTH — nothing; on the Pico W the legacy sector is BTstack's, never erased (compile-time)
+    if (!kLegacyOutsideBank) return;
+    alignas(4) uint8_t blank[FLASH_PAGE_SIZE];
+    memset(blank, 0xff, sizeof(blank));
+    // error: LOGGED-OK — printf; the legacy copy stays intact and the next boot erases it again (the new copy is the one loaded either way)
+    if (!flash_sector_write(LEGACY_CONFIG_FLASH_OFFSET, blank)) printf("[Config] Legacy sector erase skipped\n");
+}
+
+void config_load() {
+    // error: LOGGED-OK — checked below: a bad copy prints and loads defaults (or migrates), shown as unsaved settings in the app
+    const bool intact = config_page_intact(flash_config());
+    memcpy(&config, flash_config(), sizeof(Config));
+    // error: NOT-WORTH — nothing; a bad or erased legacy copy is simply not migrated (the usual case)
+    const bool legacy_intact = config_page_intact(legacy_config());
+
+    if (!intact) {
+        // error: LOGGED-OK — printf; a torn or corrupt save loads defaults (below), shown as unsaved settings in the app
+        if (config.magic == CONFIG_MAGIC) printf("[Config] Saved config fails its CRC\n");
+        // First boot after the sector move: carry saved settings over from the
+        // old last-sector location if they're intact (magic + CRC). The legacy
+        // copy is erased only after the new one is written and verified, so a
+        // power loss at any point leaves one intact copy: an interrupted save
+        // migrates again on the next boot.
         // error: LOGGED-OK — printf on migration; a bad legacy copy is ignored (defaults, shown as unsaved settings)
-        if (legacy.magic == CONFIG_MAGIC && legacy.crc32 == calc_config_crc(legacy)) {
+        if (legacy_intact) {
             printf("[Config] Migrating config from the legacy sector\n");
-            config = legacy;
+            memcpy(&config, legacy_config(), sizeof(Config));
             config_valid();
-            // error: LOGGED-OK — printf; boot-time init save of the migrated settings: the RAM copy works now and the next boot retries the save
-            config_save();
+            // error: LOGGED-OK — printf; boot-time init save of the migrated settings: the RAM copy works now and the next boot retries the migration
+            if (config_save()) invalidate_legacy_config();
             return;
         }
+        // Blank, another firmware's or a corrupt sector: every setting at its
+        // default (as erased flash), not whatever in-range bytes it holds.
+        memset(&config.body, 0xFF, sizeof(config.body));
+        config.power_flags = 0xFF;
+    } else if (legacy_intact) {
+        // A migration that lost power after the new copy was saved: finish it.
+        invalidate_legacy_config();
     }
 
     config_valid();

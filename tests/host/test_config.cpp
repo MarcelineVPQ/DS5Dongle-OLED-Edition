@@ -10,6 +10,17 @@
 #include "flash_layout.h"
 #include "hardware/flash.h"
 #include "test.h"
+#include "utils.h"
+
+namespace {
+// What the firmware that wrote a page stored: the CRC over its own body
+// length (`size`), which config_load() checks.
+void reseal_config_page(uint16_t size) {
+    uint8_t *raw = g_fake_flash + CONFIG_FLASH_OFFSET;
+    const uint32_t crc = crc32(raw + offsetof(Config, body), size);
+    std::memcpy(raw + offsetof(Config, crc32), &crc, sizeof(crc));
+}
+}  // namespace
 
 TEST(config_erased_flash_gives_documented_defaults) {
     fake_flash_erase_all();
@@ -54,6 +65,7 @@ TEST(config_older_body_keeps_settings_and_defaults_the_new_fields) {
     std::memset(raw + offsetof(Config, body) + kConfigBodyV16, 0xFF, sizeof(Config_body) - kConfigBodyV16);
     page.size = kConfigBodyV16;
     std::memcpy(raw + offsetof(Config, size), &page.size, sizeof(page.size));
+    reseal_config_page(kConfigBodyV16);
     config_default();
     config_load();
     const Config_body &c = get_config();
@@ -115,6 +127,7 @@ TEST(config_1_13_body_keeps_settings_and_defaults_the_mic_level) {
     raw[offsetof(Config, body) + offsetof(Config_body, mic_level)] = 0xFF;
     const uint16_t size = 49;
     std::memcpy(raw + offsetof(Config, size), &size, sizeof(size));
+    reseal_config_page(size);
     config_default();
     config_load();
     CHECK_EQ(get_config().trigger_reduce, 3);
@@ -137,6 +150,7 @@ TEST(config_1_16_body_keeps_the_mic_level_and_turns_echo_cancel_on) {
     raw[offsetof(Config, body) + offsetof(Config_body, mic_echo_cancel)] = 0xFF;
     const uint16_t size = 50;
     std::memcpy(raw + offsetof(Config, size), &size, sizeof(size));
+    reseal_config_page(size);
     config_default();
     config_load();
     CHECK_EQ(get_config().mic_level, 20);
@@ -264,6 +278,100 @@ TEST(config_migrates_legacy_sector) {
     CHECK(!config_unsaved());  // written to the new sector
 }
 
+// Load checks the CRC: a corrupt or torn save loads defaults, not whatever
+// in-range bytes it holds.
+TEST(config_load_rejects_a_bad_crc) {
+    fake_flash_erase_all();
+    g_fake_flash_fail = false;
+    config_load();
+    Config_body b = get_config();
+    b.inactive_time = 45;
+    set_config(b);
+    CHECK(config_save());
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 45);  // intact
+    // One flipped byte in the body (still in range for config_valid).
+    g_fake_flash[CONFIG_FLASH_OFFSET + offsetof(Config, body) + offsetof(Config_body, inactive_time)] = 44;
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 30);  // the default, not 44
+    CHECK(config_unsaved());
+    // A size past the page can't be one of ours.
+    b.inactive_time = 45;
+    set_config(b);
+    CHECK(config_save());
+    const uint16_t huge = 0xFFF0;
+    std::memcpy(g_fake_flash + CONFIG_FLASH_OFFSET + offsetof(Config, size), &huge, sizeof(huge));
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 30);
+}
+
+namespace {
+// A config saved before the sector move: at the legacy (last) sector only.
+void legacy_only(uint8_t inactive_time) {
+    fake_flash_erase_all();
+    g_fake_flash_fail = false;
+    config_load();
+    Config_body b = get_config();
+    b.inactive_time = inactive_time;
+    set_config(b);
+    CHECK(config_save());
+    std::memcpy(g_fake_flash + LEGACY_CONFIG_FLASH_OFFSET, g_fake_flash + CONFIG_FLASH_OFFSET, FLASH_PAGE_SIZE);
+    std::memset(g_fake_flash + CONFIG_FLASH_OFFSET, 0xFF, FLASH_SECTOR_SIZE);
+    config_default();
+}
+bool legacy_erased() {
+    // loop: NOT-WORTH — host test, one sector
+    for (uint32_t i = 0; i < FLASH_SECTOR_SIZE; i++)
+        if (g_fake_flash[LEGACY_CONFIG_FLASH_OFFSET + i] != 0xFF) return false;
+    return true;
+}
+}  // namespace
+
+// After a migration the legacy copy is erased, so a later bad save in the new
+// sector loads defaults instead of bringing the years-old settings back.
+TEST(config_migration_erases_the_legacy_copy) {
+    legacy_only(12);
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 12);
+    CHECK(!config_unsaved());
+    CHECK(legacy_erased());
+    // Power lost mid-save later: the new sector erased, nothing programmed.
+    std::memset(g_fake_flash + CONFIG_FLASH_OFFSET, 0xFF, FLASH_SECTOR_SIZE);
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 30);  // defaults, not the legacy 12
+}
+
+// Power-loss order: the legacy copy goes only after the new one is written
+// and verified. A failed migration save keeps it, and the next boot migrates.
+TEST(config_migration_keeps_the_legacy_copy_until_the_new_one_is_saved) {
+    legacy_only(12);
+    g_fake_flash_fail = true;  // the save fails (as a power loss before it)
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 12);  // in RAM for this boot
+    CHECK(!legacy_erased());
+    g_fake_flash_fail = false;
+    config_default();
+    config_load();  // next boot
+    CHECK_EQ(get_config().inactive_time, 12);
+    CHECK(!config_unsaved());
+    CHECK(legacy_erased());
+}
+
+// Power lost after the new copy was saved but before the legacy erase: both
+// are intact; the next boot loads the new one and finishes the erase.
+TEST(config_load_finishes_an_interrupted_migration) {
+    legacy_only(12);
+    // The new sector got the migrated copy, then a later save changed it.
+    Config_body b = get_config();
+    b.inactive_time = 20;
+    set_config(b);
+    CHECK(config_save());
+    config_default();
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 20);  // the new copy wins
+    CHECK(legacy_erased());
+}
+
 // PC sleep options (Config::power_flags, after the body, protocol 1.14).
 TEST(config_power_flags_defaults_and_round_trip) {
     fake_flash_erase_all();
@@ -335,6 +443,7 @@ TEST(config_audio_buffer_floor) {
     g_fake_flash_fail = false;
     CHECK(config_save());
     g_fake_flash[CONFIG_FLASH_OFFSET + offsetof(Config, body) + offsetof(Config_body, audio_buffer_length)] = 16;
+    reseal_config_page(sizeof(Config_body));
     config_default();
     config_load();
     CHECK_EQ(get_config().audio_buffer_length, 32);
