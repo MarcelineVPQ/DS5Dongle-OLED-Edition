@@ -1,34 +1,34 @@
 {
   "channel": "dev",
   "app": {
-    "version": "0.9.5-dev.16",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.16-oled-edition",
-    "notes": "### Fixed\n\n- **The signal shows \"—\" when there is no reading, not Excellent.** Bluetooth's signal reading is dB from the ideal range, where 0 is ideal, and the Pico 2 W page's Signal graph showed a missing reading as 0, so right after connecting (or when a reading failed) it said 0 dB, Excellent. It now says \"—\" with no rating and leaves a gap in the graph. With firmware 0.9.5-dev.16 the board also tells the app when it has no reading; the OLED's BT Signal screen now uses the same dB scale and the same words as the app (Excellent / Good / Fair / Weak).",
+    "version": "0.9.5-dev.17",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.17-oled-edition",
+    "notes": "### Changed\n\n- Bundles firmware 0.9.5-dev.17: the controller's speaker plays both channels; audio buffer minimum 32.",
     "platforms": {
       "linux": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.16-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.16-linux-x86_64.AppImage",
-        "size": 196659358,
-        "sha256": "0fdfe66badd1395c4eca91bdd09784c22788acbf41b31af67c5b6e18eec6367a"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-linux-x86_64.AppImage",
+        "size": 196659371,
+        "sha256": "646f1512774f47ef89a222b9dc547bb74d3a8aa35bab61327fded8e7df28d8db"
       },
       "windows": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.16-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.16-win-x64-setup.exe",
-        "size": 145033182,
-        "sha256": "76a227b194efbe086e6129a787c1c68d52ed515acc4daec809594bb573e3ac11"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-win-x64-setup.exe",
+        "size": 145032410,
+        "sha256": "36f544082d04eb0741491ed525aaee772d6e45336b1967625455067c98618a33"
       },
       "macos": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.16-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.16-mac-universal.zip",
-        "size": 286049694,
-        "sha256": "cd6d5e4284ef0954d6d930d4bb36e1cff8c6ae373876e1cc3757f76ff5211b27"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-mac-universal.zip",
+        "size": 286050975,
+        "sha256": "0be6c1ed1471a84a5924b966357647eb4e645bc09e52e59cd1233f567058d8cd"
       }
     }
   },
   "firmware": {
-    "version": "v0.9.5-dev.16-oled-edition",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.16-oled-edition",
+    "version": "v0.9.5-dev.17-oled-edition",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.17-oled-edition",
     "uf2": {
-      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.16-oled-edition/ds5-bridge-oled-v0.9.5-dev.16-oled-edition.uf2",
-      "size": 2824704,
-      "sha256": "20184cc97ae6329e8cf1fca50db864c9fbc6e37b751e179784f5bd56d2e2e8bb"
+      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/ds5-bridge-oled-v0.9.5-dev.17-oled-edition.uf2",
+      "size": 2825216,
+      "sha256": "ef7b6299094147f472b0e7e5d44d77f225959f1a7f130a4a975cf0b948365e12"
     }
   },
   "proton": {
