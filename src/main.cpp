@@ -374,11 +374,15 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
 
     // lifetime: NOT-WORTH — per host GET feature report (the PC asks a few times per connect)
     std::vector<uint8_t> feature_data = get_feature_data(report_id, reqlen);
-    if (!feature_data.empty()) {
-        memcpy(buffer, feature_data.data() + 1, feature_data.size() - 1);
-    }
-
-    return feature_data.empty() ? 0 : feature_data.size() - 1;
+    // error: NOT-WORTH — nothing cached yet: the reply is only the report id, the PC asks again
+    if (feature_data.empty()) return 0;
+    // The data after the id, never more than the host asked for: buffer is
+    // TinyUSB's control buffer and holds reqlen bytes (a cached reply can be
+    // longer than the GET, e.g. a 64-byte report read with a short wLength).
+    uint16_t n = static_cast<uint16_t>(feature_data.size() - 1);
+    if (n > reqlen) n = reqlen;
+    memcpy(buffer, feature_data.data() + 1, n);
+    return n;
 }
 
 // Unplug / host reset: no SET_INTERFACE alt 0 arrives, so close the mic here.
