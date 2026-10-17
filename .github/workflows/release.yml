@@ -302,9 +302,18 @@ jobs:
           {
             echo "**Download the app for your system below.** It includes this firmware and installs it on your dongle with one click (new dongles too)."
             echo
+            # Windows 11 counts as tested for a stable release, and for a
+            # development build only when its annotated tag says so: a line
+            # "Windows-checked: yes" (the Windows VM check ran on this build).
+            win_checked=true
             if [ "$dev" = true ]; then
-              # A development build's own checks run on Linux; the Windows VM
-              # check is part of a stable release, so don't claim it here.
+              win_checked=false
+              ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.type + " " + .object.sha' || true)"
+              if [ "${ref%% *}" = tag ] && gh api "repos/$GITHUB_REPOSITORY/git/tags/${ref#* }" --jq .message | grep -qi '^Windows-checked: yes'; then
+                win_checked=true
+              fi
+            fi
+            if [ "$win_checked" = false ]; then
               echo "Checked on Linux (the AppImage) before release. The Windows 11 installer (no admin rights needed) and the macOS build come from the same workflow and pass the same automated tests on Linux, Windows and macOS; **the macOS build hasn't been tried on a Mac yet**. Reports welcome. The Games page is on Linux and Windows."
             else
               echo "Tested on Linux (the AppImage) and Windows 11 (the installer, which needs no admin rights). **The macOS build is untested**: it comes from the same workflow but hasn't been tried on a Mac yet. Reports welcome. The Games page is on Linux and Windows."
