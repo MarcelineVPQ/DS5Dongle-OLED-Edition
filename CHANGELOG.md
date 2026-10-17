@@ -16,6 +16,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Changed
 - **`scripts/set_ds5.py --rssi`** says dB relative to the ideal range (0 = ideal) instead of dBm and prints `unknown` when the board has no reading. The READMEs say the same in all 7 languages.
 
+### Documentation
+
+- **The READMEs show the real OLED.** The screen pictures in all 7 READMEs are now pixel-exact captures read from a board over the vendor interface's `0xEF` mirror (×4, nearest neighbour) instead of simulated renders, the BT Signal picture shows the new golden-range screen, and a live Status screen GIF opens the OLED section. The Development-channel note names 0.9.5-dev.16.
+
 ## [0.9.5-dev.15-oled-edition] - 2026-10-16
 
 ### Added
