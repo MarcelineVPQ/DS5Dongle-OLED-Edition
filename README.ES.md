@@ -245,7 +245,7 @@ scripts/set_ds5.py --auto-haptics fallback    # cambia un campo y lo guarda en l
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # cambia la ranura de emparejamiento activa
 scripts/set_ds5.py --version                  # versión del firmware
-scripts/set_ds5.py --rssi                     # RSSI BT en directo en dBm
+scripts/set_ds5.py --rssi                     # señal BT en directo, dB respecto al rango ideal (0 = ideal)
 scripts/set_ds5.py --help                     # lista completa de opciones
 ```
 
@@ -462,7 +462,7 @@ La misma telemetría también se exporta en el informe de características HID `
 
 #### 9. Señal BT
 
-Intensidad de la señal Bluetooth del enlace activo en directo, en dBm con una barra. Más cerca de 0 dBm es más fuerte; −90 dBm es débil. Incluye una etiqueta cualitativa (Poor / Fair / Good / Excellent).
+Intensidad de la señal Bluetooth del enlace activo en directo, en dB respecto al rango ideal (0 = ideal, se muestra como *in range*; más negativo es más débil), con una barra de −30 dB (vacía) a 0 dB (llena) y las palabras de la app (Excellent / Good / Fair / Weak, es decir Excelente / Buena / Regular / Débil). Antes de la primera lectura, o si una lectura falla, muestra `Signal: --` y `Link: unknown`.
 
 <img src="./assets/oled/oled_sc09.jpg" alt="Pantalla BT Signal en la OLED" width="420">
 

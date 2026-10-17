@@ -245,7 +245,7 @@ scripts/set_ds5.py --auto-haptics fallback    # 修改某字段并持久化到�
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # 切换当前的多槽配对
 scripts/set_ds5.py --version                  # 固件版本
-scripts/set_ds5.py --rssi                     # 实时蓝牙 RSSI（dBm）
+scripts/set_ds5.py --rssi                     # 实时蓝牙信号，相对理想范围的 dB（0 = 理想）
 scripts/set_ds5.py --help                     # 完整参数列表
 ```
 
@@ -462,7 +462,7 @@ scripts/mic_diag.sh bt-trace
 
 #### 9. 蓝牙信号
 
-当前链路的实时蓝牙信号强度，以 dBm 显示并带条形。越接近 0 dBm 越强；−90 dBm 为弱。附带文字等级（Poor / Fair / Good / Excellent，即差 / 一般 / 好 / 极佳）。
+当前链路的实时蓝牙信号强度，单位为相对理想范围的 dB（0 = 理想，显示 *in range*；越负越弱），并带条形（−30 dB 为空，0 dB 为满）和与应用相同的文字等级（Excellent / Good / Fair / Weak，即极佳 / 良好 / 一般 / 较弱）。在第一次读数之前或读数失败时，显示 `Signal: --` 和 `Link: unknown`。
 
 <img src="./assets/oled/oled_sc09.jpg" alt="OLED 上的蓝牙信号屏幕" width="420">
 

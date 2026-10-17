@@ -55,7 +55,9 @@ bool g_fake_bt_connected = false;
 int g_fake_slot = 0;
 bool bt_is_connected() { return g_fake_bt_connected; }
 uint32_t bt_hci_err_count() { return 0; }
-void bt_get_signal_strength(int8_t *rssi) { *rssi = -50; }
+bool g_fake_rssi_valid = true;
+int8_t g_fake_rssi = -8;
+bool bt_get_signal_strength(int8_t *rssi) { *rssi = g_fake_rssi; return g_fake_rssi_valid; }
 // The feature-report cache (bt.cpp feature_data: [id, data..., crc32]), what
 // was SET to the controller, and a hook standing in for its replies to GETs.
 std::map<uint8_t, std::vector<uint8_t>> g_fake_features;

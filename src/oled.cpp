@@ -10,6 +10,7 @@
 #include "slots.h"
 #include "slots_footer.h"
 #include "pair_prompt.h"
+#include "signal_screen.h"
 #include "oled_toast.h"
 #include "audio.h"
 #include "config.h"
@@ -460,7 +461,7 @@ void draw_title_scrolling(int x_min, int x_max, int y, const char *s, int n) {
 // Per-screen renderers reserve x ∈ [0..5] (5-wide glyph + 1 padding) and
 // start main content at kContentX.
 constexpr int kContentX = 6;
-static_assert(pair_prompt::kX == kContentX && oled_toast::kBarX == kContentX, "content starts right of the chrome strip");
+static_assert(pair_prompt::kX == kContentX && signal_screen::kX == kContentX && oled_toast::kBarX == kContentX, "content starts right of the chrome strip");
 void draw_button_chrome() {
     draw_char(0, 8,  '>');
     draw_char(0, 49, '<');
@@ -939,28 +940,12 @@ __attribute__((noinline)) void render_screen_rssi() {
     fb_clear();
     draw_text(kContentX, 0, "BT Signal");
     if (bt_is_connected()) {
+        // dB from the golden range (0 = in it), not dBm; src/signal_screen.h.
         int8_t rssi = 0;
-        bt_get_signal_strength(&rssi);
-        char buf[24];
-        snprintf(buf, sizeof(buf), "RSSI: %d dBm", (int)rssi);
-        draw_text(kContentX, 12, buf);
-
-        // Map RSSI range -90..-40 dBm to 0..100% bar
-        int pct = ((int)rssi + 90) * 100 / 50;
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-        snprintf(buf, sizeof(buf), "Quality: %d%%", pct);
-        draw_text(kContentX, 22, buf);
-        rect_outline(kContentX, 34, 122, 10);
-        int fill = (pct * 118) / 100;
-        if (fill > 0) rect_filled(kContentX + 2, 36, fill, 6);
-
-        const char *label = "Poor";
-        if (rssi > -55) label = "Excellent";
-        else if (rssi > -65) label = "Good";
-        else if (rssi > -75) label = "Fair";
-        snprintf(buf, sizeof(buf), "Link: %s", label);
-        draw_text(kContentX, 48, buf);
+        // error: SHOWN — false = no reading: "Signal: --", an empty bar, "Link: unknown"
+        const bool valid = bt_get_signal_strength(&rssi);
+        FbCanvas c;
+        signal_screen::draw(c, valid, rssi);
     } else {
         draw_text(kContentX, 30, "(no controller)");
     }

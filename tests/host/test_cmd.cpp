@@ -555,3 +555,22 @@ TEST(cmd_measured_clock_is_measured_once) {
     }
     CHECK_EQ(g_fake_freq_counts, after_first);
 }
+
+// 0xF9: the link's RSSI, one signed byte in dB from the golden range; -128 =
+// no reading (firmware before this sent 0, which read as "in range").
+TEST(cmd_rssi_reports_no_reading_as_minus_128) {
+    fresh();
+    uint8_t b[1]{};
+    g_fake_rssi_valid = true;
+    g_fake_rssi = 0;
+    CHECK_EQ(pico_cmd_get(0xf9, b, 1), 1);
+    CHECK_EQ((int8_t) b[0], 0);
+    g_fake_rssi = -12;
+    pico_cmd_get(0xf9, b, 1);
+    CHECK_EQ((int8_t) b[0], -12);
+    g_fake_rssi_valid = false;
+    CHECK_EQ(pico_cmd_get(0xf9, b, 1), 1);
+    CHECK_EQ(b[0], 0x80);
+    g_fake_rssi_valid = true;
+    g_fake_rssi = -8;
+}

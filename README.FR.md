@@ -245,7 +245,7 @@ scripts/set_ds5.py --auto-haptics fallback    # changer un champ, l'enregistrer 
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # changer d'emplacement d'association actif
 scripts/set_ds5.py --version                  # version du firmware
-scripts/set_ds5.py --rssi                     # RSSI BT en direct, en dBm
+scripts/set_ds5.py --rssi                     # signal BT en direct, en dB par rapport à la plage idéale (0 = idéal)
 scripts/set_ds5.py --help                     # liste complète des options
 ```
 
@@ -462,7 +462,7 @@ La même télémétrie est aussi exportée dans le rapport de fonctionnalité HI
 
 #### 9. Signal BT
 
-Puissance du signal Bluetooth du lien actif en direct, en dBm avec une barre. Plus c'est proche de 0 dBm, plus c'est fort ; −90 dBm est faible. Avec une étiquette qualitative (Poor / Fair / Good / Excellent).
+Puissance du signal Bluetooth du lien actif en direct, en dB par rapport à la plage idéale (0 = idéal, affiché *in range* ; plus c'est négatif, plus c'est faible), avec une barre de −30 dB (vide) à 0 dB (pleine) et les mots de l'app (Excellent / Good / Fair / Weak, soit Excellent / Bon / Moyen / Faible). Avant la première mesure, ou si une mesure échoue, il affiche `Signal: --` et `Link: unknown`.
 
 <img src="./assets/oled/oled_sc09.jpg" alt="Écran Signal BT sur l'OLED" width="420">
 

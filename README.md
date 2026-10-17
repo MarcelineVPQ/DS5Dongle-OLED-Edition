@@ -247,7 +247,7 @@ scripts/set_ds5.py --auto-haptics fallback    # change a field, persist to flash
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # switch active multi-slot pairing
 scripts/set_ds5.py --version                  # firmware version
-scripts/set_ds5.py --rssi                     # live BT RSSI in dBm
+scripts/set_ds5.py --rssi                     # live BT signal, dB relative to the ideal range (0 = ideal)
 scripts/set_ds5.py --help                     # full flag list
 ```
 
@@ -466,7 +466,7 @@ The same telemetry is also exported on HID feature report `0xFC` for tooling.
 
 #### 9. BT Signal
 
-Live Bluetooth signal strength of the active link, in dBm with a bar. Closer to 0 dBm is stronger; −90 dBm is weak. Includes a qualitative label (Poor / Fair / Good / Excellent).
+Live Bluetooth signal strength of the active link, in dB relative to the ideal range (0 = ideal, shown as *in range*; more negative is weaker), with a bar from −30 dB (empty) to 0 dB (full) and the app's words for it (Excellent / Good / Fair / Weak). Before the first reading, or when a reading fails, it says `Signal: --` and `Link: unknown`.
 
 <img src="./assets/oled/oled_sc09.jpg" alt="BT Signal screen on the OLED" width="420">
 

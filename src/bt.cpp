@@ -76,7 +76,6 @@ static const uint8_t kNeutralInput[66] = {
     0x53, 0x9f, 0x28, 0x35, 0xa5, 0xa8, 0x0c, 0x8b
 };
 static bool check_dse = false;
-static int8_t bt_rssi = 0;
 // lifetime: OK — cleared on disconnect (feature_data.clear()); ≤ ~10 report ids × ≤ 64 B meanwhile
 unordered_map<uint8_t, vector<uint8_t> > feature_data;
 queue_t send_fifo;
@@ -346,21 +345,25 @@ void bt_connection_watchdog_tick() {
     }
 }
 
-static RssiPoll rssi_poll;
+// The link's RSSI: dB from the Golden Receive Power Range (0 = in it), not
+// dBm, and only valid after a successful Read RSSI on this link (src/rssi_poll.h).
+static RssiReading rssi_reading;
 
-void bt_get_signal_strength(int8_t *rssi) {
+bool bt_get_signal_strength(int8_t *rssi) {
     // gap_read_rssi() completes asynchronously, so this function can only
-    // return the last cached RSSI value. Ask for a refresh afterwards so a
+    // return the last cached reading. Ask for a refresh afterwards so a
     // later call sees the new value once the RSSI event arrives: at most
     // 10 Hz, one request in flight (src/rssi_poll.h), however many readers
     // (OLED BT Signal screen, app 0xF9). Nothing else polls it.
     if (rssi != nullptr) {
-        *rssi = bt_rssi;
+        *rssi = rssi_reading.value;
     }
-    if (acl_handle == HCI_CON_HANDLE_INVALID) return;
-    const uint64_t now = time_us_64();
-    // error: NOT-WORTH — the RSSI poll retries after 1 s (rssi_poll.h); the OLED shows the last value
-    if (rssi_poll.ready(now) && gap_read_rssi(acl_handle) == 0) rssi_poll.sent(now);
+    const bool valid = rssi_reading.valid;
+    // error: NOT-WORTH — no link: no reading to ask for (valid is already false, reset on disconnect)
+    if (acl_handle == HCI_CON_HANDLE_INVALID) return valid;
+    // error: LOGGED-OK — gap_read_rssi returns 0 only for an unknown handle (then nothing is sent and the next read asks again); a failed command complete is printf'd and clears the reading, which the OLED shows as "Signal: --" and 0xF9 as -128
+    rssi_reading.refresh(time_us_64(), [] { return gap_read_rssi(acl_handle); });
+    return valid;
 }
 
 void bt_l2cap_init() {
@@ -538,8 +541,10 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 printf("[HCI] CmdComplete %s(0x%04X) status=0x%02X\n", opcode_to_str(opcode), opcode, status);
             }
             if (opcode == HCI_OPCODE_HCI_READ_RSSI) {
+                // error: SHOWN — no reading: the OLED BT Signal screen shows "Signal: --" / "Link: unknown", 0xF9 answers -128 (the app shows "—"); printf'd for serial builds. BTstack sends GAP_EVENT_RSSI_MEASUREMENT only on success, so this is the one place a failure is seen.
                 if (status != ERROR_CODE_SUCCESS || packet[1] < 7) {
                     printf("[HCI] RSSI complete failed status=0x%02X param_len=%u\n", status, packet[1]);
+                    rssi_reading.failed();
                 }
             }
             break;
@@ -550,8 +555,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             if (status == 0) {
                 const hci_con_handle_t handle = hci_event_connection_complete_get_connection_handle(packet);
                 acl_handle = handle;
-                bt_rssi = 0;
-                rssi_poll.reset();
+                rssi_reading.reset();  // no reading for the new link yet
                 hci_event_connection_complete_get_bd_addr(packet, current_device_addr);
                 printf("[HCI] ACL connected handle=0x%04X\n", handle);
                 printf("[HCI] Request authentication on handle=0x%04X\n", handle);
@@ -680,8 +684,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             new_pair = false;
             connect_attempt_started = 0; // disarm — every teardown clears here
             acl_handle = HCI_CON_HANDLE_INVALID;
-            bt_rssi = 0;
-            rssi_poll.reset();
+            rssi_reading.reset();  // no link, no reading
             hid_control_cid = 0;
             hid_interrupt_cid = 0;
             feature_data.clear();
@@ -711,8 +714,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
         case GAP_EVENT_RSSI_MEASUREMENT: {
             const hci_con_handle_t handle = gap_event_rssi_measurement_get_con_handle(packet);
             if (handle == acl_handle) {
-                rssi_poll.replied();
-                bt_rssi = static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet));
+                // dB from the golden range (0 = in it), a valid reading
+                rssi_reading.measured(static_cast<int8_t>(gap_event_rssi_measurement_get_rssi(packet)));
             }
             break;
         }

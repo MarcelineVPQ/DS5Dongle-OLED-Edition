@@ -21,7 +21,11 @@ void bt_send_packet(uint8_t *data, uint16_t len);
 void bt_send_control(uint8_t *data, uint16_t len);
 void bt_send_state();
 void bt_write(const uint8_t *data, uint16_t len);
-void bt_get_signal_strength(int8_t *rssi); // cached; refresh <= 10 Hz, one in flight
+// The link's RSSI in dB from the Golden Receive Power Range (0 = in the range,
+// negative = weaker; not dBm), cached: refresh <= 10 Hz, one request in flight.
+// Returns whether a reading exists (false: no link, none yet, or the last
+// Read RSSI failed); *rssi is meaningful only then.
+bool bt_get_signal_strength(int8_t *rssi);
 std::vector<uint8_t> get_feature_data(uint8_t reportId,uint16_t len);
 // get_feature_data() for callers that only want the request sent (the answer
 // lands in the feature cache): no copy of the cached report.

@@ -19,7 +19,7 @@ Quick usage:
   scripts/set_ds5.py --haptics-gain 1.5 --speaker-volume -10
   scripts/set_ds5.py --slot 2              # switch active pairing slot
   scripts/set_ds5.py --version             # print firmware version
-  scripts/set_ds5.py --rssi                # print live BT RSSI in dBm
+  scripts/set_ds5.py --rssi                # print the live BT signal (dB from the ideal range, 0 = ideal)
 
 Credit: protocol + script structure from loteran/DS5Dongle commit 5d6bc2f.
 """
@@ -155,7 +155,10 @@ def get_rssi(device):
     if len(raw) < 2:
         return None
     val = raw[1]
-    return val - 256 if val >= 128 else val   # int8
+    # int8: dB relative to the ideal (golden) receive range, not dBm; 0 = ideal.
+    # -128 = no reading (no link, none yet, or the read failed).
+    val = val - 256 if val >= 128 else val
+    return None if val == -128 else val
 
 
 def fmt_cfg(c):
@@ -185,7 +188,7 @@ POLL_ARG     = {'250': 0, '500': 1, 'realtime': 2, 'rt': 2}
 def build_parser():
     p = argparse.ArgumentParser(description="DS5Dongle (OLED Edition) config tool.")
     p.add_argument('--version', action='store_true', help="print firmware version and exit")
-    p.add_argument('--rssi', action='store_true', help="print live BT RSSI (dBm) and exit")
+    p.add_argument('--rssi', action='store_true', help="print the live BT signal (dB relative to the ideal range, 0 = ideal) and exit")
     p.add_argument('--haptics-gain', type=float, help="float [1.0, 2.0]")
     p.add_argument('--speaker-volume', type=float, help="dB [-100, 0]")
     p.add_argument('--inactive-time', type=int, help="minutes [10, 60]")
@@ -210,7 +213,10 @@ def main():
         return
     if args.rssi:
         rssi = get_rssi(device)
-        print(f"BT RSSI: {rssi} dBm" if rssi is not None else "RSSI unavailable")
+        if rssi is None:
+            print("BT signal: unknown")
+        else:
+            print(f"BT signal: {rssi} dB" + (" (in the ideal range)" if rssi == 0 else " from the ideal range"))
         return
 
     cfg = get_config(device)

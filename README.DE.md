@@ -245,7 +245,7 @@ scripts/set_ds5.py --auto-haptics fallback    # ein Feld ändern, in den Flash s
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # aktiven Kopplungsplatz wechseln
 scripts/set_ds5.py --version                  # Firmware-Version
-scripts/set_ds5.py --rssi                     # Bluetooth-RSSI live in dBm
+scripts/set_ds5.py --rssi                     # Bluetooth-Signal live, dB relativ zum idealen Bereich (0 = ideal)
 scripts/set_ds5.py --help                     # alle Optionen
 ```
 
@@ -462,7 +462,7 @@ Dieselbe Telemetrie wird auch über den HID-Feature-Report `0xFC` für Werkzeuge
 
 #### 9. Bluetooth-Signal
 
-Live-Signalstärke der aktiven Bluetooth-Verbindung, in dBm mit Balken. Näher an 0 dBm ist stärker; −90 dBm ist schwach. Mit einer Einstufung in Worten (Poor / Fair / Good / Excellent).
+Live-Signalstärke der aktiven Bluetooth-Verbindung, in dB relativ zum idealen Bereich (0 = ideal, angezeigt als *in range*; negativer ist schwächer), mit einem Balken von −30 dB (leer) bis 0 dB (voll) und der Einstufung der App (Excellent / Good / Fair / Weak, also Sehr gut / Gut / Mittel / Schwach). Vor dem ersten Messwert oder wenn eine Messung fehlschlägt, steht dort `Signal: --` und `Link: unknown`.
 
 <img src="./assets/oled/oled_sc09.jpg" alt="Bildschirm BT Signal auf dem OLED" width="420">
 

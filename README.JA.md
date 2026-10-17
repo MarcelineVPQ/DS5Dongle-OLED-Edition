@@ -245,7 +245,7 @@ scripts/set_ds5.py --auto-haptics fallback    # 項目を変更してフラッ�
 scripts/set_ds5.py --speaker-volume -10 --haptics-gain 1.5
 scripts/set_ds5.py --slot 2                   # 有効なペアリングスロットを切り替え
 scripts/set_ds5.py --version                  # ファームウェアのバージョン
-scripts/set_ds5.py --rssi                     # BT の RSSI（dBm）をライブ表示
+scripts/set_ds5.py --rssi                     # BT の信号をライブ表示（理想範囲を基準にした dB、0 = 理想）
 scripts/set_ds5.py --help                     # すべてのフラグの一覧
 ```
 
@@ -462,7 +462,7 @@ RP2350 のライブの状態：設定値（`Set`）と実際に動作してい�
 
 #### 9. BT 信号
 
-有効なリンクの Bluetooth 信号強度を dBm とバーでライブ表示します。0 dBm に近いほど強く、−90 dBm は弱い信号です。目安のラベル（Poor / Fair / Good / Excellent）付きです。
+有効なリンクの Bluetooth 信号強度を、理想範囲を基準にした dB でライブ表示します（0 = 理想で *in range* と表示、マイナスが大きいほど弱い）。バーは −30 dB で空、0 dB で満杯です。アプリと同じラベル（Excellent / Good / Fair / Weak、つまり非常に良好 / 良好 / 普通 / 弱い）付きです。最初の測定の前や測定に失敗したときは `Signal: --` と `Link: unknown` を表示します。
 
 <img src="./assets/oled/oled_sc09.jpg" alt="OLED の BT 信号画面" width="420">
 

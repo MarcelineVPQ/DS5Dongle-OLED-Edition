@@ -8,6 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Fixed
+- **The OLED BT Signal screen reads the signal the way Bluetooth reports it** (no protocol change). On a Classic Bluetooth link the RSSI is dB relative to the receiver's ideal (golden) range, not dBm: 0 means the link is in the ideal range, which is what a board near its controller reads all the time. The screen treated it as dBm (`RSSI: 0 dBm`, `Quality: 100%`), so 0 and anything above −40 dB read the same. It now shows `Signal: −8 dB` (`in range` under it at 0), a bar from −30 dB (empty) to 0 dB (full; above the range counts as full) and `Link:` with the app's words and thresholds (Excellent ≥ −5, Good ≥ −15, Fair ≥ −25, else Weak). The title and the rest of the screen are unchanged. Drawn by `src/signal_screen.h`, host-tested and rendered on the PC first.
+- **"No reading" is no longer shown as a perfect signal.** The cached value started at 0 and a failed Read RSSI was only printed, so "no reading yet", "the read failed" and a real 0 looked alike. The board now keeps whether it has a reading for the current link (cleared on connect, on disconnect and on a failed read): the OLED says `Signal: --` with an empty bar and `Link: unknown`, and the app's `0xF9` answers −128 (firmware up to dev.15 sent 0, which apps showed as Excellent). Older apps show −128 as a very weak signal; the app from this build shows "—".
+- **The signal read's rate limit works** (PR #18's budget, at most 10 reads a second with one in flight). It counted a request as sent only when BTstack's `gap_read_rssi()` returned 0, but that returns 1 when the request is queued, so the limit never applied. A failed read now also frees the slot for the next one. Host tests pin the wiring (`src/rssi_poll.h`).
+
+### Changed
+- **`scripts/set_ds5.py --rssi`** says dB relative to the ideal range (0 = ideal) instead of dBm and prints `unknown` when the board has no reading. The READMEs say the same in all 7 languages.
+
 ## [0.9.5-dev.15-oled-edition] - 2026-10-16
 
 ### Added

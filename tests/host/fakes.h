@@ -9,6 +9,8 @@ extern bool g_fake_flash_fail;
 extern uint64_t g_fake_time_us;
 extern bool g_fake_bt_connected;
 extern int g_fake_slot;
+extern bool g_fake_rssi_valid;  // bt_get_signal_strength(): a reading exists
+extern int8_t g_fake_rssi;       // its value, dB from the golden range
 extern int g_fake_reboots;
 extern int g_fake_usb_reconnects;  // usb_power_reconnect() (0xF6 0x03)
 extern uint32_t g_fake_c1_flags;      // audio_c1_flags()
