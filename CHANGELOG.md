@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ### Fixed
 - **A save on the OLED Settings screen no longer puts back old lightbar and slot settings** (firmware bug hunt 2026-10). The screen saved its whole copy of the config, taken on the first visit and refreshed only when the app wrote the config, so a lightbar mode or favourite colour chosen on the Lightbar screen, or a slot switch, made since then went back to the old one on flash at the next Triangle save (and after the next boot). A save now starts from the live config and takes only the fields the Settings screen shows from its copy (`src/settings_merge.h`, host-tested). **Reset to defaults** on the OLED also keeps the current slot now, as the app's factory reset does (`config_default_keep_slot`, shared by both).
+- **The board's uptime no longer goes back to 0 every 71 minutes 35 seconds.** The OLED Diagnostics `Up:` row and the app's uptime (`0xFB`) read the 32-bit microsecond timer, which wraps there; both use the 64-bit timer now (`0xFB` still sends 32-bit seconds, which last 136 years; host-tested).
 
 ## [0.9.5-dev.18-oled-edition] - 2026-10-17
 

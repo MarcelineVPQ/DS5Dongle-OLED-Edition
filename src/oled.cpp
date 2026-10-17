@@ -1000,7 +1000,8 @@ __attribute__((noinline))
 void format_diag_row(int idx, char* line, size_t n) {
     switch (idx) {
         case 0: {
-            const uint32_t s = time_us_32() / 1000000u;
+            // 64-bit: the 32-bit µs timer wrapped every 71 min 35 s.
+            const uint64_t s = time_us_64() / 1000000u;
             snprintf(line, n, "Up:%luh %02lum %02lus",
                      (unsigned long)(s / 3600u),
                      (unsigned long)((s / 60u) % 60u),

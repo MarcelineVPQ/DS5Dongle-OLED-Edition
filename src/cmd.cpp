@@ -604,7 +604,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
             // error: NOT-WORTH — USB STALL to the host; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
             return 0;
         }
-        const uint32_t uptime_s   = time_us_32() / 1000000u;
+        // From the 64-bit timer: the 32-bit µs one wrapped every 71 min 35 s.
+        // u32 seconds on the wire last 136 years.
+        const uint32_t uptime_s   = static_cast<uint32_t>(time_us_64() / 1000000u);
         const uint32_t usb_frames = audio_usb_frames();
         const uint32_t bt_packets = audio_bt_packets();
         const uint32_t hci_errs   = bt_hci_err_count();

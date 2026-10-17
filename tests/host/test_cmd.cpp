@@ -574,3 +574,17 @@ TEST(cmd_rssi_reports_no_reading_as_minus_128) {
     g_fake_rssi_valid = true;
     g_fake_rssi = -8;
 }
+
+// 0xFB uptime comes from the 64-bit timer: the 32-bit µs one wrapped every
+// 71 min 35 s, so the app's uptime went back to 0 there.
+TEST(cmd_diag_uptime_survives_the_32_bit_wrap) {
+    fresh();
+    const uint64_t saved = g_fake_time_us;
+    g_fake_time_us = 3ull * 3600 * 1000000;  // 3 h, past 2^32 µs
+    uint8_t r[18]{};
+    CHECK_EQ(pico_cmd_get(0xFB, r, sizeof(r)), 18);
+    uint32_t up = 0;
+    std::memcpy(&up, r, 4);
+    CHECK_EQ(up, 3u * 3600);
+    g_fake_time_us = saved;
+}
