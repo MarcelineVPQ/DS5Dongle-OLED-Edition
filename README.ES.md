@@ -386,6 +386,10 @@ Se escribió originalmente para investigar el estudio aparcado del micrófono BT
 
 Si conectas una [Waveshare Pico-OLED-1.3](#hardware) a los pines de la Pico2W, el firmware la controla automáticamente como pantalla de estado en directo. No hace falta configurar nada: el firmware no hace nada cuando no hay OLED.
 
+<img src="./assets/oled/oled-status-live.gif" alt="La pantalla Status en vivo en la OLED" width="512">
+
+La pantalla Status en vivo en una placa real, capturada píxel a píxel a través del espejo de la OLED. Todas las imágenes de pantallas de abajo también son capturas reales de la placa.
+
 ### Pantalla de arranque (1,5 s al encender)
 
 La versión del firmware centrada en una pantalla en blanco durante 1,5 segundos, y luego salta a la pantalla Status.
@@ -400,13 +404,13 @@ Cada pantalla dibuja además **`>`** en el borde superior izquierdo (junto a KEY
 
 Estado de la conexión, dirección BD del DualSense emparejado, % de batería con barra (`+` cargando / `*` completa / `!` error), posiciones de los joysticks analógicos en directo (el recuadro de cada joystick parpadea invertido, un punto negro sobre un recuadro blanco, mientras se pulsa su **L3 / R3**), botones de dirección, botones de acción (△ ◯ ✕ □), L1/R1 y las barras de recorrido de los gatillos analógicos L2/R2. El indicador de enlace y la batería usan pequeños iconos de píxeles. Mientras se carga, junto a la batería aparece una estimación `~Nm` del tiempo hasta el 100 %.
 
-<img src="./assets/oled/oled_sc01.jpg" alt="Pantalla Status en la OLED" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="Pantalla Status en la OLED" width="512">
 
 #### 2. Ranuras
 
 Emparejamiento persistente de varios mandos en 4 ranuras. Recorre los mandos guardados, cambia la ranura activa o borra una sola ranura. `>` es el cursor, `*` marca la ranura activa.
 
-<img src="./assets/oled/oled_sc02.jpg" alt="Pantalla Slots en la OLED" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="Pantalla Slots en la OLED" width="512">
 
 - **Botones de dirección ▲▼**: mueven el cursor por las ranuras 0–3
 - **△**: cambia a la ranura del cursor (desconecta el mando actual y se reconecta al mando guardado en esa ranura)
@@ -417,7 +421,7 @@ Emparejamiento persistente de varios mandos en 4 ranuras. Recorre los mandos gua
 
 Inclina el mando en cada eje para ajustar R / G / B; el firmware envía el color resultante a la barra luminosa real del DualSense a 10 Hz, así que la barra luminosa ES la vista previa (la OLED es monocroma).
 
-<img src="./assets/oled/oled_sc03.jpg" alt="Selector de color de la barra luminosa en la OLED" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="Selector de color de la barra luminosa en la OLED" width="512">
 
 - Pulsa **△ ◯ ✕ □** en el mando para **guardar** el color actual en la ranura de favoritos 0 / 1 / 2 / 3
 - Pulsa **R1** en el mando para cambiar la etiqueta de modo: `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → efectos (Breathing / Rainbow / Fade) → `[HOST]` → de nuevo `[LIVE]`
@@ -428,7 +432,7 @@ Inclina el mando en cada eje para ajustar R / G / B; el firmware envía el color
 
 Pulsa **△** en el mando para recorrer siete efectos de gatillos adaptativos aplicados a L2 y R2. Aprieta cada gatillo para notar el efecto.
 
-<img src="./assets/oled/oled_sc04.jpg" alt="Pantalla Trigger Test en la OLED" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="Pantalla Trigger Test en la OLED" width="512">
 
 Orden del ciclo: **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** Parámetros de los efectos empaquetados en bits según la ingeniería inversa de [dualsensectl](https://github.com/nowrep/dualsensectl), todos a máxima fuerza.
 
@@ -436,13 +440,13 @@ Orden del ciclo: **Off → Feedback → Weapon → Vibration → Bow → Gallop 
 
 Valores X/Y/Z del acelerómetro en directo con un recuadro de 40×40 con cruz. El punto sigue la inclinación del mando en tiempo real y **queda centrado cuando el mando está plano**: usa la calibración IMU de fábrica propia de cada mando (leída del informe de características `0x05`), así que la posición de reposo y la ganancia son correctas en todos los mandos. Inclinarlo a izquierda/derecha y adelante/atrás mueve el punto en la dirección correspondiente.
 
-<img src="./assets/oled/oled_sc05.jpg" alt="Pantalla Gyro Tilt en la OLED" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="Pantalla Gyro Tilt en la OLED" width="512">
 
 #### 6. Panel táctil
 
 Representación en directo de la superficie del panel táctil. Aparecen puntos en las posiciones actuales de los dedos; el recuento se actualiza al tocar / levantar los dedos.
 
-<img src="./assets/oled/oled_sc06.jpg" alt="Pantalla Touchpad en la OLED" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="Pantalla Touchpad en la OLED" width="512">
 
 #### 7. Diagnóstico
 
@@ -450,13 +454,13 @@ Lista desplazable de contadores en directo: tiempo en marcha, estado BT, flujo d
 
 Los mismos contadores también se exportan en el informe de características HID `0xFD` para las herramientas del host; consulta `scripts/mic_diag.sh bt-trace` más abajo.
 
-<img src="./assets/oled/oled_sc07.jpg" alt="Pantalla Diagnostics en la OLED" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="Pantalla Diagnostics en la OLED" width="512">
 
 #### 8. CPU / Reloj
 
 Constantes vitales del RP2350 en directo: reloj del sistema configurado (`Set`) y el que funciona realmente (`Real`), medido con la referencia del cristal, voltaje del núcleo leído del regulador y temperatura del chip (media de 256 muestras + EMA lenta para que el valor siga la temperatura real del chip y no el ruido del ADC).
 
-<img src="./assets/oled/oled_sc08.jpg" alt="Pantalla de diagnóstico CPU / Clock en la OLED" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="Pantalla de diagnóstico CPU / Clock en la OLED" width="512">
 
 La misma telemetría también se exporta en el informe de características HID `0xFC` para las herramientas.
 
@@ -464,13 +468,13 @@ La misma telemetría también se exporta en el informe de características HID `
 
 Intensidad de la señal Bluetooth del enlace activo en directo, en dB respecto al rango ideal (0 = ideal, se muestra como *in range*; más negativo es más débil), con una barra de −30 dB (vacía) a 0 dB (llena) y las palabras de la app (Excellent / Good / Fair / Weak, es decir Excelente / Buena / Regular / Débil). Antes de la primera lectura, o si una lectura falla, muestra `Signal: --` y `Link: unknown`.
 
-<img src="./assets/oled/oled_sc09.jpg" alt="Pantalla BT Signal en la OLED" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="Pantalla BT Signal en la OLED" width="512">
 
 #### 10. Vúmetros
 
 Medidores de pico en directo de las rutas de audio del altavoz y de la háptica. Útiles para comprobar el enrutamiento de audio sin que el mando esté conectado a un host.
 
-<img src="./assets/oled/oled_sc10.jpg" alt="Pantalla VU Meters en la OLED" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="Pantalla VU Meters en la OLED" width="512">
 
 #### 11. Ajustes
 
@@ -478,7 +482,7 @@ Editor de configuración persistente. Los botones de dirección ▲▼ mueven la
 
 `Hap Left` y `Hap Right` ajustan cada empuñadura por separado. Pulsa △ para aplicar y guardar los cambios.
 
-<img src="./assets/oled/oled_sc11.jpg" alt="Pantalla Settings en la OLED" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="Pantalla Settings en la OLED" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace**: elige el modo de Audio Auto Haptics. Predeterminado `Off`: la háptica solo viene del juego. `Fallback` genera vibración derivada solo cuando el juego no envía datos hápticos nativos (p. ej., Ghost of Tsushima en Linux); ten en cuenta que también vibra con la música y el audio del escritorio; los juegos que *sí* envían háptica nativa (Spider-Man Remastered) pasan sin cambios. `Mix` añade la derivada encima de la nativa, `Replace` ignora la nativa por completo.
 - **AH Gain N%**: ganancia de la señal derivada, 0–200 % en pasos del 10 %. Predeterminado 100 %.

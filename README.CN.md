@@ -386,6 +386,10 @@ scripts/mic_diag.sh bt-trace
 
 如果你把 [Waveshare Pico-OLED-1.3](#硬件) 插到 Pico2W 的排针上，固件会自动把它作为实时状态显示屏驱动。无需任何配置 —— 没有 OLED 时固件安静地什么都不做。
 
+<img src="./assets/oled/oled-status-live.gif" alt="OLED 上实时运行的状态屏幕" width="512">
+
+真实板子上实时运行的状态屏幕，通过 OLED 镜像逐像素捕获。下面每个屏幕的图片也都是从板子上实际捕获的。
+
 ### 开机画面（上电后 1.5 秒）
 
 空白屏幕上居中显示固件版本 1.5 秒，然后跳到状态屏幕。
@@ -400,13 +404,13 @@ scripts/mic_diag.sh bt-trace
 
 连接状态、已配对 DualSense 的蓝牙地址、带条形的电量百分比（`+` 充电中 / `*` 已充满 / `!` 错误）、实时操作杆位置（按下 **L3 / R3** 时，对应的操作杆框会反色闪烁 —— 白框黑点）、方向键、动作键（△ ◯ ✕ □）、L1/R1，以及 L2/R2 模拟扳机填充条。连接指示和电量使用小像素图标。充电时，电量旁会显示到 100% 的预计时间 `~Nm`。
 
-<img src="./assets/oled/oled_sc01.jpg" alt="OLED 上的状态屏幕" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="OLED 上的状态屏幕" width="512">
 
 #### 2. 配对槽
 
 持久化的 4 槽多控制器配对。浏览已保存的控制器、切换当前槽，或清除单个槽。`>` 是光标，`*` 标记当前使用的槽。
 
-<img src="./assets/oled/oled_sc02.jpg" alt="OLED 上的配对槽屏幕" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="OLED 上的配对槽屏幕" width="512">
 
 - **方向键 ▲▼** —— 在槽 0–3 之间移动光标
 - **△** —— 切换到光标所在的槽（断开当前控制器，重新连接到该槽保存的控制器）
@@ -417,7 +421,7 @@ scripts/mic_diag.sh bt-trace
 
 在各个轴上倾斜控制器来调出 R / G / B；固件以 10 Hz 把得到的颜色发送到 DualSense 真正的光条上，所以光条本身就是预览（OLED 是单色的）。
 
-<img src="./assets/oled/oled_sc03.jpg" alt="OLED 上的光条调色器" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="OLED 上的光条调色器" width="512">
 
 - 在控制器上按 **△ ◯ ✕ □** 把当前颜色**保存**到收藏槽 0 / 1 / 2 / 3
 - 在控制器上按 **R1** 循环模式标签：`[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → 特效（Breathing / Rainbow / Fade）→ `[HOST]` → 回到 `[LIVE]`
@@ -428,7 +432,7 @@ scripts/mic_diag.sh bt-trace
 
 在控制器上按 **△** 循环七种自适应扳机效果，同时作用于 L2 和 R2。扣动扳机来感受效果。
 
-<img src="./assets/oled/oled_sc04.jpg" alt="OLED 上的扳机测试屏幕" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="OLED 上的扳机测试屏幕" width="512">
 
 循环顺序：**Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …**（关 → 反馈 → 武器 → 振动 → 弓 → 疾驰 → 机枪）。效果参数依据 [dualsensectl](https://github.com/nowrep/dualsensectl) 的逆向工程按位打包，全部为最大强度。
 
@@ -436,13 +440,13 @@ scripts/mic_diag.sh bt-trace
 
 实时 X/Y/Z 加速度计数值，配 40×40 十字准线框。圆点实时跟随控制器的倾斜，并在控制器**平放时居中** —— 它使用控制器自带的逐台出厂 IMU 校准（从特性报告 `0x05` 解析），因此每个控制器的静止位置和增益都准确。向左/右、向前/后倾斜时，圆点会朝相应方向移动。
 
-<img src="./assets/oled/oled_sc05.jpg" alt="OLED 上的陀螺仪倾斜屏幕" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="OLED 上的陀螺仪倾斜屏幕" width="512">
 
 #### 6. 触摸板
 
 触摸板表面的实时画面。当前手指位置显示圆点；手指触碰 / 离开时计数随之更新。
 
-<img src="./assets/oled/oled_sc06.jpg" alt="OLED 上的触摸板屏幕" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="OLED 上的触摸板屏幕" width="512">
 
 #### 7. 诊断
 
@@ -450,13 +454,13 @@ scripts/mic_diag.sh bt-trace
 
 同样的计数器也通过 HID 特性报告 `0xFD` 提供给主机端工具 —— 见下文 `scripts/mic_diag.sh bt-trace`。
 
-<img src="./assets/oled/oled_sc07.jpg" alt="OLED 上的诊断屏幕" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="OLED 上的诊断屏幕" width="512">
 
 #### 8. CPU / 时钟
 
 实时 RP2350 指标：设定的（`Set`）和实际运行的（`Real`）系统时钟（以晶振为参考测量）、从稳压器读回的核心电压，以及片上温度（256 次采样平均 + 慢速 EMA，让数值反映真实芯片温度而不是 ADC 噪声）。
 
-<img src="./assets/oled/oled_sc08.jpg" alt="OLED 上的 CPU / 时钟诊断屏幕" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="OLED 上的 CPU / 时钟诊断屏幕" width="512">
 
 同样的遥测数据也通过 HID 特性报告 `0xFC` 提供给工具。
 
@@ -464,13 +468,13 @@ scripts/mic_diag.sh bt-trace
 
 当前链路的实时蓝牙信号强度，单位为相对理想范围的 dB（0 = 理想，显示 *in range*；越负越弱），并带条形（−30 dB 为空，0 dB 为满）和与应用相同的文字等级（Excellent / Good / Fair / Weak，即极佳 / 良好 / 一般 / 较弱）。在第一次读数之前或读数失败时，显示 `Signal: --` 和 `Link: unknown`。
 
-<img src="./assets/oled/oled_sc09.jpg" alt="OLED 上的蓝牙信号屏幕" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="OLED 上的蓝牙信号屏幕" width="512">
 
 #### 10. VU 表
 
 扬声器和触觉音频路径的实时峰值表。不把控制器插到主机上也能确认音频路由。
 
-<img src="./assets/oled/oled_sc10.jpg" alt="OLED 上的 VU 表屏幕" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="OLED 上的 VU 表屏幕" width="512">
 
 #### 11. 设置
 
@@ -478,7 +482,7 @@ scripts/mic_diag.sh bt-trace
 
 `Hap Left` 和 `Hap Right` 分别调整左右握把强度，按下 △ 应用并保存修改。
 
-<img src="./assets/oled/oled_sc11.jpg" alt="OLED 上的设置屏幕" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="OLED 上的设置屏幕" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace** —— 选择音频自动触感模式。默认 `Off`：触觉只来自游戏。`Fallback` 只在游戏不发送原生触觉数据时（例如 Linux 上的 Ghost of Tsushima）才产生派生的震动 —— 注意它也会跟着音乐和桌面音频震动；确实发送原生触觉的游戏（Spider-Man Remastered）原样通过。`Mix` 在原生之上叠加派生，`Replace` 完全忽略原生。
 - **AH Gain N%** —— 派生信号增益，0–200 %，每步 10 %。默认 100 %。

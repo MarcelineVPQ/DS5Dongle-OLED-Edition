@@ -386,6 +386,10 @@ scripts/mic_diag.sh bt-trace
 
 [Waveshare Pico-OLED-1.3](#ハードウェア) を Pico2W のヘッダーに差し込むと、ファームウェアが自動的にライブのステータス表示として駆動します。設定は不要です — OLED がない場合、ファームウェアは何もせず問題なく動作します。
 
+<img src="./assets/oled/oled-status-live.gif" alt="OLED でライブ表示中のステータス画面" width="512">
+
+実機ボードで動作中のステータス画面を、OLED ミラー経由でピクセル単位でキャプチャしたものです。以下の各画面の画像もすべて実機からのキャプチャです。
+
 ### 起動画面（電源投入時に 1.5 秒）
 
 空白の画面の中央にファームウェアのバージョンを 1.5 秒表示し、その後ステータス画面に移ります。
@@ -400,13 +404,13 @@ scripts/mic_diag.sh bt-trace
 
 接続状態、ペアリング中の DualSense の BD アドレス、バー付きのバッテリー残量 %（`+` 充電中 / `*` 充電完了 / `!` エラー）、アナログスティックの位置のライブ表示（**L3 / R3** を押し込んでいる間、そのスティックの枠が反転表示で点滅します — 白い枠に黒い点）、方向キー、アクションボタン（△ ◯ ✕ □）、L1/R1、L2/R2 のアナログトリガーの塗りつぶしバー。リンク表示とバッテリーは小さなピクセルアイコンです。充電中は、100% までの推定時間 `~Nm` がバッテリーの横に表示されます。
 
-<img src="./assets/oled/oled_sc01.jpg" alt="OLED のステータス画面" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="OLED のステータス画面" width="512">
 
 #### 2. スロット
 
 保存される 4 スロットの複数コントローラーペアリング。登録済みのコントローラーを閲覧し、有効なスロットを切り替え、または 1 つのスロットを消去します。`>` はカーソル、`*` は現在有効なスロットを示します。
 
-<img src="./assets/oled/oled_sc02.jpg" alt="OLED のスロット画面" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="OLED のスロット画面" width="512">
 
 - **方向キー ▲▼** — スロット 0〜3 の間でカーソルを移動
 - **△** — カーソルのスロットに切り替え（現在の接続を切り、そのスロットに登録されたコントローラーに再接続）
@@ -417,7 +421,7 @@ scripts/mic_diag.sh bt-trace
 
 コントローラーを各軸に傾けて R / G / B を調整します。ファームウェアは 10 Hz で結果の色を DualSense の実際のライトバーに送るため、ライトバーそのものがプレビューになります（OLED はモノクロです）。
 
-<img src="./assets/oled/oled_sc03.jpg" alt="OLED のライトバーカラーピッカー" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="OLED のライトバーカラーピッカー" width="512">
 
 - コントローラーの **△ ◯ ✕ □** を押すと、現在の色をお気に入りスロット 0 / 1 / 2 / 3 に **保存** します
 - コントローラーの **R1** を押すとモードのタグが切り替わります：`[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → エフェクト（Breathing / Rainbow / Fade）→ `[HOST]` → `[LIVE]` に戻る
@@ -428,7 +432,7 @@ scripts/mic_diag.sh bt-trace
 
 コントローラーの **△** を押すと、L2 と R2 の両方にかかる 7 種類のアダプティブトリガーのエフェクトが切り替わります。各トリガーを引いてエフェクトを感じてください。
 
-<img src="./assets/oled/oled_sc04.jpg" alt="OLED のトリガーテスト画面" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="OLED のトリガーテスト画面" width="512">
 
 切り替え順：**Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** エフェクトのパラメーターは [dualsensectl](https://github.com/nowrep/dualsensectl) のリバースエンジニアリングに従ってビット単位で詰めたもので、すべて最大の強さです。
 
@@ -436,13 +440,13 @@ scripts/mic_diag.sh bt-trace
 
 加速度センサーの X/Y/Z の値と 40×40 の十字の枠をライブ表示します。点はコントローラーの傾きをリアルタイムで追い、**コントローラーを平らに置くと中央に来ます** — コントローラー自身の個体ごとの工場出荷時 IMU キャリブレーション（feature レポート `0x05` から読み取り）を使うため、静止位置とゲインはどのコントローラーでも正確です。左右・前後に傾けると、点が同じ方向に動きます。
 
-<img src="./assets/oled/oled_sc05.jpg" alt="OLED のジャイロ傾き画面" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="OLED のジャイロ傾き画面" width="512">
 
 #### 6. タッチパッド
 
 タッチパッドの表面をライブで描画します。指の位置に点が表示され、指が触れたり離れたりすると数が更新されます。
 
-<img src="./assets/oled/oled_sc06.jpg" alt="OLED のタッチパッド画面" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="OLED のタッチパッド画面" width="512">
 
 #### 7. 診断
 
@@ -450,13 +454,13 @@ scripts/mic_diag.sh bt-trace
 
 同じカウンターはホスト側のツール向けに HID の feature レポート `0xFD` でも出力されます — 下の `scripts/mic_diag.sh bt-trace` を参照してください。
 
-<img src="./assets/oled/oled_sc07.jpg" alt="OLED の診断画面" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="OLED の診断画面" width="512">
 
 #### 8. CPU / クロック
 
 RP2350 のライブの状態：設定値（`Set`）と実際に動作している（`Real`）システムクロック（水晶の基準で計測）、レギュレーターから読み戻したコア電圧、チップの温度（256 サンプルの平均 + 緩やかな EMA で、ADC のノイズではなく実際のチップの温度に追従します）。
 
-<img src="./assets/oled/oled_sc08.jpg" alt="OLED の CPU / クロック診断画面" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="OLED の CPU / クロック診断画面" width="512">
 
 同じテレメトリーはツール向けに HID の feature レポート `0xFC` でも出力されます。
 
@@ -464,13 +468,13 @@ RP2350 のライブの状態：設定値（`Set`）と実際に動作してい�
 
 有効なリンクの Bluetooth 信号強度を、理想範囲を基準にした dB でライブ表示します（0 = 理想で *in range* と表示、マイナスが大きいほど弱い）。バーは −30 dB で空、0 dB で満杯です。アプリと同じラベル（Excellent / Good / Fair / Weak、つまり非常に良好 / 良好 / 普通 / 弱い）付きです。最初の測定の前や測定に失敗したときは `Signal: --` と `Link: unknown` を表示します。
 
-<img src="./assets/oled/oled_sc09.jpg" alt="OLED の BT 信号画面" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="OLED の BT 信号画面" width="512">
 
 #### 10. VU メーター
 
 スピーカーとハプティクスのオーディオ経路のピークメーターをライブ表示します。コントローラーをホストにつながずにオーディオの経路を確認するのに便利です。
 
-<img src="./assets/oled/oled_sc10.jpg" alt="OLED の VU メーター画面" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="OLED の VU メーター画面" width="512">
 
 #### 11. 設定
 
@@ -478,7 +482,7 @@ RP2350 のライブの状態：設定値（`Set`）と実際に動作してい�
 
 `Hap Left` と `Hap Right` で左右のグリップを個別に調整します。△ を押すと変更が適用・保存されます。
 
-<img src="./assets/oled/oled_sc11.jpg" alt="OLED の設定画面" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="OLED の設定画面" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace** — Audio Auto Haptics のモードを選びます。デフォルトは `Off`：ハプティクスはゲームからのみ。`Fallback` はゲームがネイティブのハプティクスデータを送らないときだけ（例：Linux の Ghost of Tsushima）派生した振動を出します — 音楽やデスクトップの音声に合わせても振動する点に注意してください。ネイティブのハプティクスを *送る* ゲーム（Spider-Man Remastered）はそのまま通します。`Mix` はネイティブに派生した振動を重ね、`Replace` はネイティブを完全に無視します。
 - **AH Gain N%** — 派生信号のゲイン、0〜200 %、10 % 刻み。デフォルト 100 %。
