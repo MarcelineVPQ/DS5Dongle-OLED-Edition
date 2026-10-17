@@ -474,6 +474,23 @@ static bool host_out02_forward(const uint8_t *buffer, uint16_t bufsize) {
     return true;
 }
 
+// A host output report 0x02 (buffer[0] = 0x02, bufsize >= 2): counted for
+// the diagnostics and forwarded to the controller as a 0x31.
+static void host_out02(const uint8_t *buffer, uint16_t bufsize) {
+    g_host_out02_total++;
+    // valid_flag0 lives at buffer[1] (right after the 0x02 report id).
+    // Bits 2 & 3 are AllowRight/LeftTriggerFFB.
+    if (bufsize > 1 && (buffer[1] & 0x0C)) {
+        g_host_out02_trig_allow++;
+    }
+    if ((size_t) bufsize - 1 >= sizeof(g_last_out02)) {
+        memcpy(g_last_out02, buffer + 1, sizeof(g_last_out02));
+        if (buffer[1] & 0x0C) memcpy(g_last_out02_trig, buffer + 1, sizeof(g_last_out02_trig));
+    }
+    // error: NOT-WORTH — nothing; a malformed/short host report isn't forwarded (counted only when forwarded, g_host_out02_to_bt); games send well-formed ones every frame
+    if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt++;
+}
+
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
                            uint16_t bufsize) {
     (void) itf;
@@ -501,22 +518,22 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
         // lone id) carries nothing, and `bufsize - 1` would wrap.
         if (bufsize < 2) return;
         switch (buffer[0]) {
-            case 0x02: {
-                g_host_out02_total++;
-                // valid_flag0 lives at buffer[1] (right after the 0x02 report id).
-                // Bits 2 & 3 are AllowRight/LeftTriggerFFB.
-                if (bufsize > 1 && (buffer[1] & 0x0C)) {
-                    g_host_out02_trig_allow++;
-                }
-                if ((size_t) bufsize - 1 >= sizeof(g_last_out02)) {
-                    memcpy(g_last_out02, buffer + 1, sizeof(g_last_out02));
-                    if (buffer[1] & 0x0C) memcpy(g_last_out02_trig, buffer + 1, sizeof(g_last_out02_trig));
-                }
-                // error: NOT-WORTH — nothing; a malformed/short host report isn't forwarded (counted only when forwarded, g_host_out02_to_bt); games send well-formed ones every frame
-                if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt++;
+            case 0x02:
+                host_out02(buffer, bufsize);
                 break;
-            }
         }
+    }
+    // The same output report 0x02 sent as SET_REPORT(Output) on the control
+    // pipe (e.g. Windows' HidD_SetOutputReport): TinyUSB has taken the id off,
+    // so put it back and treat it exactly like the interrupt OUT one.
+    if (report_id == 0x02 && report_type == HID_REPORT_TYPE_OUTPUT) {
+        // error: NOT-WORTH — nothing; an empty report carries nothing to forward (games send whole ones)
+        if (bufsize < 1 || bufsize > CFG_TUD_HID_EP_BUFSIZE) return;
+        uint8_t report[1 + CFG_TUD_HID_EP_BUFSIZE];
+        report[0] = 0x02;
+        memcpy(report + 1, buffer, bufsize);
+        host_out02(report, static_cast<uint16_t>(bufsize + 1));
+        return;
     }
     if (report_id == 0x80 && ctrl_test_owns_0x81()) return;  // busy: the dongle's test is running
     if (report_id == 0x80 ||
