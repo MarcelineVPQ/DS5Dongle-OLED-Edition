@@ -146,6 +146,9 @@ struct __attribute__((packed)) Config {
 };
 
 void config_default();
+// Defaults, but current_slot stays `slot` (the pairings are kept and the radio
+// is on it): the app's factory reset (0xF6 0x09) and the OLED's Reset to defaults.
+void config_default_keep_slot(uint8_t slot);
 void config_load();
 bool config_save();
 bool config_unsaved();  // RAM settings differ from flash

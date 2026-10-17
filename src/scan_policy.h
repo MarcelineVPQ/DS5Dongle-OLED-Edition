@@ -12,8 +12,9 @@
 //     scan), which closes the window, and a controller that lost its key
 //     re-pairs with Create + PS;
 //   - on a pairing action: switching slot, forgetting a slot, wiping all
-//     slots (OLED Slots screen or the app's 0xF6 0x04/0x05/0x06), and after a
-//     failed authentication (the controller has to be paired again): kPairWindowUs;
+//     slots (OLED Slots screen or the app's 0xF6 0x04/0x05/0x06), and after an
+//     authentication that failed for its key (the controller has to be paired
+//     again, auth_failure_drops_key()): kPairWindowUs;
 //   - on the board: KEY0 held 2 s on the OLED's Status screen with no
 //     controller connected ("pair now", oled.cpp), for when the window has
 //     run out: the app can't do it then, the board is off USB without a
@@ -87,5 +88,15 @@ struct ScanPolicy {
         return !window && !any_paired && now - quiet_since >= kIdleGapUs;
     }
 };
+
+// A failed HCI authentication (its status) that means the pairing is gone:
+// the controller rejected the key (Authentication Failure, 0x05) or has none
+// (PIN or Key Missing, 0x06). Only then is the stored link key dropped and a
+// pairing window opened; any other failure (a timeout, the link dropping
+// mid-way) keeps the key, so the controller reconnects with PS. Before, every
+// failure dropped it and the controller had to be paired again.
+inline bool auth_failure_drops_key(uint8_t status) {
+    return status == 0x05 || status == 0x06;
+}
 
 #endif  // DS5_BRIDGE_SCAN_POLICY_H

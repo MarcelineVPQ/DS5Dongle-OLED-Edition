@@ -241,13 +241,14 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
     // report — so it must ALWAYS be diverted here (decoded when mic is on, dropped
     // when off), never fall through to the input handler below. Letting it through
     // would copy Opus bytes into interrupt_in_data and corrupt sticks/buttons.
-    if (channel == INTERRUPT && data[1] == 0x31 && ((data[2] >> 1) & 1)
-        && len >= 75) {
+    if (channel == INTERRUPT && len >= 75 && data[1] == 0x31 && ((data[2] >> 1) & 1)) {
         mic_add_queue(data + 4); // drops it unless the host is recording
         return;
     }
 
-    if (channel == INTERRUPT && data[1] == 0x31) {
+    // An input report is read up to data[65] (the 63 bytes at data + 3): a
+    // shorter frame isn't one, and is dropped rather than read past its end.
+    if (channel == INTERRUPT && len >= kBtInputMinLen && data[1] == 0x31) {
         if ((data[56] & 1) != (interrupt_in_data[53] & 1)) {
             set_headset(data[56] & 1);
         }
@@ -272,7 +273,8 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
 
 // Invoked when received GET_REPORT control request
 // Application must fill buffer report's content and return its length.
-// Return zero will cause the stack to STALL request
+// Returning zero: for report id 0 (or wLength <= 1) TinyUSB STALLs the request;
+// for any other id it answers that id alone (a 1-byte reply), not a STALL.
 static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer,
                                 uint16_t reqlen);
 
@@ -342,7 +344,7 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
             if (reqlen >= 6) bt_get_addr(buffer);
             return reqlen;
         }
-        // error: NOT-WORTH — USB STALL; a zero/short GET from the host OS, which retries with the right length
+        // error: NOT-WORTH — a 1-byte reply (only the report id, not a STALL); a short GET from the host OS, which retries with the right length
         if (reqlen < 5) return 0;                  // 0x20 / 0x05 stub: zeros + valid crc32
         uint8_t tmp[2 + 64];
         tmp[0] = 0xA3; tmp[1] = report_id;
@@ -359,26 +361,32 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
         return pico_cmd_get(report_id, buffer, reqlen);
     }
 
-    // The dongle's controller test owns the 0x81 result slot: busy (stall).
-    // error: NOT-WORTH — USB STALL on purpose: the app's controller test owns 0x81 for a few seconds; PC tools retry
+    // The dongle's controller test owns the 0x81 result slot: busy (the reply
+    // is only the report id, which TinyUSB sends for a 0 return; not a STALL).
+    // error: NOT-WORTH — a 1-byte reply (only the report id) on purpose: the app's controller test owns 0x81 for a few seconds; PC tools retry
     if (report_id == 0x81 && ctrl_test_owns_0x81()) return 0;
 
-    // Edge profiles before the connect fetch is done: refused (stall), so PS
+    // Edge profiles before the connect fetch is done: refused (only the report
+    // id comes back, a 1-byte reply rather than a STALL), so PS
     // Accessories retries rather than keeping an empty snapshot. The GET still
     // goes to the controller, as upstream 8a2f576 does.
     if (dse_is_profile_report(report_id) && !dse_profiles_ready()) {
         bt_request_feature(report_id);
-        // error: NOT-WORTH — USB STALL on purpose until the Edge profiles are cached (PS Accessories retries); the read is started here
+        // error: NOT-WORTH — a 1-byte reply (only the report id) on purpose until the Edge profiles are cached (PS Accessories retries); the read is started here
         return 0;
     }
 
     // lifetime: NOT-WORTH — per host GET feature report (the PC asks a few times per connect)
     std::vector<uint8_t> feature_data = get_feature_data(report_id, reqlen);
-    if (!feature_data.empty()) {
-        memcpy(buffer, feature_data.data() + 1, feature_data.size() - 1);
-    }
-
-    return feature_data.empty() ? 0 : feature_data.size() - 1;
+    // error: NOT-WORTH — nothing cached yet: the reply is only the report id, the PC asks again
+    if (feature_data.empty()) return 0;
+    // The data after the id, never more than the host asked for: buffer is
+    // TinyUSB's control buffer and holds reqlen bytes (a cached reply can be
+    // longer than the GET, e.g. a 64-byte report read with a short wLength).
+    uint16_t n = static_cast<uint16_t>(feature_data.size() - 1);
+    if (n > reqlen) n = reqlen;
+    memcpy(buffer, feature_data.data() + 1, n);
+    return n;
 }
 
 // Unplug / host reset: no SET_INTERFACE alt 0 arrives, so close the mic here.
@@ -469,6 +477,23 @@ static bool host_out02_forward(const uint8_t *buffer, uint16_t bufsize) {
     return true;
 }
 
+// A host output report 0x02 (buffer[0] = 0x02, bufsize >= 2): counted for
+// the diagnostics and forwarded to the controller as a 0x31.
+static void host_out02(const uint8_t *buffer, uint16_t bufsize) {
+    g_host_out02_total++;
+    // valid_flag0 lives at buffer[1] (right after the 0x02 report id).
+    // Bits 2 & 3 are AllowRight/LeftTriggerFFB.
+    if (bufsize > 1 && (buffer[1] & 0x0C)) {
+        g_host_out02_trig_allow++;
+    }
+    if ((size_t) bufsize - 1 >= sizeof(g_last_out02)) {
+        memcpy(g_last_out02, buffer + 1, sizeof(g_last_out02));
+        if (buffer[1] & 0x0C) memcpy(g_last_out02_trig, buffer + 1, sizeof(g_last_out02_trig));
+    }
+    // error: NOT-WORTH — nothing; a malformed/short host report isn't forwarded (counted only when forwarded, g_host_out02_to_bt); games send well-formed ones every frame
+    if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt++;
+}
+
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
                            uint16_t bufsize) {
     (void) itf;
@@ -496,22 +521,22 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
         // lone id) carries nothing, and `bufsize - 1` would wrap.
         if (bufsize < 2) return;
         switch (buffer[0]) {
-            case 0x02: {
-                g_host_out02_total++;
-                // valid_flag0 lives at buffer[1] (right after the 0x02 report id).
-                // Bits 2 & 3 are AllowRight/LeftTriggerFFB.
-                if (bufsize > 1 && (buffer[1] & 0x0C)) {
-                    g_host_out02_trig_allow++;
-                }
-                if ((size_t) bufsize - 1 >= sizeof(g_last_out02)) {
-                    memcpy(g_last_out02, buffer + 1, sizeof(g_last_out02));
-                    if (buffer[1] & 0x0C) memcpy(g_last_out02_trig, buffer + 1, sizeof(g_last_out02_trig));
-                }
-                // error: NOT-WORTH — nothing; a malformed/short host report isn't forwarded (counted only when forwarded, g_host_out02_to_bt); games send well-formed ones every frame
-                if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt++;
+            case 0x02:
+                host_out02(buffer, bufsize);
                 break;
-            }
         }
+    }
+    // The same output report 0x02 sent as SET_REPORT(Output) on the control
+    // pipe (e.g. Windows' HidD_SetOutputReport): TinyUSB has taken the id off,
+    // so put it back and treat it exactly like the interrupt OUT one.
+    if (report_id == 0x02 && report_type == HID_REPORT_TYPE_OUTPUT) {
+        // error: NOT-WORTH — nothing; an empty report carries nothing to forward (games send whole ones)
+        if (bufsize < 1 || bufsize > CFG_TUD_HID_EP_BUFSIZE) return;
+        uint8_t report[1 + CFG_TUD_HID_EP_BUFSIZE];
+        report[0] = 0x02;
+        memcpy(report + 1, buffer, bufsize);
+        host_out02(report, static_cast<uint16_t>(bufsize + 1));
+        return;
     }
     if (report_id == 0x80 && ctrl_test_owns_0x81()) return;  // busy: the dongle's test is running
     if (report_id == 0x80 ||
@@ -572,10 +597,16 @@ int main() {
     if (stdio_usb_connected()) sleep_ms(150);
 #endif
 
-    // error: LOGGED-OK — printf and main() returns: no radio, nothing can run; the board shows no OLED/USB activity, a hardware fault
+    // A failed radio start is retried by a reboot, not left hanging: main()
+    // returning (as before) stopped the board for good, before the watchdog
+    // was armed, until it was unplugged.
+    // error: LOGGED-OK — printf, then a reboot to retry: nothing can run without the radio; a fault that persists shows as a board that never comes up
     if (cyw43_arch_init()) {
-        printf("Failed to initialize CYW43\n");
-        return 1;
+        printf("Failed to initialize CYW43, rebooting\n");
+        sleep_ms(500);
+        watchdog_reboot(0, 0, 0);
+        // loop: NOT-WORTH — boot failure: waits the few µs for the watchdog reset
+        for (;;) tight_loop_contents();
     }
 #ifdef CYW43_WL_GPIO_SMPS_PIN
     // The Pico W's SMPS in PWM mode: no coil whine under light load (upstream 23a55da, #207).

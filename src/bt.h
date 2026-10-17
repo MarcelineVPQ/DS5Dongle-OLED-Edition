@@ -13,6 +13,10 @@ enum CHANNEL_TYPE {
     CONTROL
 };
 
+// The shortest Bluetooth input report (0x31) the bridge reads: the 0xA1 header,
+// the id, one more byte, then the 63 bytes copied to the USB report (data + 3).
+constexpr uint16_t kBtInputMinLen = 66;
+
 typedef void (*bt_data_callback_t)(CHANNEL_TYPE channel, uint8_t *data, uint16_t len);
 
 int bt_init();

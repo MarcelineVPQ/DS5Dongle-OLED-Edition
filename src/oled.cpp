@@ -12,6 +12,8 @@
 #include "pair_prompt.h"
 #include "signal_screen.h"
 #include "oled_toast.h"
+#include "settings_merge.h"
+#include "diag_rows.h"
 #include "audio.h"
 #include "config.h"
 #include "state_mgr.h"
@@ -904,7 +906,7 @@ __attribute__((noinline)) void render_screen() {
             // immediately on plug-in; the "?" drops to "~43m" once a real 10% step
             // has been timed and the measured rate takes over. See sample_charge_eta().
             if (eta.charging) {
-                char ebuf[8];
+                char ebuf[16];  // "~%dm?" with any int (gcc -Wformat-truncation=2)
                 if (eta.valid)
                     snprintf(ebuf, sizeof(ebuf), "~%dm%s", eta.minutes,
                              eta.provisional ? "?" : "");
@@ -997,51 +999,42 @@ void sample_diag_rates() {
 constexpr int kNumDiagRows = 14;
 __attribute__((noinline))
 void format_diag_row(int idx, char* line, size_t n) {
+    // Each row fits 19 glyphs; counters that can outgrow that go compact (k/M/G, src/diag_rows.h).
     switch (idx) {
-        case 0: {
-            const uint32_t s = time_us_32() / 1000000u;
-            snprintf(line, n, "Up:%luh %02lum %02lus",
-                     (unsigned long)(s / 3600u),
-                     (unsigned long)((s / 60u) % 60u),
-                     (unsigned long)(s % 60u));
+        case 0:
+            diag_rows::uptime(line, n, time_us_64());  // 64-bit: the 32-bit µs timer wrapped every 71 min 35 s
             break;
-        }
         case 1:
             snprintf(line, n, "BT: %s", bt_is_connected() ? "connected" : "waiting");
             break;
         case 2:
-            snprintf(line, n, "host02: %lu", (unsigned long)host_out02_total());
+            diag_rows::count(line, n, "host02: ", host_out02_total());
             break;
         case 3:
-            snprintf(line, n, "trig %lu / tx %lu",
-                     (unsigned long)host_out02_trig_allow(),
-                     (unsigned long)host_out02_to_bt());
+            diag_rows::trig_tx(line, n, host_out02_trig_allow(), host_out02_to_bt());
             break;
         case 4:
             // Audio chunks dropped: raw PCM (core1 behind), encoded speaker
             // (BT behind), haptic (waiting on speaker/BT). See audio.cpp.
-            snprintf(line, n, "Drop r%lu e%lu h%lu", (unsigned long)audio_fifo_drops(),
-                     (unsigned long)opus_fifo_drops(), (unsigned long)audio_hap_drops());
+            diag_rows::drops(line, n, audio_fifo_drops(), opus_fifo_drops(), audio_hap_drops());
             break;
         case 5:
-            snprintf(line, n, "BT31 in: %lu/s", (unsigned long)g_diag_rates.bt31_rate);
+            diag_rows::rate(line, n, "BT31 in: ", g_diag_rates.bt31_rate);
             break;
         case 6:
-            snprintf(line, n, "USB aud: %lu/s", (unsigned long)g_diag_rates.usb_rate);
+            diag_rows::rate(line, n, "USB aud: ", g_diag_rates.usb_rate);
             break;
         case 7:
-            snprintf(line, n, "BT32 out: %lu/s", (unsigned long)g_diag_rates.bt_rate);
+            diag_rows::rate(line, n, "BT32 out: ", g_diag_rates.bt_rate);
             break;
         case 8:
-            snprintf(line, n, "Mic in: %lu/s", (unsigned long)g_diag_rates.mic_rate);
+            diag_rows::rate(line, n, "Mic in: ", g_diag_rates.mic_rate);
             break;
         case 9:
-            snprintf(line, n, "Mic dec=%ld w=%u",
-                     (long)audio_mic_last_decoded(),
-                     (unsigned)audio_mic_last_wrote());
+            diag_rows::mic_dec(line, n, audio_mic_last_decoded(), audio_mic_last_wrote());
             break;
         case 10:
-            snprintf(line, n, "Mic PLC: %lu", (unsigned long)audio_mic_plc_frames());
+            diag_rows::count(line, n, "Mic PLC: ", audio_mic_plc_frames());
             break;
         case 11: {
             uint8_t pfx[6]; bt_31_mic_prefix(pfx);
@@ -1050,12 +1043,10 @@ void format_diag_row(int idx, char* line, size_t n) {
             break;
         }
         case 12:
-            snprintf(line, n, "c1 %lu e%lu", (unsigned long)(audio_c1_loops() >> 10),
-                     (unsigned long)audio_c1_enc());
+            diag_rows::c1(line, n, audio_c1_loops(), audio_c1_enc());
             break;
         case 13:
-            snprintf(line, n, "raw%lu hap%lu", (unsigned long)audio_raw_push(),
-                     (unsigned long)audio_hap_push());
+            diag_rows::pushes(line, n, audio_raw_push(), audio_hap_push());
             break;
         default:
             line[0] = '\0';
@@ -1089,7 +1080,7 @@ __attribute__((noinline)) void render_screen_diag() {
 
     sample_diag_rates();
 
-    char line[20]; // 19 glyphs fit before the scroll markers at x=120
+    char line[diag_rows::kGlyphs + 1]; // 19 glyphs fit before the scroll markers at x=120
     // loop: HOT-PATH-OK — five visible rows at 10 Hz, unchanged strings skip drawing
     for (int i = 0; i < kDiagVisible; i++) {
         if (diag_scroll + i < kNumDiagRows) format_diag_row(diag_scroll + i, line, sizeof(line));
@@ -1673,6 +1664,20 @@ void settings_adjust(int delta) {
     }
 }
 
+// The body a Triangle-save writes: the live config with only the fields the
+// Settings screen shows taken from its copy (src/settings_merge.h).
+static Config_body settings_to_save() {
+    settings_merge::Field fields[kNumSettingsItems];
+    size_t n = 0;
+    // loop: NOT-WORTH — ~25 Settings items, once per Triangle save
+    for (const SetItem &it : kSetItems) {
+        if (it.kind == SK_POWER || it.kind == SK_ACTION) continue;  // not body fields
+        const bool is_float = (it.flags & (SIF_FLOAT | SIF_FLOAT10)) != 0;
+        fields[n++] = {it.off, static_cast<uint8_t>(is_float ? sizeof(float) : 1)};
+    }
+    return settings_merge::apply(get_config(), settings_local, fields, n);
+}
+
 void settings_handle_input() {
     // Controller or the app's virtual buttons (g_in: released with neither).
     const uint8_t dpad = (uint8_t)(g_in.b7 & 0x0F);
@@ -1701,7 +1706,8 @@ void settings_handle_input() {
         && ((uint32_t)time_us_32() - settings_tri_press_us) >= kResetHoldUs) {
         settings_reset_triggered = true;
         if (action == ACT_RESET) {
-            config_default();
+            // Pairings are kept and the radio stays on its slot, as 0xF6 0x09.
+            config_default_keep_slot((uint8_t)bt_get_slot());
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
             if (config_save()) {
                 settings_local = get_config();
@@ -1720,7 +1726,10 @@ void settings_handle_input() {
     }
     if (!tri_now && tri_prev) {
         if (!is_hold_item && !settings_reset_triggered) {
-            set_config(settings_local);
+            // Only this screen's fields from its copy: the lightbar, the
+            // slot, brightness and the narrator keep their live values.
+            set_config(settings_to_save());
+            settings_local = get_config();
             bright_idx = get_config().screen_brightness;
             config_set_power_flags(settings_power);
             // error: SHOWN — OLED footer "Reset FAIL" / "Save FAIL"
@@ -1851,7 +1860,7 @@ __attribute__((noinline)) void render_screen_slots() {
     if (slots_cursor < 0) slots_cursor = bt_get_slot();
 
     fb_clear();
-    char hdr[24];
+    char hdr[32];  // room for any int slot (gcc -Wformat-truncation=2)
     const int active = bt_get_slot();
     const bool conn = bt_is_connected();
     snprintf(hdr, sizeof(hdr), "Slots        [s%d %s]", active, conn ? "ON" : "--");

@@ -42,6 +42,10 @@ add_executable(host_tests
         test_mic_level.cpp
         test_pair_prompt.cpp
         test_oled_toast.cpp
+        test_settings_merge.cpp
+        test_diag_rows.cpp
+        test_mic_session.cpp
+        test_config_fixtures.cpp
         test_heap.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
@@ -66,6 +70,7 @@ target_compile_definitions(host_tests PRIVATE
         FIRMWARE_VERSION="host-test"
         PICO_PROGRAM_VERSION_STRING="host-test"
         WDL_RESAMPLE_TYPE=float  # as the firmware build
+        CONFIG_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/config"  # test_config_fixtures.cpp
 )
 # Same char signedness as the firmware build (CMakeLists.txt: -fsigned-char).
 target_compile_options(host_tests PRIVATE -O1 -g -fsigned-char -Wall -Wextra -Wno-unused-parameter ${SAN})

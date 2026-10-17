@@ -159,3 +159,15 @@ TEST(scan_policy_pair_now_after_the_window_ran_out) {
     p.open(360 * kS);
     CHECK_EQ(p.prompt_seconds_left(360 * kS), 120u);
 }
+
+// Only a rejected or missing key drops the pairing; a timeout or a dropped
+// link during authentication keeps it (the controller reconnects with PS).
+TEST(scan_auth_failure_drops_the_key_only_for_key_errors) {
+    CHECK(auth_failure_drops_key(0x05));   // Authentication Failure
+    CHECK(auth_failure_drops_key(0x06));   // PIN or Key Missing
+    CHECK(!auth_failure_drops_key(0x00));  // success
+    CHECK(!auth_failure_drops_key(0x08));  // Connection Timeout
+    CHECK(!auth_failure_drops_key(0x13));  // Remote User Terminated Connection
+    CHECK(!auth_failure_drops_key(0x16));  // Connection Terminated by Local Host
+    CHECK(!auth_failure_drops_key(0x22));  // LMP Response Timeout
+}

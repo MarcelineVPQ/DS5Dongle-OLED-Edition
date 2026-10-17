@@ -619,12 +619,22 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             const hci_con_handle_t handle = hci_event_authentication_complete_get_connection_handle(packet);
             printf("[HCI] Authentication complete handle=0x%04X status=0x%02X\n", handle, status);
             if (status != ERROR_CODE_SUCCESS) {
-                printf("[HCI] Authentication failed, drop stored key for %s\n", bd_addr_to_str(current_device_addr));
-                gap_drop_link_key_for_bd_addr(current_device_addr);
                 connect_attempt_started = 0; // disarm; teardown below re-inquires
-                // The controller has to be paired again (Create + PS): give it
-                // a pairing window (the disconnect below starts the inquiry).
-                g_scan.open(time_us_64());
+                // Only a rejected or missing key means the pairing is gone. Any
+                // other failure (a timeout, the link dropping mid-way) keeps the
+                // key, so the controller reconnects with PS (src/scan_policy.h).
+                static_assert(ERROR_CODE_AUTHENTICATION_FAILURE == 0x05 && ERROR_CODE_PIN_OR_KEY_MISSING == 0x06,
+                              "auth_failure_drops_key() uses the HCI codes");
+                // error: SHOWN — a lost key opens a pairing window, which the OLED Status screen counts down ("Pairing: hold Create + PS"); any other failure is only printed, the key stays and PS reconnects
+                if (auth_failure_drops_key(status)) {
+                    printf("[HCI] Authentication failed, drop stored key for %s\n", bd_addr_to_str(current_device_addr));
+                    gap_drop_link_key_for_bd_addr(current_device_addr);
+                    // The controller has to be paired again (Create + PS): give it
+                    // a pairing window (the disconnect below starts the inquiry).
+                    g_scan.open(time_us_64());
+                } else {
+                    printf("[HCI] Authentication failed (status 0x%02X), key kept\n", status);
+                }
                 // ACL is still up — route through the clean disconnect path
                 // (HCI_EVENT_DISCONNECTION_COMPLETE restarts inquiry) rather
                 // than leaving a half-open ACL.
@@ -734,7 +744,8 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
             // 静默检测. Only input reports count (packet[2] bit 0): the mic's
             // frames never look idle, so with the mic on the controller was
             // never disconnected. Upstream d7fb163.
-            if (!(packet[2] & 1) || get_config().disable_inactive_disconnect) {
+            // A frame shorter than an input report isn't one (on_bt_data drops it too).
+            if (size < kBtInputMinLen || !(packet[2] & 1) || get_config().disable_inactive_disconnect) {
                 return;
             }
             if (packet[3] < 120 || packet[3] > 140 ||

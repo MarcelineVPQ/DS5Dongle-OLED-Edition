@@ -11,6 +11,7 @@
 #include "grip_wave.h"
 #include "haptics_decimate.h"
 #include "mic_level.h"
+#include "mic_session.h"
 #include "resample.h"
 #include "speaker_mono.h"
 #include "tusb.h"
@@ -94,8 +95,6 @@ struct mic_decoded_element { int16_t mono[MIC_FRAMES]; };
 static queue_t mic_decode_fifo;
 static constexpr int      MIC_DECODE_DEPTH  = 8;       // jitter-buffer capacity (frames)
 static constexpr int      MIC_PLAYOUT_START = 3;       // pre-buffer before playout begins
-static constexpr uint32_t MIC_FRAME_US      = 10000;  // 10 ms per Opus frame @ 48 kHz
-static constexpr uint32_t MIC_SESSION_US    = 300000; // no real frame this long → session over
 // 1 ms of 48 kHz stereo int16 = 48 frames = 192 bytes. The mic IN FIFO is only
 // 4 USB packets deep (~784 B), so the old whole-frame 1920 B write was always
 // truncated by TinyUSB; feeding 1 ms slices as space frees up slaves the mic to
@@ -103,7 +102,8 @@ static constexpr uint32_t MIC_SESSION_US    = 300000; // no real frame this long
 static constexpr uint32_t MIC_SLICE_FRAMES  = 48;
 static constexpr uint32_t MIC_SLICE_BYTES   = MIC_SLICE_FRAMES * 2 * sizeof(int16_t);
 static volatile uint32_t g_mic_last_real_us = 0;      // core1 writes, core0 reads (32-bit: no tearing)
-static volatile bool     g_mic_session      = false;  // real frames arrived within MIC_SESSION_US
+static volatile bool     g_mic_session      = false;  // real frames arrived within mic_session::kSessionUs
+static volatile bool     g_mic_wanted       = false;  // audio_mic_wanted(), set by core0 for core1's mic_proc
 static volatile uint32_t g_mic_plc_frames = 0;        // concealed frames generated (Diag)
 uint32_t audio_mic_plc_frames() { return g_mic_plc_frames; }
 // The jitter buffer's level control (src/mic_level.h); core0 only (mic_drain).
@@ -260,6 +260,14 @@ static void mic_drain() {
     static uint32_t offset = 0;
     static mic_decoded_element frame{};
 
+    static mic_session::OpenEdge open_edge;
+
+    // The PC opened the mic: drop what the last session left in the jitter
+    // buffer (its tail and concealed frames), so playout starts on new audio.
+    if (open_edge.opened(mic_active)) {
+        // loop: HOT-PATH-OK — at most MIC_DECODE_DEPTH (8) frames, once per mic open
+        while (queue_try_remove(&mic_decode_fifo, nullptr)) {}
+    }
     if (!mic_active) { started = false; have = false; return; }
     tu_fifo_t *ff = tud_audio_get_ep_in_ff();
     if (ff == nullptr) return;
@@ -464,6 +472,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
     // Only after enumeration: BT traffic during the fresh-pair feature handshake
     // delays controller detection past the connection watchdog (~10-15 s drop).
     if (tud_mounted()) mic_status_task();
+    g_mic_wanted = audio_mic_wanted();  // core1 stops concealing once the mic is closed
     mic_drain();
     audio_bt_task();
     grip_test_task();
@@ -699,7 +708,8 @@ static void __not_in_flash_func(mic_push_decoded)(const mic_decoded_element &dec
 
 // Mic path: Opus from the controller (mic_fifo) -> decode -> jitter buffer.
 // If real packets stop mid-session, conceal one frame per missed 10 ms slot
-// via Opus PLC; after MIC_SESSION_US of silence the session is over.
+// via Opus PLC; after mic_session::kSessionUs of silence, or once the mic is
+// closed, the session is over.
 static bool __not_in_flash_func(mic_proc)() {
     static mic_element pkt{};
     static mic_decoded_element dec{};
@@ -719,27 +729,20 @@ static bool __not_in_flash_func(mic_proc)() {
         }
         return true;
     }
-    // error: NOT-WORTH — nothing; false = no mic frame this pass (session idle), not an error
-    if (!g_mic_session) return false;
-    if (now - g_mic_last_real_us >= MIC_SESSION_US) {
-        g_mic_session = false;
-        // error: NOT-WORTH — nothing; false = no mic frame this pass (session idle), not an error
-        return false;
+    // No packet: end the session (no real frame for 300 ms, or the mic was
+    // closed), conceal a missed frame, or nothing (src/mic_session.h).
+    const mic_session::Idle step = mic_session::idle_step(g_mic_session, g_mic_wanted, now, g_mic_last_real_us, last_out_us);
+    if (step == mic_session::Idle::End) g_mic_session = false;
+    // error: NOT-WORTH — nothing; false = no mic frame this pass (session idle or over), not an error
+    if (step != mic_session::Idle::Conceal) return false;
+    // error: LOGGED-OK — g_mic_last_decoded in OLED Diag; a bad packet is one lost 10 ms frame, PLC covers it
+    const int n = opus_decode(mic_decoder, nullptr, 0, dec.mono, MIC_FRAMES, 0); // PLC
+    if (n > 0) {
+        mic_push_decoded(dec);
+        g_mic_plc_frames++;
     }
-    // Half a frame of slack before concealing, so normal BT jitter isn't
-    // mistaken for loss.
-    if (now - last_out_us >= MIC_FRAME_US + MIC_FRAME_US / 2) {
-        // error: LOGGED-OK — g_mic_last_decoded in OLED Diag; a bad packet is one lost 10 ms frame, PLC covers it
-        const int n = opus_decode(mic_decoder, nullptr, 0, dec.mono, MIC_FRAMES, 0); // PLC
-        if (n > 0) {
-            mic_push_decoded(dec);
-            g_mic_plc_frames++;
-        }
-        last_out_us += MIC_FRAME_US;
-        return true;
-    }
-    // error: NOT-WORTH — nothing; false = no mic frame this pass (session idle), not an error
-    return false;
+    last_out_us += mic_session::kFrameUs;
+    return true;
 }
 
 void __not_in_flash_func(core1_entry)() {
