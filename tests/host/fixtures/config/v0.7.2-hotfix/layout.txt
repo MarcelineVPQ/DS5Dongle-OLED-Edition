@@ -1,0 +1,1 @@
+body_size 19 inactive_time 8 haptics_gain 1
