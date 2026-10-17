@@ -386,6 +386,10 @@ Escrito originalmente para investigar a pesquisa (pausada) do microfone BT do DS
 
 Se você encaixar um [Waveshare Pico-OLED-1.3](#hardware) nos pinos do Pico2W, o firmware o aciona automaticamente como uma tela de status ao vivo. Nenhuma configuração necessária: o firmware simplesmente não faz nada quando não há OLED.
 
+<img src="./assets/oled/oled-status-live.gif" alt="A tela Status ao vivo na OLED" width="512">
+
+A tela Status ao vivo em uma placa real, capturada pixel a pixel pelo espelho da OLED. Todas as imagens de telas abaixo também são capturas reais da placa.
+
 ### Tela de abertura (1,5 s ao ligar)
 
 A versão do firmware centralizada numa tela vazia por 1,5 segundo, depois pula para a tela Status.
@@ -400,13 +404,13 @@ Toda tela também desenha **`>`** na borda superior esquerda (ao lado de KEY0) e
 
 Estado da conexão, endereço BD do DualSense emparelhado, % de bateria com barra (`+` carregando / `*` completa / `!` erro), posições dos analógicos ao vivo (cada caixa de analógico pisca invertida, um ponto preto numa caixa branca, enquanto o **L3 / R3** está pressionado), botões de direção, botões de ação (△ ◯ ✕ □), L1/R1 e barras de preenchimento analógicas de L2/R2. O indicador de link e a bateria usam pequenos ícones em pixel. Durante a carga, uma estimativa `~Nm` do tempo até 100% aparece ao lado da bateria.
 
-<img src="./assets/oled/oled_sc01.jpg" alt="Tela Status na OLED" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="Tela Status na OLED" width="512">
 
 #### 2. Slots
 
 Emparelhamento persistente de até 4 controles em slots. Navegue pelos controles salvos, troque o slot ativo ou apague um slot. `>` é o cursor, `*` marca o slot ativo no momento.
 
-<img src="./assets/oled/oled_sc02.jpg" alt="Tela Slots na OLED" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="Tela Slots na OLED" width="512">
 
 - **Botões de direção ▲▼**: movem o cursor entre os slots 0–3
 - **△**: troca para o slot do cursor (desconecta o atual, reconecta ao controle salvo no slot)
@@ -417,7 +421,7 @@ Emparelhamento persistente de até 4 controles em slots. Navegue pelos controles
 
 Incline o controle em cada eixo para ajustar R / G / B; o firmware envia a cor resultante à barra de luz de verdade do DualSense a 10 Hz, então a barra de luz É a prévia visual (a OLED é monocromática).
 
-<img src="./assets/oled/oled_sc03.jpg" alt="Seletor de cor da barra de luz na OLED" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="Seletor de cor da barra de luz na OLED" width="512">
 
 - Pressione **△ ◯ ✕ □** no controle para **salvar** a cor atual no slot de favorito 0 / 1 / 2 / 3
 - Pressione **R1** no controle para alternar o rótulo do modo: `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → efeitos (Breathing / Rainbow / Fade) → `[HOST]` → de volta a `[LIVE]`
@@ -428,7 +432,7 @@ Incline o controle em cada eixo para ajustar R / G / B; o firmware envia a cor r
 
 Pressione **△** no controle para alternar sete efeitos de gatilho adaptável aplicados a L2 e R2. Puxe cada gatilho para sentir o efeito.
 
-<img src="./assets/oled/oled_sc04.jpg" alt="Tela Trigger Test na OLED" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="Tela Trigger Test na OLED" width="512">
 
 Ordem: **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** Parâmetros dos efeitos empacotados em bits conforme a engenharia reversa do [dualsensectl](https://github.com/nowrep/dualsensectl), todos na força máxima.
 
@@ -436,13 +440,13 @@ Ordem: **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machin
 
 Valores X/Y/Z do acelerômetro ao vivo com uma caixa de mira de 40×40. O ponto acompanha a inclinação do controle em tempo real e **fica centralizado quando o controle está deitado**: ele usa a calibração de IMU de fábrica, individual de cada controle (lida do relatório de recurso `0x05`), então a posição de repouso e o ganho estão corretos em qualquer controle. Inclinar para esquerda/direita e para frente/trás move o ponto na direção correspondente.
 
-<img src="./assets/oled/oled_sc05.jpg" alt="Tela Gyro Tilt na OLED" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="Tela Gyro Tilt na OLED" width="512">
 
 #### 6. Touch Pad
 
 Desenho ao vivo da superfície do touch pad. Pontos aparecem nas posições atuais dos dedos; a contagem se atualiza conforme os dedos tocam / saem.
 
-<img src="./assets/oled/oled_sc06.jpg" alt="Tela Touchpad na OLED" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="Tela Touchpad na OLED" width="512">
 
 #### 7. Diagnóstico
 
@@ -450,13 +454,13 @@ Lista rolável de contadores ao vivo: tempo ligado, estado do BT, fluxo de gatil
 
 Os mesmos contadores também são exportados no relatório de recurso HID `0xFD` para ferramentas no host; veja `scripts/mic_diag.sh bt-trace` abaixo.
 
-<img src="./assets/oled/oled_sc07.jpg" alt="Tela Diagnostics na OLED" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="Tela Diagnostics na OLED" width="512">
 
 #### 8. CPU / Clock
 
 Sinais vitais do RP2350 ao vivo: clock do sistema configurado (`Set`) e realmente em uso (`Real`), medido contra a referência do cristal, tensão do núcleo lida de volta do regulador e temperatura do chip (média de 256 amostras + EMA lenta, para o valor acompanhar a temperatura real do chip e não o ruído do ADC).
 
-<img src="./assets/oled/oled_sc08.jpg" alt="Tela de diagnóstico CPU / Clock na OLED" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="Tela de diagnóstico CPU / Clock na OLED" width="512">
 
 A mesma telemetria também é exportada no relatório de recurso HID `0xFC` para ferramentas.
 
@@ -464,13 +468,13 @@ A mesma telemetria também é exportada no relatório de recurso HID `0xFC` para
 
 Intensidade do sinal Bluetooth do link ativo ao vivo, em dBm com uma barra. Mais perto de 0 dBm é mais forte; −90 dBm é fraco. Inclui um rótulo qualitativo (Poor / Fair / Good / Excellent).
 
-<img src="./assets/oled/oled_sc09.jpg" alt="Tela BT Signal na OLED" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="Tela BT Signal na OLED" width="512">
 
 #### 10. Medidores VU
 
 Medidores de pico ao vivo para os caminhos de áudio do alto-falante e da resposta tátil. Úteis para conferir o roteamento de áudio sem o controle ligado a um host.
 
-<img src="./assets/oled/oled_sc10.jpg" alt="Tela VU Meters na OLED" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="Tela VU Meters na OLED" width="512">
 
 #### 11. Configurações
 
@@ -478,7 +482,7 @@ Editor de configuração persistente. Botões de direção ▲▼ movem a seleç
 
 `Hap Left` e `Hap Right` ajustam cada empunhadura separadamente. Pressione △ para aplicar e salvar as alterações.
 
-<img src="./assets/oled/oled_sc11.jpg" alt="Tela Settings na OLED" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="Tela Settings na OLED" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace**: escolhe o modo do Audio Auto Haptics. Padrão `Off`: a resposta tátil vem só do jogo. `Fallback` gera vibração derivada só quando o jogo não envia dados táteis nativos (por exemplo Ghost of Tsushima no Linux); note que ele também vibra junto com música e áudio do desktop; jogos que *enviam* resposta tátil nativa (Spider-Man Remastered) passam sem alteração. `Mix` soma o derivado ao nativo, `Replace` ignora o nativo por completo.
 - **AH Gain N%**: ganho do sinal derivado, 0–200 % em passos de 10 %. Padrão 100 %.

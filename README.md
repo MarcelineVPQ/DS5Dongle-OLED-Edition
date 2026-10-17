@@ -388,6 +388,10 @@ Originally written to triage the parked DS5 BT-microphone investigation (see [BL
 
 If you plug a [Waveshare Pico-OLED-1.3](#hardware) onto the Pico2W's headers, the firmware drives it automatically as a live status display. No configuration needed — the firmware no-ops gracefully when no OLED is present.
 
+<img src="./assets/oled/oled-status-live.gif" alt="The Status screen live on the OLED" width="512">
+
+The Status screen live on a real board, captured pixel for pixel over the OLED mirror. Every screen image below is a real capture from the board too.
+
 ### Boot splash (1.5 s on power-on)
 
 Centered firmware version on a blank screen for 1.5 seconds, then jumps to the Status screen.
@@ -404,13 +408,13 @@ Connection state, paired DualSense BD address, battery % with bar (`+` charging 
 
 With no controller connected it says what to do: **Press PS to connect** (or *No DualSense paired*) and **Hold KEY0 for 2 s to pair a DualSense**. Holding KEY0 for 2 s there opens a 2-minute pairing window for the current slot (the board scans only in such a window: at boot, after a slot switch / forget / wipe, or this), and the screen then shows **Pairing: hold Create + PS** with the time left and a bar. This is the one KEY0 action besides "next screen", and only there: without a controller the board is off USB, so the app can't start pairing.
 
-<img src="./assets/oled/oled_sc01.jpg" alt="Status screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="Status screen on the OLED" width="512">
 
 #### 2. Slots
 
 Persistent 4-slot multi-controller pairing. Browse stored controllers, switch active slot, or wipe a single slot. `>` is the cursor, `*` marks the currently active slot.
 
-<img src="./assets/oled/oled_sc02.jpg" alt="Slots screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="Slots screen on the OLED" width="512">
 
 - **D-pad ▲▼** — move cursor across slots 0–3
 - **△** — switch to the cursor slot (disconnect current, reconnect to slot's stored controller)
@@ -421,7 +425,7 @@ Persistent 4-slot multi-controller pairing. Browse stored controllers, switch ac
 
 Tilt the controller on each axis to dial in R / G / B; the firmware sends the resulting color to the DualSense's actual lightbar at 10 Hz, so the lightbar IS the visual preview (the OLED is monochrome).
 
-<img src="./assets/oled/oled_sc03.jpg" alt="Lightbar color picker on the OLED" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="Lightbar color picker on the OLED" width="512">
 
 - Press **△ ◯ ✕ □** on the controller to **save** the current color into favorite slot 0 / 1 / 2 / 3
 - Press **R1** on the controller to cycle the mode tag: `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → effects (Breathing / Rainbow / Fade) → `[HOST]` → back to `[LIVE]`
@@ -432,7 +436,7 @@ Tilt the controller on each axis to dial in R / G / B; the firmware sends the re
 
 Press **△** on the controller to cycle seven adaptive trigger effects applied to both L2 and R2. Pull each trigger to feel the effect.
 
-<img src="./assets/oled/oled_sc04.jpg" alt="Trigger Test screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="Trigger Test screen on the OLED" width="512">
 
 Cycle order: **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** Effect parameters bitpacked per [dualsensectl](https://github.com/nowrep/dualsensectl)'s reverse-engineering, all at max strength.
 
@@ -440,13 +444,13 @@ Cycle order: **Off → Feedback → Weapon → Vibration → Bow → Gallop → 
 
 Live X/Y/Z accelerometer values with a 40×40 crosshair box. The dot tracks the controller's tilt in real time and **sits centered when the controller lies flat** — it's driven by the controller's own per-unit factory IMU calibration (parsed from feature report `0x05`), so the rest position and gain are correct on every controller. Tilting left/right and forward/back moves the dot in the matching direction.
 
-<img src="./assets/oled/oled_sc05.jpg" alt="Gyro Tilt screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="Gyro Tilt screen on the OLED" width="512">
 
 #### 6. Touchpad
 
 Live render of the touchpad surface. Dots appear at current finger positions; the count updates as fingers touch / leave.
 
-<img src="./assets/oled/oled_sc06.jpg" alt="Touchpad screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="Touchpad screen on the OLED" width="512">
 
 #### 7. Diagnostics
 
@@ -454,13 +458,13 @@ Scrollable list of live counters — uptime, BT state, host → BT trigger flow 
 
 The same counters are also exported on HID feature report `0xFD` for host-side tooling — see `scripts/mic_diag.sh bt-trace` below.
 
-<img src="./assets/oled/oled_sc07.jpg" alt="Diagnostics screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="Diagnostics screen on the OLED" width="512">
 
 #### 8. CPU / Clock
 
 Live RP2350 vitals: configured (`Set`) and actually-running (`Real`) system clock measured against the crystal reference, core voltage read back from the regulator, and on-die temperature (256-sample average + slow EMA so the value tracks the real die temp rather than ADC noise).
 
-<img src="./assets/oled/oled_sc08.jpg" alt="CPU / Clock diagnostics screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="CPU / Clock diagnostics screen on the OLED" width="512">
 
 The same telemetry is also exported on HID feature report `0xFC` for tooling.
 
@@ -468,13 +472,13 @@ The same telemetry is also exported on HID feature report `0xFC` for tooling.
 
 Live Bluetooth signal strength of the active link, in dBm with a bar. Closer to 0 dBm is stronger; −90 dBm is weak. Includes a qualitative label (Poor / Fair / Good / Excellent).
 
-<img src="./assets/oled/oled_sc09.jpg" alt="BT Signal screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="BT Signal screen on the OLED" width="512">
 
 #### 10. VU Meters
 
 Live peak meters for the speaker and haptic audio paths. Useful for verifying audio routing without the controller being plugged in to a host.
 
-<img src="./assets/oled/oled_sc10.jpg" alt="VU Meters screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="VU Meters screen on the OLED" width="512">
 
 #### 11. Settings
 
@@ -482,7 +486,7 @@ Persistent config editor. D-pad ▲▼ moves the selection, ▶◀ adjusts value
 
 `Hap Left` and `Hap Right` adjust each grip separately. Press △ to apply and save the changes.
 
-<img src="./assets/oled/oled_sc11.jpg" alt="Settings screen on the OLED" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="Settings screen on the OLED" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace** — selects the Audio Auto Haptics mode. Default `Off`: haptics come only from the game. `Fallback` fires derived rumble only when the game sends no native haptic data (e.g. Ghost of Tsushima on Linux) — note it also vibrates along with music and desktop audio; games that *do* send native haptics (Spider-Man Remastered) pass through unchanged. `Mix` adds derived on top of native, `Replace` ignores native entirely.
 - **AH Gain N%** — derived-signal gain, 0–200 % in 10 % steps. Default 100 %.

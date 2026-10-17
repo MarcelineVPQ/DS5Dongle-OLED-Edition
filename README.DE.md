@@ -386,6 +386,10 @@ Ursprünglich geschrieben, um die zurückgestellte Untersuchung des DS5-Bluetoot
 
 Steckst du ein [Waveshare Pico-OLED-1.3](#hardware) auf die Stiftleisten des Pico2W, steuert die Firmware es automatisch als Live-Statusdisplay an. Keine Konfiguration nötig — ohne OLED tut die Firmware einfach nichts.
 
+<img src="./assets/oled/oled-status-live.gif" alt="Der Bildschirm Status live auf dem OLED" width="512">
+
+Der Bildschirm Status live auf einem echten Board, Pixel für Pixel über den OLED-Spiegel aufgenommen. Auch alle Bildschirmbilder weiter unten sind echte Aufnahmen vom Board.
+
 ### Startbildschirm (1,5 s nach dem Einschalten)
 
 Die Firmware-Version mittig auf leerem Bildschirm für 1,5 Sekunden, dann geht es zum Bildschirm Status.
@@ -400,13 +404,13 @@ Jeder Bildschirm zeichnet außerdem **`>`** an den linken oberen Rand (neben KEY
 
 Verbindungsstatus, BD-Adresse des gekoppelten DualSense, Akku in % mit Balken (`+` lädt / `*` voll / `!` Fehler), Live-Positionen der analogen Sticks (jedes Stick-Feld blinkt invertiert — ein schwarzer Punkt auf weißem Feld —, solange **L3 / R3** gedrückt ist), Richtungstasten, Aktionstasten (△ ◯ ✕ □), L1/R1 und Füllbalken der analogen Trigger L2/R2. Verbindungsanzeige und Akku nutzen kleine Pixel-Symbole. Beim Laden erscheint neben dem Akku eine Schätzung `~Nm` der Zeit bis 100 %.
 
-<img src="./assets/oled/oled_sc01.jpg" alt="Bildschirm Status auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="Bildschirm Status auf dem OLED" width="512">
 
 #### 2. Plätze
 
 Dauerhafte Kopplung von bis zu 4 Controllern. Gespeicherte Controller durchsehen, aktiven Platz wechseln oder einen einzelnen Platz löschen. `>` ist der Cursor, `*` markiert den gerade aktiven Platz.
 
-<img src="./assets/oled/oled_sc02.jpg" alt="Bildschirm Slots auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="Bildschirm Slots auf dem OLED" width="512">
 
 - **Richtungstasten ▲▼** — Cursor über die Plätze 0–3 bewegen
 - **△** — zum Platz unter dem Cursor wechseln (aktuellen trennen, mit dem gespeicherten Controller des Platzes neu verbinden)
@@ -417,7 +421,7 @@ Dauerhafte Kopplung von bis zu 4 Controllern. Gespeicherte Controller durchsehen
 
 Neig den Controller entlang jeder Achse, um R / G / B einzustellen; die Firmware sendet die resultierende Farbe mit 10 Hz an die echte Leuchtleiste des DualSense — die Leuchtleiste IST also die Vorschau (das OLED ist einfarbig).
 
-<img src="./assets/oled/oled_sc03.jpg" alt="Farbwähler für die Leuchtleiste auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="Farbwähler für die Leuchtleiste auf dem OLED" width="512">
 
 - Drück **△ ◯ ✕ □** am Controller, um die aktuelle Farbe im Favoritenplatz 0 / 1 / 2 / 3 zu **speichern**
 - Drück **R1** am Controller, um die Modus-Markierung durchzuschalten: `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → Effekte (Breathing / Rainbow / Fade) → `[HOST]` → zurück zu `[LIVE]`
@@ -428,7 +432,7 @@ Neig den Controller entlang jeder Achse, um R / G / B einzustellen; die Firmware
 
 Drück **△** am Controller, um sieben Effekte der adaptiven Trigger durchzuschalten, die auf L2 und R2 wirken. Zieh jeden Trigger, um den Effekt zu spüren.
 
-<img src="./assets/oled/oled_sc04.jpg" alt="Bildschirm Trigger Test auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="Bildschirm Trigger Test auf dem OLED" width="512">
 
 Reihenfolge: **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** Die Effektparameter sind nach dem Reverse Engineering von [dualsensectl](https://github.com/nowrep/dualsensectl) bitweise gepackt, alle in maximaler Stärke.
 
@@ -436,13 +440,13 @@ Reihenfolge: **Off → Feedback → Weapon → Vibration → Bow → Gallop → 
 
 Live-Werte des Beschleunigungsmessers für X/Y/Z mit einem 40×40-Fadenkreuzfeld. Der Punkt folgt der Neigung des Controllers in Echtzeit und **sitzt mittig, wenn der Controller flach liegt** — er nutzt die werkseitige IMU-Kalibrierung des einzelnen Controllers (aus dem Feature-Report `0x05` gelesen), sodass Ruhelage und Verstärkung bei jedem Controller stimmen. Neigen nach links/rechts und vorn/hinten bewegt den Punkt in die passende Richtung.
 
-<img src="./assets/oled/oled_sc05.jpg" alt="Bildschirm Gyro Tilt auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="Bildschirm Gyro Tilt auf dem OLED" width="512">
 
 #### 6. Touchpad
 
 Live-Darstellung der Touchpad-Fläche. Punkte erscheinen an den aktuellen Fingerpositionen; die Anzahl aktualisiert sich beim Berühren / Loslassen.
 
-<img src="./assets/oled/oled_sc06.jpg" alt="Bildschirm Touchpad auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="Bildschirm Touchpad auf dem OLED" width="512">
 
 #### 7. Diagnose
 
@@ -450,13 +454,13 @@ Scrollbare Liste von Live-Zählern — Laufzeit, Bluetooth-Status, Trigger-Fluss
 
 Dieselben Zähler werden auch über den HID-Feature-Report `0xFD` für Werkzeuge am Host bereitgestellt — siehe `scripts/mic_diag.sh bt-trace` unten.
 
-<img src="./assets/oled/oled_sc07.jpg" alt="Bildschirm Diagnostics auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="Bildschirm Diagnostics auf dem OLED" width="512">
 
 #### 8. CPU / Takt
 
 Live-Werte des RP2350: eingestellter (`Set`) und tatsächlich laufender (`Real`) Systemtakt, gegen den Quarz gemessen, Kernspannung aus dem Spannungsregler zurückgelesen und Chiptemperatur (Mittel aus 256 Messungen + langsamer EMA, damit der Wert der echten Chiptemperatur folgt statt dem ADC-Rauschen).
 
-<img src="./assets/oled/oled_sc08.jpg" alt="Diagnosebildschirm CPU / Clock auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="Diagnosebildschirm CPU / Clock auf dem OLED" width="512">
 
 Dieselbe Telemetrie wird auch über den HID-Feature-Report `0xFC` für Werkzeuge bereitgestellt.
 
@@ -464,13 +468,13 @@ Dieselbe Telemetrie wird auch über den HID-Feature-Report `0xFC` für Werkzeuge
 
 Live-Signalstärke der aktiven Bluetooth-Verbindung, in dBm mit Balken. Näher an 0 dBm ist stärker; −90 dBm ist schwach. Mit einer Einstufung in Worten (Poor / Fair / Good / Excellent).
 
-<img src="./assets/oled/oled_sc09.jpg" alt="Bildschirm BT Signal auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="Bildschirm BT Signal auf dem OLED" width="512">
 
 #### 10. VU-Meter
 
 Live-Spitzenwertanzeigen für den Lautsprecher- und den Haptik-Audiopfad. Nützlich, um das Audio-Routing zu prüfen, ohne dass der Controller an einem Host steckt.
 
-<img src="./assets/oled/oled_sc10.jpg" alt="Bildschirm VU Meters auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="Bildschirm VU Meters auf dem OLED" width="512">
 
 #### 11. Einstellungen
 
@@ -478,7 +482,7 @@ Editor für die dauerhafte Konfiguration. Richtungstasten ▲▼ bewegen die Aus
 
 `Hap Left` und `Hap Right` stellen jeden Griff einzeln ein. Drücke △, um die Änderungen zu übernehmen und zu speichern.
 
-<img src="./assets/oled/oled_sc11.jpg" alt="Bildschirm Settings auf dem OLED" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="Bildschirm Settings auf dem OLED" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace** — wählt den Modus von Audio Auto Haptics. Standard `Off`: Haptik kommt nur vom Spiel. `Fallback` erzeugt abgeleitetes Rumble nur, wenn das Spiel keine nativen Haptikdaten sendet (z. B. Ghost of Tsushima unter Linux) — es vibriert dann allerdings auch bei Musik und Desktop-Audio mit; Spiele, die *doch* native Haptik senden (Spider-Man Remastered), laufen unverändert durch. `Mix` legt das abgeleitete Signal über das native, `Replace` ignoriert das native ganz.
 - **AH Gain N%** — Verstärkung des abgeleiteten Signals, 0–200 % in Schritten von 10 %. Standard 100 %.

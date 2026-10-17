@@ -386,6 +386,10 @@ scripts/mic_diag.sh bt-trace
 
 Si tu branches un [Waveshare Pico-OLED-1.3](#matériel) sur les broches du Pico2W, le firmware le pilote automatiquement comme écran d'état en direct. Aucune configuration : le firmware ne fait simplement rien quand aucun OLED n'est présent.
 
+<img src="./assets/oled/oled-status-live.gif" alt="L'écran État en direct sur l'OLED" width="512">
+
+L'écran État en direct sur une vraie carte, capturé pixel par pixel via le miroir de l'OLED. Toutes les images d'écran ci-dessous sont elles aussi de vraies captures de la carte.
+
 ### Écran de démarrage (1,5 s à la mise sous tension)
 
 Version du firmware centrée sur un écran vide pendant 1,5 seconde, puis passage à l'écran État.
@@ -400,13 +404,13 @@ Chaque écran affiche aussi **`>`** sur le bord en haut à gauche (à côté de 
 
 État de la connexion, adresse BD de la DualSense associée, batterie en % avec une barre (`+` en charge / `*` charge terminée / `!` erreur), position des joysticks en direct (chaque cadre de joystick clignote en inversé, un point noir sur un cadre blanc, tant que son **L3 / R3** est enfoncé), touches directionnelles, touches d'action (△ ◯ ✕ □), L1/R1, et barres de remplissage des gâchettes analogiques L2/R2. L'indicateur de lien et la batterie utilisent de petites icônes en pixels. Pendant la charge, une estimation `~Nm` du temps restant jusqu'à 100 % apparaît à côté de la batterie.
 
-<img src="./assets/oled/oled_sc01.jpg" alt="Écran État sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc01.png" alt="Écran État sur l'OLED" width="512">
 
 #### 2. Emplacements
 
 Association persistante de 4 manettes dans des emplacements. Parcours les manettes enregistrées, change d'emplacement actif ou efface un seul emplacement. `>` est le curseur, `*` marque l'emplacement actif.
 
-<img src="./assets/oled/oled_sc02.jpg" alt="Écran Emplacements sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc02.png" alt="Écran Emplacements sur l'OLED" width="512">
 
 - **Touches directionnelles ▲▼** : déplacent le curseur sur les emplacements 0–3
 - **△** : passe à l'emplacement sous le curseur (déconnecte la manette actuelle, reconnecte celle enregistrée dans l'emplacement)
@@ -417,7 +421,7 @@ Association persistante de 4 manettes dans des emplacements. Parcours les manett
 
 Incline la manette sur chaque axe pour régler R / G / B ; le firmware envoie la couleur obtenue à la vraie barre lumineuse de la DualSense à 10 Hz, la barre lumineuse EST donc l'aperçu (l'OLED est monochrome).
 
-<img src="./assets/oled/oled_sc03.jpg" alt="Sélecteur de couleur de la barre lumineuse sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc03.png" alt="Sélecteur de couleur de la barre lumineuse sur l'OLED" width="512">
 
 - Appuie sur **△ ◯ ✕ □** sur la manette pour **enregistrer** la couleur actuelle dans l'emplacement favori 0 / 1 / 2 / 3
 - Appuie sur **R1** sur la manette pour changer d'étiquette de mode : `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → effets (Breathing / Rainbow / Fade) → `[HOST]` → retour à `[LIVE]`
@@ -428,7 +432,7 @@ Incline la manette sur chaque axe pour régler R / G / B ; le firmware envoie la
 
 Appuie sur **△** sur la manette pour parcourir sept effets de gâchettes adaptatives appliqués à L2 et R2. Presse chaque gâchette pour sentir l'effet.
 
-<img src="./assets/oled/oled_sc04.jpg" alt="Écran Test des gâchettes sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc04.png" alt="Écran Test des gâchettes sur l'OLED" width="512">
 
 Ordre du cycle : **Off → Feedback → Weapon → Vibration → Bow → Gallop → Machine Gun → Off …** Paramètres des effets empaquetés en bits d'après la rétro-ingénierie de [dualsensectl](https://github.com/nowrep/dualsensectl), tous à la force maximale.
 
@@ -436,13 +440,13 @@ Ordre du cycle : **Off → Feedback → Weapon → Vibration → Bow → Gallop 
 
 Valeurs X/Y/Z de l'accéléromètre en direct avec un cadre à réticule de 40×40. Le point suit l'inclinaison de la manette en temps réel et **reste centré quand la manette est posée à plat** : il s'appuie sur le calibrage IMU d'usine propre à chaque manette (lu dans le rapport de fonctionnalité `0x05`), donc la position de repos et le gain sont justes sur chaque manette. Incliner à gauche/droite et en avant/arrière déplace le point dans le sens correspondant.
 
-<img src="./assets/oled/oled_sc05.jpg" alt="Écran Inclinaison gyroscope sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc05.png" alt="Écran Inclinaison gyroscope sur l'OLED" width="512">
 
 #### 6. Pavé tactile
 
 Rendu en direct de la surface du pavé tactile. Des points apparaissent aux positions actuelles des doigts ; le compteur se met à jour quand les doigts touchent / quittent le pavé.
 
-<img src="./assets/oled/oled_sc06.jpg" alt="Écran Pavé tactile sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc06.png" alt="Écran Pavé tactile sur l'OLED" width="512">
 
 #### 7. Diagnostic
 
@@ -450,13 +454,13 @@ Liste défilante de compteurs en direct : temps de fonctionnement, état BT, flu
 
 Les mêmes compteurs sont aussi exportés dans le rapport de fonctionnalité HID `0xFD` pour les outils côté hôte : voir `scripts/mic_diag.sh bt-trace` plus bas.
 
-<img src="./assets/oled/oled_sc07.jpg" alt="Écran Diagnostic sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc07.png" alt="Écran Diagnostic sur l'OLED" width="512">
 
 #### 8. CPU / Horloge
 
 Constantes vitales du RP2350 en direct : horloge système configurée (`Set`) et réellement utilisée (`Real`), mesurée par rapport au quartz de référence, tension du cœur relue au régulateur, et température de la puce (moyenne sur 256 échantillons + EMA lente, pour que la valeur suive la vraie température de la puce et non le bruit de l'ADC).
 
-<img src="./assets/oled/oled_sc08.jpg" alt="Écran de diagnostic CPU / Horloge sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc08.png" alt="Écran de diagnostic CPU / Horloge sur l'OLED" width="512">
 
 La même télémétrie est aussi exportée dans le rapport de fonctionnalité HID `0xFC` pour les outils.
 
@@ -464,13 +468,13 @@ La même télémétrie est aussi exportée dans le rapport de fonctionnalité HI
 
 Puissance du signal Bluetooth du lien actif en direct, en dBm avec une barre. Plus c'est proche de 0 dBm, plus c'est fort ; −90 dBm est faible. Avec une étiquette qualitative (Poor / Fair / Good / Excellent).
 
-<img src="./assets/oled/oled_sc09.jpg" alt="Écran Signal BT sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc09.png" alt="Écran Signal BT sur l'OLED" width="512">
 
 #### 10. Vumètres
 
 Crête-mètres en direct pour les chaînes audio du haut-parleur et de l'haptique. Utile pour vérifier le routage audio sans que la manette soit branchée à un hôte.
 
-<img src="./assets/oled/oled_sc10.jpg" alt="Écran Vumètres sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc10.png" alt="Écran Vumètres sur l'OLED" width="512">
 
 #### 11. Réglages
 
@@ -478,7 +482,7 @@ Crête-mètres en direct pour les chaînes audio du haut-parleur et de l'haptiqu
 
 `Hap Left` et `Hap Right` règlent chaque poignée séparément. Appuie sur △ pour appliquer et enregistrer les modifications.
 
-<img src="./assets/oled/oled_sc11.jpg" alt="Écran Réglages sur l'OLED" width="420">
+<img src="./assets/oled/oled_sc11.png" alt="Écran Réglages sur l'OLED" width="512">
 
 - **AutoHap Off / Fallback / Mix / Replace** : choisit le mode Audio Auto Haptics. Par défaut `Off` : l'haptique vient uniquement du jeu. `Fallback` ne déclenche des vibrations dérivées que quand le jeu n'envoie aucune donnée haptique native (par ex. Ghost of Tsushima sous Linux) ; note qu'il vibre aussi avec la musique et l'audio du bureau ; les jeux qui *envoient* de l'haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute le signal dérivé par-dessus le natif, `Replace` ignore entièrement le natif.
 - **AH Gain N%** : gain du signal dérivé, 0–200 % par pas de 10 %. Par défaut 100 %.
