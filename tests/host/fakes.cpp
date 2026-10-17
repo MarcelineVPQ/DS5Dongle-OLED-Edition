@@ -151,6 +151,13 @@ bool oled_key_inject(uint8_t key, bool long_press) { return oledkeys::push(g_fak
 oledvpad::Injector g_fake_pad_inject;
 bool oled_pad_inject(uint8_t button, uint16_t hold_ms) { return oledvpad::push(g_fake_pad_inject, button, hold_ms); }
 void voice_say_lang(VoiceLine, uint8_t) {}
+int g_fake_identify_tenths = -1;
+int g_fake_identify_calls = 0;
+void oled_identify(uint8_t tenths) { g_fake_identify_tenths = tenths; g_fake_identify_calls++; }
+bool oled_identify_active() { return g_fake_identify_tenths > 0; }
+#include "pico/unique_id.h"
+uint8_t g_fake_board_id[8] = {0xE6, 0x61, 0x38, 0x52, 0x83, 0x4A, 0x2B, 0x2C};
+void pico_get_unique_board_id(pico_unique_board_id_t *id) { std::memcpy(id->id, g_fake_board_id, 8); }
 
 #include "cmd.h"
 volatile uint32_t g_bt_31_packets, g_bt_other_packets;

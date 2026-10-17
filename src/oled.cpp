@@ -12,6 +12,7 @@
 #include "pair_prompt.h"
 #include "signal_screen.h"
 #include "oled_toast.h"
+#include "identify_screen.h"
 #include "settings_merge.h"
 #include "settings_menu.h"
 #include "diag_rows.h"
@@ -30,6 +31,7 @@
 #include "hardware/vreg.h"
 #include "cmd.h"
 #include "pico/time.h"
+#include "pico/cyw43_arch.h"
 
 extern uint8_t interrupt_in_data[63]; // defined in main.cpp
 
@@ -1877,6 +1879,57 @@ static void sync_host_config_changes() {
     settings_dirty = false;
 }
 
+// The identify screen (0xF6 0x1A, identify_screen.h): while it runs it
+// replaces every screen and power state, at full brightness, and the LED
+// blinks in step. last_activity_us is left alone, so when it ends the power
+// ladder below puts the panel back to on / dimmed / off as it would have been,
+// and the current screen redraws in full.
+namespace {
+identify::State g_identify;
+bool g_identify_led = false;
+
+void identify_led(bool on) {
+    if (on == g_identify_led) return;  // one cyw43 write per flash half, not per frame
+    g_identify_led = on;
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, on);
+}
+
+// True while the identify frame was drawn (oled_loop skips the rest).
+__attribute__((noinline)) bool identify_frame() {
+    const uint64_t t = time_us_64();
+    if (!g_identify.active(t)) {
+        if (g_identify.take_ended()) {
+            // The LED's usual state: on while a controller is linked, unless
+            // the user turned the board LED off (bt.cpp / set_config); the
+            // low-battery blink takes it again on its next tick.
+            g_identify_led = false;
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, bt_is_connected() && !get_config().disable_pico_led);
+            fb_clear();  // bumps fb_generation: partial-redraw screens redraw in full
+        }
+        // error: NOT-WORTH — not a failure: no identify running, the normal screen draws
+        return false;
+    }
+    const bool inv = g_identify.inverted(t);
+    identify_led(inv);
+    if (oled_power_state == OLED_OFF) cmd(0xAF);  // wake the panel for it
+    sh1107_set_contrast(kBrightLevels[0]);
+    oled_power_state = OLED_ACTIVE;
+    memset(fb, 0, sizeof(fb));
+    FbCanvas c;
+    identify::draw(c, DS5_BOARD_NAME, (uint8_t) bt_get_slot(), inv);
+    flush_fb_raw();  // no chrome strip: nothing to navigate while it shows
+    return true;
+}
+
+} // namespace
+
+void oled_identify(uint8_t tenths) {
+    g_identify.start(time_us_64(), tenths);
+    last_render_us = 0;  // draw the first frame on the next pass
+}
+
+bool oled_identify_active() { return g_identify.running; }
+
 void oled_loop() {
     sync_host_config_changes();
     handle_buttons();
@@ -1924,6 +1977,9 @@ void oled_loop() {
     const bool bt_connected_now = bt_is_connected();
     if (bt_connected_now && !prev_bt_connected) last_activity_us = time_us_64();
     prev_bt_connected = bt_connected_now;
+
+    // error: NOT-WORTH — not a failure: the identify frame was drawn instead of the screen
+    if (identify_frame()) return;  // 0xF6 0x1A: over every screen and power state
 
     // Power-state ladder: Active → Dim (breathing dot) → Off based on idle time.
     // Thresholds are user-configurable (minutes; 0 = that tier disabled) — #5.

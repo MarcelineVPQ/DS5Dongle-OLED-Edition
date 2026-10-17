@@ -153,7 +153,7 @@ TEST(cmd_0x19_oled_pad_press) {
         uint8_t id[47];
         pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id));
         CHECK(id[46] & 0x80);  // feature bit (proto 1.19)
-        CHECK_EQ(id[5], 19);
+        CHECK(id[5] >= 19);  // 1.19 or later
         CHECK_EQ(id[10], 0x19);  // last function
         return id[11];
     };

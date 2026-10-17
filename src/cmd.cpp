@@ -19,6 +19,8 @@
 #include "calib.h"
 #include "oled.h"
 #include "oled_vpad.h"
+#include "identify_screen.h"
+#include "pico/unique_id.h"
 #include "state_mgr.h"
 #include "hardware/clocks.h"
 #include "hardware/adc.h"
@@ -360,6 +362,17 @@ bool is_pico_cmd(uint8_t report_id) {
 }
 
 static constexpr uint16_t kBoardNameLen = 16;
+static constexpr uint16_t kBoardIdLen = 8;  // PICO_UNIQUE_BOARD_ID_SIZE_BYTES
+static_assert(50 + kBoardIdLen <= 63, "identity must fit the 63-byte cap");
+
+// The board's flash unique id (identity [50..57], proto 1.20). Read once: the
+// SDK reads it from flash at boot (RP2040) or OTP (RP2350) and caches it.
+static void board_id_get(uint8_t out[kBoardIdLen]) {
+    pico_unique_board_id_t id;
+    pico_get_unique_board_id(&id);
+    static_assert(sizeof(id.id) == kBoardIdLen, "board id size");
+    memcpy(out, id.id, kBoardIdLen);
+}
 static_assert(sizeof(DS5_BOARD_NAME) <= kBoardNameLen + 1, "DS5_BOARD_NAME is longer than 16 characters");
 
 uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
@@ -383,6 +396,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     //   bit5 (1.17) the mic echo cancellation (body 51 bytes)
     //   proto 1.16 (when reqlen >= 49): [48] the PC's mic volume as the
     //   controller's VolumeMic 0..0x40 (what mic_level 0 follows)
+    //   proto 1.20 (when reqlen >= 50): [49] feature bits 4, bit0 board id,
+    //   bit1 identify screen (0xF6 0x1A); (when reqlen >= 58) [50..57] the
+    //   board's flash unique id, the same whatever controller is paired
     //   proto 1.14 (when reqlen >= 48): [47] the PC sleep options' current
     //   bits (POWER_*: bit0 controller off when the PC sleeps, bit1 PS wakes
     //   the PC; 0 when [46] bit2 is clear)
@@ -521,7 +537,19 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         // app can say the mic is silent when it follows a PC level of 0 (Linux
         // restores the USB capture volume at boot and never changes it).
         buffer[48] = state_get_pc_mic_volume();
-        return 49;
+        if (reqlen < 50) return 49;
+        // proto 1.20: [49] a fourth feature byte. bit0 the board id at
+        // [50..57]; bit1 the identify screen (0xF6 0x1A).
+        buffer[49] = 0x01 | 0x02;
+        if (reqlen < 50 + kBoardIdLen) return 50;
+        // proto 1.20: [50..57] the board's flash unique id (the RP2350's /
+        // RP2040's 64-bit id, pico_get_unique_board_id): stable whatever
+        // controller is paired, so a host with several boards tells them
+        // apart. The USB serial is the controller's MAC on purpose (Wine /
+        // Steam device matching), so two boards with the same DualSense
+        // paired present the same serial; this id never changes.
+        board_id_get(buffer + 50);
+        return 50 + kBoardIdLen;
     }
     if (report_id == 0xf7) {
         // The config body, then (OLED Edition) the button-remap block. Both
@@ -846,6 +874,10 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     //        4 triangle, 5 circle, 6 cross, 7 square, 8 R1; hold in ms, 0 or
     //        absent = a tap, up to 5000. Only the OLED's input handling sees
     //        it, never the PC's report (deferred; BUSY when four wait)
+    //   0x1A [tenths] identify (proto 1.20): the OLED shows "THIS ONE" with
+    //        the board name and slot, flashing, at full brightness for
+    //        tenths x 0.1 s (no byte: 3 s; 0 stops; max 10 s), and the LED
+    //        blinks in step; then both go back to what they were
     s_last_result = CMD_RESULT_OK;
     switch (func) {
         case 0x01:
@@ -953,6 +985,15 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
             s_last_result = CMD_RESULT_INVALID;
 #endif
             break;
+        case 0x1A: {
+            // [tenths]: the identify screen (proto 1.20). No byte = 3 s,
+            // 0 = stop, else clamped to 0.1..10 s. Not deferred: it only
+            // starts a timer the OLED loop draws from, so nothing waits.
+            uint8_t tenths = bufsize >= 2 ? arg : identify::kDefaultTenths;
+            if (tenths > identify::kMaxTenths) tenths = identify::kMaxTenths;
+            oled_identify(tenths);
+            break;
+        }
         case 0x12:
             remap_revert();
             curves_revert(); // a game's stick curves end with its layout

@@ -33,3 +33,9 @@ extern oledkeys::Injector g_fake_key_inject;
 // oled_pad_inject (0xF6 0x19) pushes onto this injector.
 #include "oled_vpad.h"
 extern oledvpad::Injector g_fake_pad_inject;
+
+// pico_get_unique_board_id (identity [50..57], proto 1.20) answers this.
+extern uint8_t g_fake_board_id[8];
+// oled_identify (0xF6 0x1A, proto 1.20): the last tenths asked, -1 = never.
+extern int g_fake_identify_tenths;
+extern int g_fake_identify_calls;

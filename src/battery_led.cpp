@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "config.h"
+#include "oled.h"
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 
@@ -50,6 +51,8 @@ void battery_led_on_disconnect(void) {
 }
 
 void battery_led_tick(void) {
+    // error: NOT-WORTH — nothing; the identify screen (0xF6 0x1A) blinks the LED for a few seconds and puts it back, the low-battery blink resumes after
+    if (oled_identify_active()) return;
     const uint64_t now = time_us_64();
     if (last_report_us == 0 || (now - last_report_us) >= REPORT_STALE_US) {
         // No fresh data — bt.cpp owns the LED while disconnected. If we

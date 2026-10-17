@@ -22,6 +22,16 @@ bool oled_key_inject(uint8_t key, bool long_press);
 // when four presses are already waiting.
 bool oled_pad_inject(uint8_t button, uint16_t hold_ms);
 
+// The identify screen (0xF6 0x1A, protocol 1.20, identify_screen.h): "THIS
+// ONE" with the board name and slot, flashing at full brightness over every
+// screen and power state for tenths x 0.1 s (0 stops), the board's LED
+// blinking in step. The dim / off timers aren't touched: when it ends the
+// power ladder and the current screen take over again and the LED goes back
+// to its usual state. Main loop only.
+void oled_identify(uint8_t tenths);
+// True while the identify screen shows (the battery LED leaves the LED alone).
+bool oled_identify_active();
+
 // A status line on whatever screen is up (oled_toast.h, ~3 s, the bottom row
 // inverted): for a save that fails outside the Settings / Slots screens.
 // msg must outlive the toast (a string literal). Main loop only.

@@ -109,7 +109,7 @@ TEST(cmd_0x18_oled_key_press) {
         uint8_t id[47];
         pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id));
         CHECK(id[46] & 0x40);  // feature bit (proto 1.18)
-        CHECK_EQ(id[5], 19);
+        CHECK(id[5] >= 18);  // 1.18 or later
         CHECK_EQ(id[10], 0x18);  // last function
         return id[11];
     };

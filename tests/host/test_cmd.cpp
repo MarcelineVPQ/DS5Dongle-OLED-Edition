@@ -35,13 +35,13 @@ void settle() {  // let a deferred command run (reboot/BOOTSEL wait 50 ms)
 }
 }  // namespace
 
-TEST(cmd_identity_reports_protocol_1_19) {
+TEST(cmd_identity_reports_protocol_1_20) {
     fresh();
     uint8_t id[47]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 47);
     CHECK(std::memcmp(id, "DS5O", 4) == 0);
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 19);
+    CHECK_EQ(id[5], 20);
     CHECK_EQ(id[6], 51);
     CHECK(id[46] & 0x02);  // the 1.13 config fields
     CHECK(id[46] & 0x04);  // the 1.14 PC sleep options
@@ -56,6 +56,52 @@ TEST(cmd_identity_reports_protocol_1_19) {
     CHECK_EQ(id[6], sizeof(Config_body));
     CHECK(id[29] & 0x80);  // timings in 0xFC
     CHECK(std::memcmp(id + 30, "Host", 5) == 0);
+}
+
+// Protocol 1.20: identity [49] a fourth feature byte (bit0 board id, bit1
+// identify), [50..57] the board's flash unique id, whatever controller is
+// paired; shorter reads stay as long as before (49 bytes from a 1.19 app).
+TEST(cmd_identity_board_id_1_20) {
+    fresh();
+    uint8_t id[63]{};
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 49), 49);
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 50), 50);
+    CHECK_EQ(id[49] & 0x03, 0x03);
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 57), 50);  // the id doesn't fit: left out
+    std::memset(id, 0, sizeof(id));
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 63), 58);
+    CHECK(std::memcmp(id + 50, g_fake_board_id, 8) == 0);
+    // Same id with or without a controller (the USB serial follows the MAC).
+    g_fake_bt_connected = false;
+    uint8_t id2[63]{};
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id2, 63), 58);
+    CHECK(std::memcmp(id2 + 50, g_fake_board_id, 8) == 0);
+}
+
+// Protocol 1.20: 0xF6 0x1A [tenths] starts the identify screen at once (not
+// deferred, so it never makes the next SET BUSY): no byte = 3 s, 0 stops,
+// longer than 10 s is clamped.
+TEST(cmd_identify_1_20) {
+    fresh();
+    const int calls = g_fake_identify_calls;
+    const uint8_t plain[] = {0x1A};
+    pico_cmd_set(PICO_CMD_SET, plain, sizeof(plain));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(g_fake_identify_tenths, 30);
+    const uint8_t longer[] = {0x1A, 250};
+    pico_cmd_set(PICO_CMD_SET, longer, sizeof(longer));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(g_fake_identify_tenths, 100);
+    const uint8_t stop[] = {0x1A, 0};
+    pico_cmd_set(PICO_CMD_SET, stop, sizeof(stop));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(g_fake_identify_tenths, 0);
+    CHECK_EQ(g_fake_identify_calls, calls + 3);
+    // Not deferred: a save right after isn't BUSY.
+    const uint8_t save[] = {0x02};
+    pico_cmd_set(PICO_CMD_SET, save, sizeof(save));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
 }
 
 TEST(cmd_every_get_stays_in_bounds) {
