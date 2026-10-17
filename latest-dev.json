@@ -1,34 +1,34 @@
 {
   "channel": "dev",
   "app": {
-    "version": "0.9.5-dev.17",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.17-oled-edition",
-    "notes": "### Changed\n\n- Bundles firmware 0.9.5-dev.17: the controller's speaker plays both channels; audio buffer minimum 32.",
+    "version": "0.9.5-dev.18",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.18-oled-edition",
+    "notes": "### Changed\n\n- Bundles firmware 0.9.5-dev.18: no firmware changes since 0.9.5-dev.17 (the same firmware under the new version).\n- **Your report on a game is a test sheet.** The \"What did you notice?\" checklist could say a feature both works and doesn't. Each controller feature now has its own row, **Controller detected**, **Adaptive triggers**, **Haptic feedback**, **Speaker**, **Microphone**, **Light bar** and **Stays connected**, marked **Pass**, **Fail** or **Not tested** (the default). A Fail can say more where it matters (haptic feedback that feels weak or is plain vibration only, sound problems from the speaker), and **Needs Steam Input off** is a switch of its own. Your stars stay your overall feel; a line beside them says what your results suggest, without changing them. Your earlier ticks carry over: a feature you'd ticked both ways becomes Fail and asks you to check it again; your stars and notes stay as they were. Reports are still kept on this PC only, now in a form that can be shared with other players once sharing comes. All 7 languages.\n\n### Fixed\n\n- **A click on the controller drawing takes you to that setting.** With the settings panel hidden, or with Button assignments already open, a click on a button of the drawing did nothing you could see. Now every click on a part shows the panel, opens its section, scrolls to the row and highlights it once. The player lights, which have no setting, no longer look clickable.\n- **Ratings save on Development builds.** A rating or a report change on a 0.9.5-dev build was refused because of the version's \"-dev\" part, so it didn't stick.\n- **Quitting no longer leaves a crash report behind (Linux AppImage).** Closing the app could end with a \"ds5-dongle-configurator crashed\" notice: Chromium's helper processes finish exiting a moment after the app, and the AppImage's files could go away first. The app now keeps its files available until all of its processes have exited. After **Restart now** for an update, the new copy no longer has its files pulled out from under it when it quits, and the old copy no longer stays behind in the background (holding the old version's file) once the new one starts.",
     "platforms": {
       "linux": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-linux-x86_64.AppImage",
-        "size": 196659371,
-        "sha256": "646f1512774f47ef89a222b9dc547bb74d3a8aa35bab61327fded8e7df28d8db"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.18-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.18-linux-x86_64.AppImage",
+        "size": 196709002,
+        "sha256": "674576a31de2345e9057e3385e79db2680862d642deec7f95d96bfc6eeb107d3"
       },
       "windows": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-win-x64-setup.exe",
-        "size": 145032410,
-        "sha256": "36f544082d04eb0741491ed525aaee772d6e45336b1967625455067c98618a33"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.18-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.18-win-x64-setup.exe",
+        "size": 145033554,
+        "sha256": "607a5598e7f34bdfba1781e45cc0b926399fc4c5e502b30ad6cc348fa0e99feb"
       },
       "macos": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.17-mac-universal.zip",
-        "size": 286050975,
-        "sha256": "0be6c1ed1471a84a5924b966357647eb4e645bc09e52e59cd1233f567058d8cd"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.18-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.18-mac-universal.zip",
+        "size": 286102654,
+        "sha256": "b1cad3d6c911ba110c0cb9bec04e5ec053e7fc6a345f5fe2474475a9b8fa4a3f"
       }
     }
   },
   "firmware": {
-    "version": "v0.9.5-dev.17-oled-edition",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.17-oled-edition",
+    "version": "v0.9.5-dev.18-oled-edition",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.18-oled-edition",
     "uf2": {
-      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.17-oled-edition/ds5-bridge-oled-v0.9.5-dev.17-oled-edition.uf2",
+      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.18-oled-edition/ds5-bridge-oled-v0.9.5-dev.18-oled-edition.uf2",
       "size": 2825216,
-      "sha256": "ef7b6299094147f472b0e7e5d44d77f225959f1a7f130a4a975cf0b948365e12"
+      "sha256": "ced8d4354d365e3d17f784f90e8f52604b3aaf811b6380e0c333f3913b8f04c5"
     }
   },
   "proton": {
