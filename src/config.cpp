@@ -203,6 +203,19 @@ static void invalidate_legacy_config() {
     if (!flash_sector_write(LEGACY_CONFIG_FLASH_OFFSET, blank)) printf("[Config] Legacy sector erase skipped\n");
 }
 
+// A body shorter than ours, saved by older firmware: the bytes after its
+// `size` aren't body. Protocol 1.14 firmware with the 49-byte body
+// (0.9.5-dev.9) kept power_flags right there, which newer firmware read as
+// mic_level (and lost the PC sleep options); before 1.14 that byte was 0xFF.
+// So that byte is the power flags, and the body after `size` reads as erased
+// flash (each newer field at its default).
+static void config_take_short_body(const Config *page) {
+    if (config.size >= sizeof(Config_body)) return;
+    const auto *saved_body = reinterpret_cast<const uint8_t *>(page) + offsetof(Config, body);
+    config.power_flags = saved_body[config.size];
+    memset(reinterpret_cast<uint8_t *>(&config.body) + config.size, 0xFF, sizeof(Config_body) - config.size);
+}
+
 void config_load() {
     // error: LOGGED-OK — checked below: a bad copy prints and loads defaults (or migrates), shown as unsaved settings in the app
     const bool intact = config_page_intact(flash_config());
@@ -222,6 +235,7 @@ void config_load() {
         if (legacy_intact) {
             printf("[Config] Migrating config from the legacy sector\n");
             memcpy(&config, legacy_config(), sizeof(Config));
+            config_take_short_body(legacy_config());
             config_valid();
             // error: LOGGED-OK — printf; boot-time init save of the migrated settings: the RAM copy works now and the next boot retries the migration
             if (config_save()) invalidate_legacy_config();
@@ -231,9 +245,10 @@ void config_load() {
         // default (as erased flash), not whatever in-range bytes it holds.
         memset(&config.body, 0xFF, sizeof(config.body));
         config.power_flags = 0xFF;
-    } else if (legacy_intact) {
+    } else {
+        config_take_short_body(flash_config());
         // A migration that lost power after the new copy was saved: finish it.
-        invalidate_legacy_config();
+        if (legacy_intact) invalidate_legacy_config();
     }
 
     config_valid();

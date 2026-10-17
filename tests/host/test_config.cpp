@@ -372,6 +372,31 @@ TEST(config_load_finishes_an_interrupted_migration) {
     CHECK(legacy_erased());
 }
 
+// 0.9.5-dev.9 (protocol 1.14, 49-byte body) kept power_flags right after its
+// body, where mic_level is now: they load as its power flags, and mic_level
+// takes its default instead of the power-flags byte.
+TEST(config_dev9_body_keeps_its_power_flags) {
+    fake_flash_erase_all();
+    g_fake_flash_fail = false;
+    config_load();
+    Config_body b = get_config();
+    b.inactive_time = 41;
+    set_config(b);
+    CHECK(config_save());
+    uint8_t *raw = g_fake_flash + CONFIG_FLASH_OFFSET;
+    std::memset(raw + offsetof(Config, body) + 49, 0xFF, FLASH_PAGE_SIZE - offsetof(Config, body) - 49);
+    raw[offsetof(Config, body) + 49] &= 0x03;  // its power_flags: both options on
+    const uint16_t size = 49;
+    std::memcpy(raw + offsetof(Config, size), &size, sizeof(size));
+    reseal_config_page(size);
+    config_default();
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 41);
+    CHECK_EQ(config_power_flags(), 0x03);
+    CHECK_EQ(get_config().mic_level, 0);        // follow the PC (default), not 3
+    CHECK_EQ(get_config().mic_echo_cancel, 1);  // default
+}
+
 // PC sleep options (Config::power_flags, after the body, protocol 1.14).
 TEST(config_power_flags_defaults_and_round_trip) {
     fake_flash_erase_all();
