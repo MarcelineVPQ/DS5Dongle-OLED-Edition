@@ -241,13 +241,14 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
     // report — so it must ALWAYS be diverted here (decoded when mic is on, dropped
     // when off), never fall through to the input handler below. Letting it through
     // would copy Opus bytes into interrupt_in_data and corrupt sticks/buttons.
-    if (channel == INTERRUPT && data[1] == 0x31 && ((data[2] >> 1) & 1)
-        && len >= 75) {
+    if (channel == INTERRUPT && len >= 75 && data[1] == 0x31 && ((data[2] >> 1) & 1)) {
         mic_add_queue(data + 4); // drops it unless the host is recording
         return;
     }
 
-    if (channel == INTERRUPT && data[1] == 0x31) {
+    // An input report is read up to data[65] (the 63 bytes at data + 3): a
+    // shorter frame isn't one, and is dropped rather than read past its end.
+    if (channel == INTERRUPT && len >= kBtInputMinLen && data[1] == 0x31) {
         if ((data[56] & 1) != (interrupt_in_data[53] & 1)) {
             set_headset(data[56] & 1);
         }

@@ -734,7 +734,8 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
             // 静默检测. Only input reports count (packet[2] bit 0): the mic's
             // frames never look idle, so with the mic on the controller was
             // never disconnected. Upstream d7fb163.
-            if (!(packet[2] & 1) || get_config().disable_inactive_disconnect) {
+            // A frame shorter than an input report isn't one (on_bt_data drops it too).
+            if (size < kBtInputMinLen || !(packet[2] & 1) || get_config().disable_inactive_disconnect) {
                 return;
             }
             if (packet[3] < 120 || packet[3] > 140 ||
