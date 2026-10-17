@@ -6,7 +6,7 @@
 
 > **OLED Edition** es un fork de **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) que añade un módulo de pantalla opcional Pico-OLED-1.3 de 128×64 con 11 pantallas (estado, emparejamiento de varios mandos en 4 ranuras, selector de color de la barra luminosa con favoritos y efectos predefinidos, prueba de gatillos, inclinación del giroscopio, panel táctil, diagnóstico, CPU/reloj, intensidad de la señal BT, vúmetros de audio y un menú de ajustes persistente), además de un reinicio por software con una combinación de botones del DS5. Upstream es la fuente de referencia del firmware del puente; este fork lo sigue y añade funciones encima.
 
-> **🧪 ¿Quieres las funciones más nuevas? Prueba el canal de desarrollo.** En la app: **Ajustes de la app → Actualizaciones → Desarrollo** (antes te pregunta; **Volver a estable** te devuelve cuando quieras). Las versiones de desarrollo pasan las mismas pruebas automáticas en cada cambio; las estables además pasan todas las comprobaciones de lanzamiento en hardware real y en Windows, y un tiempo de uso diario. La actual, **0.9.5-dev.13**, añade respecto a la estable 0.9.4:
+> **🧪 ¿Quieres las funciones más nuevas? Prueba el canal de desarrollo.** En la app: **Ajustes de la app → Actualizaciones → Desarrollo** (antes te pregunta; **Volver a estable** te devuelve cuando quieras). Las versiones de desarrollo pasan las mismas pruebas automáticas en cada cambio; las estables además pasan todas las comprobaciones de lanzamiento en hardware real y en Windows, y un tiempo de uso diario. La actual, **0.9.5-dev.15**, añade respecto a la estable 0.9.4:
 >
 > - **DualSense Edge:** reasigna el botón Fn y los botones posteriores, perfiles personalizados del Edge en PlayStation Accessories, y su propio dibujo y vista en la OLED
 > - **Joysticks:** curvas de respuesta y pruebas de joystick
@@ -15,6 +15,8 @@
 > - **Juegos (Linux):** elige cualquier versión de Proton por juego, configuración de HDR, y los juegos solo XInput encuentran el mando
 > - **Maneja la OLED desde la app:** KEY0/KEY1 y los botones del mando junto a la pantalla en directo, además de **Compartir la OLED** (PNG, portapapeles o GIF)
 > - **Comprobación del firmware del mando** e información sobre su estado
+> - **Auriculares (Linux):** estéreo al conectar unos auriculares al mando, y de vuelta al altavoz al quitarlos
+> - **Vincular desde la placa:** la OLED dice *Press PS to connect*; mantén KEY0 2 s para vincular, con cuenta atrás; sin búsquedas sin fin en reposo
 > - **Todos los mensajes en 7 idiomas**
 
 ---

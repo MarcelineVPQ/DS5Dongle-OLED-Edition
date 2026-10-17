@@ -6,7 +6,7 @@
 
 > **OLED Edition** ist ein Fork von **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (Upstream). Er ergänzt ein optionales Pico-OLED-1.3-Display (128×64) mit 11 Bildschirmen (Status, Kopplung von bis zu 4 Controllern, Farbwähler für die Leuchtleiste mit Favoriten und Effekt-Vorlagen, Trigger-Test, Gyro-Neigung, Touchpad, Diagnose, CPU/Takt, Bluetooth-Signalstärke, Audio-VU-Meter und ein dauerhaft gespeichertes Einstellungsmenü) sowie einen Soft-Reboot per Tastenkombination am DS5. Für die Kern-Firmware der Bridge ist Upstream maßgeblich; dieser Fork folgt Upstream und setzt seine Zusatzfunktionen obendrauf.
 
-> **🧪 Du willst die neuesten Funktionen? Probier den Entwicklungskanal.** In der App: **App-Einstellungen → Updates → Entwicklung** (die App fragt vorher nach; mit **Zurück zu stabil** kehrst du jederzeit zurück). Entwicklungs-Builds bestehen bei jeder Änderung dieselben automatischen Tests; stabile Versionen bekommen zusätzlich die vollständigen Release-Prüfungen auf echter Hardware und unter Windows sowie Zeit im Alltagseinsatz. Der aktuelle, **0.9.5-dev.13**, bringt gegenüber der stabilen 0.9.4:
+> **🧪 Du willst die neuesten Funktionen? Probier den Entwicklungskanal.** In der App: **App-Einstellungen → Updates → Entwicklung** (die App fragt vorher nach; mit **Zurück zu stabil** kehrst du jederzeit zurück). Entwicklungs-Builds bestehen bei jeder Änderung dieselben automatischen Tests; stabile Versionen bekommen zusätzlich die vollständigen Release-Prüfungen auf echter Hardware und unter Windows sowie Zeit im Alltagseinsatz. Der aktuelle, **0.9.5-dev.15**, bringt gegenüber der stabilen 0.9.4:
 >
 > - **DualSense Edge:** Fn-Tasten und Rücktasten neu zuweisen, Edge-Profile in PlayStation Accessories, eine eigene Zeichnung und eine eigene OLED-Ansicht
 > - **Sticks:** Empfindlichkeitskurven und Stick-Tests
@@ -15,6 +15,8 @@
 > - **Spiele (Linux):** beliebige Proton-Version pro Spiel, HDR-Einrichtung, und reine XInput-Spiele finden den Controller
 > - **Das OLED aus der App bedienen:** KEY0/KEY1 und die Controller-Tasten neben dem Live-Bild, dazu **OLED teilen** (PNG, Zwischenablage oder GIF)
 > - **Prüfung der Controller-Firmware** und Infos zum Zustand des Controllers
+> - **Headset (Linux):** Stereo, sobald ein Headset im Controller steckt, und zurück zum Lautsprecher, wenn es herauskommt
+> - **Koppeln am Board:** das OLED sagt *Press PS to connect*; KEY0 2 s halten zum Koppeln, mit Countdown; kein Dauer-Scannen im Leerlauf
 > - **Jede Meldung in 7 Sprachen**
 
 ---
