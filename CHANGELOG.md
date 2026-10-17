@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.9.5-dev.18-oled-edition] - 2026-10-17
+
+### Changed
+- **No firmware changes since 0.9.5-dev.17.** The same firmware under the new version; this development build's changes are in the configurator app (its CHANGELOG): a click on the controller drawing takes you to that setting, Your report on a game as a Pass / Fail / Not tested test sheet, ratings save on development builds, and quitting the Linux AppImage no longer leaves a crash report.
+
 ## [0.9.5-dev.17-oled-edition] - 2026-10-16
 
 ### Fixed
