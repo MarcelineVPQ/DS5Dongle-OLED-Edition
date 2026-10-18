@@ -25,7 +25,7 @@
 
 **[→ DS5 Dongle OLED Edition Configurator をダウンロード](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage、管理者権限不要の Windows インストーラー、macOS 用ユニバーサルアプリ。Linux、Windows 11、macOS でテスト済みで、macOS ではスモークテストが実機の Apple Silicon Mac にインストールして起動します。[macOS 27.0.1 での動作報告](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)もあります。）
 
-必要なのはこのアプリだけです。各リリースには対応するファームウェアが含まれており、アプリが Pico にインストールし、最新の状態に保ち、すべてを設定します：
+必要なのはこのアプリだけです。各リリースには対応するファームウェアが含まれており、アプリが Raspberry Pi Pico 2 W にインストールし、最新の状態に保ち、すべてを設定します：
 
 1. ボードを組み立て（下の[ハードウェア](#ハードウェア)を参照）、アプリを起動します。
 2. **BOOTSEL ボタンを押しながら** Pico を接続します（新品の Pico ではボタンは不要です）。アプリが Pico を見つけ、ワンクリックでファームウェアをインストールします。手でファイルをコピーする必要はありません。

@@ -25,7 +25,7 @@
 
 **[→ Download the DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (Linux AppImage, a Windows installer that needs no admin rights, and the universal macOS app; tested on Linux, Windows 11 and macOS, where the macOS smoke test installs and runs it on a real Apple Silicon Mac. It has also been [reported working on macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
-The app is all you need. Each release includes the matching firmware, so the app installs it on your Pico, keeps it up to date, and configures everything:
+The app is all you need. Each release includes the matching firmware, so the app installs it on your Raspberry Pi Pico 2 W, keeps it up to date, and configures everything:
 
 1. Build the dongle (see [Hardware](#hardware) below) and start the app.
 2. Plug the Pico in **while holding its BOOTSEL button** (a brand-new Pico doesn't need the button). The app finds it and installs the firmware with one click; nothing to copy by hand.
