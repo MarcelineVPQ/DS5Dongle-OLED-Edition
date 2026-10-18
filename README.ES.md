@@ -478,24 +478,18 @@ Medidores de pico en directo de las rutas de audio del altavoz y de la háptica.
 
 #### 11. Ajustes
 
-Editor de configuración persistente. Los botones de dirección ▲▼ mueven la selección, ▶◀ ajustan los valores, △ guarda en la flash. Incluye los campos de configuración del firmware (ganancia háptica, volumen del altavoz, tiempo de inactividad, frecuencia de sondeo), los controles de Audio Auto Haptics y dos acciones que se confirman manteniendo pulsado:
-
-`Hap Left` y `Hap Right` ajustan cada empuñadura por separado. Pulsa △ para aplicar y guardar los cambios.
+Editor de configuración persistente. Se abre con un menú de seis grupos, cada uno con cuántos ajustes contiene: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** y **Reset**. Los botones de dirección ▲▼ mueven la selección; ✕ (o ▶) abre un grupo y ○ vuelve al menú, donde lo dejaste. Dentro de un grupo, ▶◀ ajustan el valor. △ guarda en la flash desde cualquier sitio. La fila en la que estás es una barra iluminada; un valor cambiado y aún sin guardar se muestra en una ventana oscura dentro de esa barra, y el título muestra `(*)` hasta que guardes.
 
 <img src="./assets/oled/oled_sc11.png" alt="Pantalla Settings en la OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace**: elige el modo de Audio Auto Haptics. Predeterminado `Off`: la háptica solo viene del juego. `Fallback` genera vibración derivada solo cuando el juego no envía datos hápticos nativos (p. ej., Ghost of Tsushima en Linux); ten en cuenta que también vibra con la música y el audio del escritorio; los juegos que *sí* envían háptica nativa (Spider-Man Remastered) pasan sin cambios. `Mix` añade la derivada encima de la nativa, `Replace` ignora la nativa por completo.
-- **AH Gain N%**: ganancia de la señal derivada, 0–200 % en pasos del 10 %. Predeterminado 100 %.
-- **AH LP 80/160/250/400 Hz**: corte del filtro paso bajo aplicado al audio del altavoz antes del seguidor de envolvente. Más bajo = más subgraves, más alto = más presencia. Predeterminado 160 Hz.
-- **TrigEff game / -1 … -10**: Intensidad del efecto gatillo: reduce la resistencia de los gatillos adaptativos de los juegos en 10 pasos. Predeterminado `game` (0): la fuerza propia del juego, con su informe sin tocar.
-- **SpkBoost game / 1 … 7**: Amplificación del altavoz: la preganancia del amplificador del mando. Predeterminado `game` (0): lo decide el juego. Independiente de `Spk Vol`.
-- **VolLock on / off**: Bloquear volumen: los juegos no pueden cambiar el volumen del altavoz, de los auriculares o del micrófono del mando, ni el silencio ni la luz del botón de silenciado; el volumen y el silencio propios del PC siguen funcionando. Predeterminado off.
-- **SPK Out Auto / SPK / Hset / off**: Salida de audio: dónde suena el audio del PC (Auto = los auriculares cuando hay unos conectados al mando). Predeterminado Auto.
-- **Mic In Auto / Int / Hset**: Micrófono en uso: Auto, el micrófono integrado o el de los auriculares. Predeterminado Auto. `BT Mic` sigue siendo el interruptor que apaga el micrófono.
-- **Sleep CtrlOff on / off**: apaga el mando cuando el PC lleva 3 s en suspensión. Predeterminado on.
-- **PS Wakes PC on / off**: sin ningún mando conectado, la placa aparece como un teclado solo para reactivar ("DS5 Dongle Wake Keyboard") para que el botón PS pueda reactivar el PC. Predeterminado off.
-- **Reset to defaults**: mantén pulsado △ 2 s para restablecer todos los campos de configuración
-- **Wipe all slots**: mantén pulsado △ 2 s para eliminar los 4 mandos emparejados + todas las claves de enlace de BTstack
+- **Haptics/trigger:** `Vibration L` y `Vibration R` (intensidad de la vibración por lado), `Trig. effect` (intensidad del efecto de los gatillos: `game`, la fuerza del propio juego, o de -1 a -10 más suave), `AutoHap` (el modo de Audio Auto Haptics, abajo), `AutoHap gain` (0–200 % en pasos de 10 %, predeterminado 100 %) y `Auto filter` (el corte del paso bajo antes del seguidor de envolvente, 80 / 160 / 250 / 400 Hz, predeterminado 160 Hz: más bajo = más subgraves).
+- **Audio:** `Spk volume`, `Spk boost` (refuerzo del altavoz, la preganancia del amplificador del mando: `game`, a cargo del juego, o de 1 a 7), `Lock volume` (los juegos no pueden cambiar el volumen del altavoz, de los auriculares ni del micrófono del mando, ni el silencio ni su luz; el volumen y el silencio del propio PC siguen aplicándose), `Audio out` (Auto / SPK / Hset / off: dónde suena el audio del PC; Auto = los auriculares cuando hay unos conectados al mando), `Built-in mic` (el interruptor que apaga el micrófono), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` sigue el nivel de micrófono del PC, o de 1 a 64), `Echo cancel` y `Audio buffer` (32–128).
+- **Connection:** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (desconectar un mando inactivo) e `Idle time` (10–60 min).
+- **Screen & lights:** `Screen dim` y `Screen off` (minutos; `off` = nunca), `Wake on input` (usar el mando enciende la pantalla) y `Status LED` (el LED de la Pico).
+- **PC sleep:** `Turn off ctrl` (apagar el mando cuando el PC lleva 3 s en suspensión, activado por defecto) y `PS wakes PC` (sin un mando conectado, la placa aparece como un teclado solo para despertar, «DS5 Dongle Wake Keyboard», para que el botón PS pueda despertar el PC; desactivado por defecto).
+- **Reset:** `Reset to defaults` (mantén △ 2 s; restablece todos los ajustes y conserva la ranura actual) y `Wipe all slots` (mantén △ 2 s; borra los 4 mandos emparejados y todas las claves de enlace de BTstack).
+
+Modos de `AutoHap`: `Off` (predeterminado) toma la háptica solo del juego. `Fallback` genera vibración derivada solo cuando el juego no envía datos hápticos nativos (p. ej. Ghost of Tsushima en Linux); ten en cuenta que también vibra con la música y el audio del escritorio, mientras que los juegos que *sí* envían háptica nativa (Spider-Man Remastered) pasan sin cambios. `Mix` añade la derivada encima de la nativa y `Replace` ignora la nativa por completo.
 
 ### Referencia de botones
 

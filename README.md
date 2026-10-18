@@ -482,24 +482,18 @@ Live peak meters for the speaker and haptic audio paths. Useful for verifying au
 
 #### 11. Settings
 
-Persistent config editor. D-pad ▲▼ moves the selection, ▶◀ adjusts values, △ saves to flash. Includes the firmware-config fields (haptics gain, speaker volume, inactive timeout, polling rate), the Audio Auto Haptics controls, and two hold-to-confirm actions:
-
-`Hap Left` and `Hap Right` adjust each grip separately. Press △ to apply and save the changes.
+Persistent config editor. It opens on a menu of six groups, each with how many settings it holds: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** and **Reset**. D-pad ▲▼ moves the selection; ✕ (or ▶) opens a group, and ○ goes back to the menu where you left it. In a group, ▶◀ adjusts the value. △ saves to flash from anywhere. The row you're on is a lit bar; a value you've changed but not saved yet shows in a dark window in that bar, and the title shows `(*)` until you save.
 
 <img src="./assets/oled/oled_sc11.png" alt="Settings screen on the OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** — selects the Audio Auto Haptics mode. Default `Off`: haptics come only from the game. `Fallback` fires derived rumble only when the game sends no native haptic data (e.g. Ghost of Tsushima on Linux) — note it also vibrates along with music and desktop audio; games that *do* send native haptics (Spider-Man Remastered) pass through unchanged. `Mix` adds derived on top of native, `Replace` ignores native entirely.
-- **AH Gain N%** — derived-signal gain, 0–200 % in 10 % steps. Default 100 %.
-- **AH LP 80/160/250/400 Hz** — low-pass cutoff applied to the speaker audio before envelope follow. Lower = more sub-bass, higher = more presence. Default 160 Hz.
-- **TrigEff game / -1 … -10** — Trigger Effect Intensity: weakens the games' adaptive trigger resistance in 10 steps. Default `game` (0): the game's own strength, its report passed through untouched.
-- **SpkBoost game / 1 … 7** — Speaker boost: the controller amplifier's pre-gain. Default `game` (0): left to the game. Separate from `Spk Vol`.
-- **VolLock on / off** — Lock volume: games can't change the controller's speaker, headset or mic volume, mute or mute light; the PC's own volume and mute still apply. Default off.
-- **SPK Out Auto / SPK / Hset / off** — Audio output: where the PC's audio plays (Auto = the headset when one is plugged into the controller). Default Auto.
-- **Mic In Auto / Int / Hset** — Microphone used: Auto, the built-in mic, or a headset's. Default Auto. `BT Mic` stays the switch that turns the mic off.
-- **Sleep CtrlOff on / off** — turn the controller off once the PC has slept for 3 s. Default on.
-- **PS Wakes PC on / off** — with no controller connected, the dongle shows up as a wake-only keyboard ("DS5 Dongle Wake Keyboard") so the PS button can wake the PC. Default off.
-- **Reset to defaults** — hold △ for 2 s to revert all config fields
-- **Wipe all slots** — hold △ for 2 s to drop all 4 paired controllers + all BTstack link keys
+- **Haptics/trigger:** `Vibration L` and `Vibration R` (vibration intensity per side), `Trig. effect` (Trigger Effect Intensity: `game`, the game's own strength, or -1 … -10 weaker), `AutoHap` (the Audio Auto Haptics mode, below), `AutoHap gain` (0–200 % in 10 % steps, default 100 %) and `Auto filter` (the low-pass cutoff before the envelope follower, 80 / 160 / 250 / 400 Hz, default 160 Hz: lower = more sub-bass).
+- **Audio:** `Spk volume`, `Spk boost` (Speaker boost, the controller amplifier's pre-gain: `game`, left to the game, or 1 … 7), `Lock volume` (games can't change the controller's speaker, headset or mic volume, mute or mute light; the PC's own volume and mute still apply), `Audio out` (Auto / SPK / Hset / off: where the PC's audio plays; Auto = the headset when one is plugged into the controller), `Built-in mic` (the switch that turns the mic off), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` follows the PC's mic level, or 1–64), `Echo cancel` and `Audio buffer` (32–128).
+- **Connection:** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (disconnect an idle controller) and `Idle time` (10–60 min).
+- **Screen & lights:** `Screen dim` and `Screen off` (minutes; `off` = never), `Wake on input` (controller input wakes the screen) and `Status LED` (the Pico's LED).
+- **PC sleep:** `Turn off ctrl` (turn the controller off once the PC has slept for 3 s, default on) and `PS wakes PC` (with no controller connected, the dongle shows up as a wake-only keyboard, "DS5 Dongle Wake Keyboard", so the PS button can wake the PC; default off).
+- **Reset:** `Reset to defaults` (hold △ for 2 s; reverts every setting and keeps the current slot) and `Wipe all slots` (hold △ for 2 s; drops all 4 paired controllers and all BTstack link keys).
+
+`AutoHap` modes: `Off` (the default) takes haptics only from the game. `Fallback` fires derived rumble only when the game sends no native haptic data (e.g. Ghost of Tsushima on Linux); note it also vibrates along with music and desktop audio, while games that *do* send native haptics (Spider-Man Remastered) pass through unchanged. `Mix` adds derived on top of native, `Replace` ignores native entirely.
 
 ### Button reference
 

@@ -478,24 +478,18 @@ Live-Spitzenwertanzeigen für den Lautsprecher- und den Haptik-Audiopfad. Nützl
 
 #### 11. Einstellungen
 
-Editor für die dauerhafte Konfiguration. Richtungstasten ▲▼ bewegen die Auswahl, ▶◀ ändern Werte, △ speichert in den Flash. Enthält die Konfigurationsfelder der Firmware (Haptik-Verstärkung, Lautsprecherlautstärke, Inaktivitäts-Timeout, Abfragerate), die Regler für Audio Auto Haptics und zwei Aktionen, die durch Halten bestätigt werden:
-
-`Hap Left` und `Hap Right` stellen jeden Griff einzeln ein. Drücke △, um die Änderungen zu übernehmen und zu speichern.
+Dauerhaft gespeicherter Konfigurationseditor. Er öffnet mit einem Menü aus sechs Gruppen, jeweils mit der Zahl ihrer Einstellungen: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** und **Reset**. Richtungstasten ▲▼ bewegen die Auswahl; ✕ (oder ▶) öffnet eine Gruppe, ○ geht zurück ins Menü, an die Stelle, an der du warst. In einer Gruppe ändern ▶◀ den Wert. △ speichert von überall in den Flash. Die aktuelle Zeile ist ein heller Balken; ein geänderter, noch nicht gespeicherter Wert steht in einem dunklen Fenster in diesem Balken, und der Titel zeigt `(*)`, bis du speicherst.
 
 <img src="./assets/oled/oled_sc11.png" alt="Bildschirm Settings auf dem OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** — wählt den Modus von Audio Auto Haptics. Standard `Off`: Haptik kommt nur vom Spiel. `Fallback` erzeugt abgeleitetes Rumble nur, wenn das Spiel keine nativen Haptikdaten sendet (z. B. Ghost of Tsushima unter Linux) — es vibriert dann allerdings auch bei Musik und Desktop-Audio mit; Spiele, die *doch* native Haptik senden (Spider-Man Remastered), laufen unverändert durch. `Mix` legt das abgeleitete Signal über das native, `Replace` ignoriert das native ganz.
-- **AH Gain N%** — Verstärkung des abgeleiteten Signals, 0–200 % in Schritten von 10 %. Standard 100 %.
-- **AH LP 80/160/250/400 Hz** — Grenzfrequenz des Tiefpasses auf dem Lautsprecher-Audio vor der Hüllkurvenverfolgung. Niedriger = mehr Tiefbass, höher = mehr Präsenz. Standard 160 Hz.
-- **TrigEff game / -1 … -10** — Intensität des Trigger-Effekts: schwächt den Widerstand der adaptiven Trigger in Spielen in 10 Stufen ab. Standard `game` (0): die Stärke des Spiels, sein Report wird unverändert durchgereicht.
-- **SpkBoost game / 1 … 7** — Lautsprecher-Verstärkung: die Vorverstärkung des Controller-Verstärkers. Standard `game` (0): dem Spiel überlassen. Getrennt von `Spk Vol`.
-- **VolLock on / off** — Lautstärke sperren: Spiele können Lautstärke, Stummschaltung und Mute-Leuchte von Lautsprecher, Headset und Mikrofon des Controllers nicht ändern; Lautstärke und Stummschaltung des PCs wirken weiterhin. Standard off.
-- **SPK Out Auto / SPK / Hset / off** — Audioausgabe: wo das Audio des PCs spielt (Auto = das Headset, wenn eins am Controller steckt). Standard Auto.
-- **Mic In Auto / Int / Hset** — Verwendetes Mikrofon: Auto, das integrierte Mikrofon oder das eines Headsets. Standard Auto. `BT Mic` bleibt der Schalter, der das Mikrofon ausschaltet.
-- **Sleep CtrlOff on / off** — den Controller ausschalten, sobald der PC 3 s geschlafen hat. Standard on.
-- **PS Wakes PC on / off** — ohne verbundenen Controller meldet sich der Pico als Tastatur nur zum Aufwecken („DS5 Dongle Wake Keyboard“), damit die PS-Taste den PC aufwecken kann. Standard off.
-- **Reset to defaults** — △ 2 s halten, um alle Konfigurationsfelder zurückzusetzen
-- **Wipe all slots** — △ 2 s halten, um alle 4 gekoppelten Controller + alle BTstack-Link-Keys zu verwerfen
+- **Haptics/trigger:** `Vibration L` und `Vibration R` (Vibrationsintensität je Seite), `Trig. effect` (Intensität des Triggereffekts: `game`, die Stärke des Spiels, oder -1 … -10 schwächer), `AutoHap` (der Modus von Audio Auto Haptics, siehe unten), `AutoHap gain` (0–200 % in 10-%-Schritten, Standard 100 %) und `Auto filter` (Grenzfrequenz des Tiefpasses vor dem Hüllkurvenfolger, 80 / 160 / 250 / 400 Hz, Standard 160 Hz: niedriger = mehr Tiefbass).
+- **Audio:** `Spk volume`, `Spk boost` (Lautsprecher-Boost, die Vorverstärkung des Controller-Verstärkers: `game`, dem Spiel überlassen, oder 1 … 7), `Lock volume` (Spiele können Lautstärke von Lautsprecher, Headset und Mikrofon, die Stummschaltung und ihr Licht am Controller nicht ändern; Lautstärke und Stummschaltung des PCs wirken weiter), `Audio out` (Auto / SPK / Hset / off: wo der Ton des PCs spielt; Auto = das Headset, wenn eines am Controller steckt), `Built-in mic` (der Schalter, der das Mikrofon ausschaltet), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` folgt dem Mikrofonpegel des PCs, oder 1–64), `Echo cancel` und `Audio buffer` (32–128).
+- **Connection:** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (einen untätigen Controller trennen) und `Idle time` (10–60 min).
+- **Screen & lights:** `Screen dim` und `Screen off` (Minuten; `off` = nie), `Wake on input` (Eingaben am Controller wecken den Bildschirm) und `Status LED` (die LED des Pico).
+- **PC sleep:** `Turn off ctrl` (den Controller ausschalten, sobald der PC 3 s geschlafen hat, Standard an) und `PS wakes PC` (ohne verbundenen Controller meldet sich der Pico als Tastatur nur zum Aufwecken, „DS5 Dongle Wake Keyboard“, damit die PS-Taste den PC wecken kann; Standard aus).
+- **Reset:** `Reset to defaults` (△ 2 s halten; setzt alle Einstellungen zurück und behält den aktuellen Platz) und `Wipe all slots` (△ 2 s halten; löscht alle 4 gekoppelten Controller und alle Link-Keys von BTstack).
+
+Modi von `AutoHap`: `Off` (Standard) nimmt die Haptik nur vom Spiel. `Fallback` erzeugt abgeleitete Vibration nur, wenn das Spiel keine nativen Haptikdaten sendet (z. B. Ghost of Tsushima unter Linux); es vibriert dann aber auch zu Musik und Desktop-Audio, während Spiele, die native Haptik *senden* (Spider-Man Remastered), unverändert durchgehen. `Mix` legt die abgeleitete auf die native, `Replace` ignoriert die native ganz.
 
 ### Tastenübersicht
 

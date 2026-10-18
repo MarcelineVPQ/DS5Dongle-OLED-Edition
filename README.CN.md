@@ -478,24 +478,18 @@ scripts/mic_diag.sh bt-trace
 
 #### 11. 设置
 
-持久化配置编辑器。方向键 ▲▼ 移动选择，▶◀ 调整数值，△ 保存到闪存。包含固件配置字段（触觉增益、扬声器音量、空闲超时、轮询率）、音频自动触感控件，以及两个按住确认的操作：
-
-`Hap Left` 和 `Hap Right` 分别调整左右握把强度，按下 △ 应用并保存修改。
+持久化配置编辑器。它打开时是一个包含六个分组的菜单，每组显示其中的设置数量：**Haptics/trigger**、**Audio**、**Connection**、**Screen & lights**、**PC sleep** 和 **Reset**。方向键 ▲▼ 移动选择；✕（或 ▶）打开分组，○ 返回菜单中原来的位置。在分组里，▶◀ 调整数值。在任何位置按 △ 都会保存到闪存。当前行是一条亮条；已修改但尚未保存的值显示在亮条中的暗色窗口里，保存前标题会显示 `(*)`。
 
 <img src="./assets/oled/oled_sc11.png" alt="OLED 上的设置屏幕" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** —— 选择音频自动触感模式。默认 `Off`：触觉只来自游戏。`Fallback` 只在游戏不发送原生触觉数据时（例如 Linux 上的 Ghost of Tsushima）才产生派生的震动 —— 注意它也会跟着音乐和桌面音频震动；确实发送原生触觉的游戏（Spider-Man Remastered）原样通过。`Mix` 在原生之上叠加派生，`Replace` 完全忽略原生。
-- **AH Gain N%** —— 派生信号增益，0–200 %，每步 10 %。默认 100 %。
-- **AH LP 80/160/250/400 Hz** —— 包络跟随之前作用于扬声器音频的低通截止频率。越低越偏重低音，越高越有临场感。默认 160 Hz。
-- **TrigEff game / -1 … -10** —— 扳机效果强度：分 10 级减弱游戏的自适应扳机阻力。默认 `game`（0）：游戏自己的强度，报告原样通过。
-- **SpkBoost game / 1 … 7** —— 扬声器增强：控制器功放的前级增益。默认 `game`（0）：交给游戏决定。与 `Spk Vol` 是两个设置。
-- **VolLock on / off** —— 锁定音量：游戏不能更改控制器的扬声器、耳机或麦克风音量、静音或静音键指示灯；电脑自己的音量和静音仍然生效。默认 off。
-- **SPK Out Auto / SPK / Hset / off** —— 音频输出：电脑的声音从哪里播放（Auto = 控制器上插了耳机时用耳机）。默认 Auto。
-- **Mic In Auto / Int / Hset** —— 使用的麦克风：自动、内置麦克风或耳机麦克风。默认 Auto。`BT Mic` 仍是关闭麦克风的开关。
-- **Sleep CtrlOff on / off** —— 电脑睡眠 3 秒后关闭控制器。默认 on。
-- **PS Wakes PC on / off** —— 没有连接控制器时，Pico 显示为只用于唤醒的键盘（"DS5 Dongle Wake Keyboard"），这样 PS键可以唤醒电脑。默认 off。
-- **Reset to defaults** —— 按住 △ 2 秒，恢复所有配置字段
-- **Wipe all slots** —— 按住 △ 2 秒，删除全部 4 个已配对控制器 + 全部 BTstack 链路密钥
+- **Haptics/trigger：** `Vibration L` 和 `Vibration R`（左右各自的振动强度）、`Trig. effect`（扳机效果强度：`game` 为游戏自身的强度，或 -1 … -10 更弱）、`AutoHap`（音频自动触感模式，见下文）、`AutoHap gain`（0–200 %，步进 10 %，默认 100 %）以及 `Auto filter`（包络跟随之前的低通截止频率，80 / 160 / 250 / 400 Hz，默认 160 Hz：越低重低音越多）。
+- **Audio：** `Spk volume`、`Spk boost`（扬声器增强，控制器功放的前置增益：`game` 交给游戏，或 1 … 7）、`Lock volume`（游戏无法更改控制器的扬声器、耳机或麦克风音量、静音及静音指示灯；PC 自身的音量和静音仍然生效）、`Audio out`（Auto / SPK / Hset / off：PC 的声音从哪里播放；Auto = 控制器插着耳机时用耳机）、`Built-in mic`（关闭麦克风的开关）、`Mic used`（Auto / Int / Hset）、`Mic level`（`PC` 跟随 PC 的麦克风电平，或 1–64）、`Echo cancel` 以及 `Audio buffer`（32–128）。
+- **Connection：** `Controller`（DS5 / DSE / Auto）、`Poll rate`（250Hz / 500Hz / RT）、`Disconnect`（断开空闲的控制器）以及 `Idle time`（10–60 分钟）。
+- **Screen & lights：** `Screen dim` 和 `Screen off`（分钟；`off` = 从不）、`Wake on input`（操作控制器时唤醒屏幕）以及 `Status LED`（Pico 的 LED）。
+- **PC sleep：** `Turn off ctrl`（PC 睡眠 3 秒后关闭控制器，默认开启）以及 `PS wakes PC`（未连接控制器时，Pico 显示为仅用于唤醒的键盘“DS5 Dongle Wake Keyboard”，这样 PS 按钮可以唤醒 PC；默认关闭）。
+- **Reset：** `Reset to defaults`（按住 △ 2 秒；恢复所有设置并保留当前槽）以及 `Wipe all slots`（按住 △ 2 秒；清除全部 4 个已配对的控制器和所有 BTstack 链接密钥）。
+
+`AutoHap` 模式：`Off`（默认）只使用游戏的触觉。`Fallback` 只在游戏不发送原生触觉数据时（例如 Linux 上的 Ghost of Tsushima）才产生派生的震动；注意它也会跟着音乐和桌面音频震动，而确实发送原生触觉的游戏（Spider-Man Remastered）原样通过。`Mix` 在原生触觉之上叠加派生震动，`Replace` 完全忽略原生触觉。
 
 ### 按键参考
 

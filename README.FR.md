@@ -478,24 +478,18 @@ Crête-mètres en direct pour les chaînes audio du haut-parleur et de l'haptiqu
 
 #### 11. Réglages
 
-Éditeur de configuration persistante. ▲▼ des touches directionnelles déplacent la sélection, ▶◀ ajustent les valeurs, △ enregistre en flash. Contient les champs de configuration du firmware (gain haptique, volume du haut-parleur, délai d'inactivité, fréquence d'interrogation), les réglages Audio Auto Haptics, et deux actions à confirmer par appui long :
-
-`Hap Left` et `Hap Right` règlent chaque poignée séparément. Appuie sur △ pour appliquer et enregistrer les modifications.
+Éditeur de configuration persistant. Il s'ouvre sur un menu de six groupes, chacun avec le nombre de réglages qu'il contient : **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** et **Reset**. Les touches directionnelles ▲▼ déplacent la sélection ; ✕ (ou ▶) ouvre un groupe et ○ revient au menu, là où tu l'avais laissé. Dans un groupe, ▶◀ ajustent la valeur. △ enregistre en flash depuis n'importe où. La ligne sélectionnée est une barre éclairée ; une valeur modifiée mais pas encore enregistrée s'affiche dans une fenêtre sombre dans cette barre, et le titre affiche `(*)` jusqu'à l'enregistrement.
 
 <img src="./assets/oled/oled_sc11.png" alt="Écran Réglages sur l'OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** : choisit le mode Audio Auto Haptics. Par défaut `Off` : l'haptique vient uniquement du jeu. `Fallback` ne déclenche des vibrations dérivées que quand le jeu n'envoie aucune donnée haptique native (par ex. Ghost of Tsushima sous Linux) ; note qu'il vibre aussi avec la musique et l'audio du bureau ; les jeux qui *envoient* de l'haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute le signal dérivé par-dessus le natif, `Replace` ignore entièrement le natif.
-- **AH Gain N%** : gain du signal dérivé, 0–200 % par pas de 10 %. Par défaut 100 %.
-- **AH LP 80/160/250/400 Hz** : fréquence de coupure du passe-bas appliqué à l'audio du haut-parleur avant le suivi d'enveloppe. Plus bas = plus d'infra-basses, plus haut = plus de présence. Par défaut 160 Hz.
-- **TrigEff game / -1 … -10** : Intensité de l'effet gâchette ; affaiblit la résistance des gâchettes adaptatives des jeux en 10 crans. Par défaut `game` (0) : la force propre du jeu, son rapport transmis tel quel.
-- **SpkBoost game / 1 … 7** : Amplification du haut-parleur ; le pré-gain de l'amplificateur de la manette. Par défaut `game` (0) : laissé au jeu. Distinct de `Spk Vol`.
-- **VolLock on / off** : Verrouiller le volume ; les jeux ne peuvent pas changer le volume du haut-parleur, du casque ou du micro de la manette, ni la coupure du son ou son voyant ; le volume et la coupure du son du PC lui-même s'appliquent toujours. Désactivé par défaut.
-- **SPK Out Auto / SPK / Hset / off** : Sortie audio ; où l'audio du PC est joué (Auto = le casque quand il y en a un branché sur la manette). Par défaut Auto.
-- **Mic In Auto / Int / Hset** : Microphone utilisé ; Auto, le micro intégré ou celui d'un casque. Par défaut Auto. `BT Mic` reste l'interrupteur qui coupe le micro.
-- **Sleep CtrlOff on / off** : éteint la manette quand le PC est en veille depuis 3 s. Activé par défaut.
-- **PS Wakes PC on / off** : sans manette connectée, la carte apparaît comme un clavier qui sert uniquement au réveil (« DS5 Dongle Wake Keyboard ») pour que la touche PS puisse réveiller le PC. Désactivé par défaut.
-- **Reset to defaults** : maintiens △ pendant 2 s pour rétablir tous les champs de configuration
-- **Wipe all slots** : maintiens △ pendant 2 s pour supprimer les 4 manettes associées + toutes les clés de lien BTstack
+- **Haptics/trigger :** `Vibration L` et `Vibration R` (intensité des vibrations par côté), `Trig. effect` (intensité de l'effet des gâchettes : `game`, la force du jeu lui-même, ou -1 … -10 plus faible), `AutoHap` (le mode d'Audio Auto Haptics, ci-dessous), `AutoHap gain` (0–200 % par pas de 10 %, 100 % par défaut) et `Auto filter` (la coupure du passe-bas avant le suiveur d'enveloppe, 80 / 160 / 250 / 400 Hz, 160 Hz par défaut : plus bas = plus d'infra-basses).
+- **Audio :** `Spk volume`, `Spk boost` (amplification du haut-parleur, le pré-gain de l'ampli de la manette : `game`, laissé au jeu, ou 1 … 7), `Lock volume` (les jeux ne peuvent pas changer le volume du haut-parleur, du casque ou du micro de la manette, la sourdine ni son voyant ; le volume et la sourdine du PC s'appliquent toujours), `Audio out` (Auto / SPK / Hset / off : où joue le son du PC ; Auto = le casque quand il y en a un branché sur la manette), `Built-in mic` (l'interrupteur qui coupe le micro), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` suit le niveau du micro du PC, ou 1–64), `Echo cancel` et `Audio buffer` (32–128).
+- **Connection :** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (déconnecter une manette inactive) et `Idle time` (10–60 min).
+- **Screen & lights :** `Screen dim` et `Screen off` (minutes ; `off` = jamais), `Wake on input` (utiliser la manette rallume l'écran) et `Status LED` (la LED du Pico).
+- **PC sleep :** `Turn off ctrl` (éteindre la manette quand le PC est en veille depuis 3 s, activé par défaut) et `PS wakes PC` (sans manette connectée, la carte apparaît comme un clavier de réveil seul, « DS5 Dongle Wake Keyboard », pour que la touche PS puisse réveiller le PC ; désactivé par défaut).
+- **Reset :** `Reset to defaults` (maintenir △ 2 s ; rétablit tous les réglages et garde l'emplacement actuel) et `Wipe all slots` (maintenir △ 2 s ; efface les 4 manettes associées et toutes les clés de liaison de BTstack).
+
+Modes d'`AutoHap` : `Off` (par défaut) ne prend l'haptique que du jeu. `Fallback` produit des vibrations dérivées seulement quand le jeu n'envoie pas de données haptiques natives (p. ex. Ghost of Tsushima sous Linux) ; il vibre aussi avec la musique et le son du bureau, tandis que les jeux qui envoient *bien* une haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute la dérivée par-dessus la native, `Replace` ignore complètement la native.
 
 ### Référence des boutons
 
