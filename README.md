@@ -4,7 +4,7 @@
 
 > Turn a Raspberry Pi Pico2W into a wireless adapter for the DualSense (DS5) controller — with an optional on-board status display.
 
-> **OLED Edition** is a fork of **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) that adds an optional Pico-OLED-1.3 128×64 display add-on with 11 screens (status, 4-slot multi-controller pairing, lightbar color picker with favorites and effect presets, trigger test, gyro tilt, touchpad, diagnostics, CPU/clock, BT signal strength, audio VU meters, and a persistent settings menu), plus a DS5 button-combo soft-reboot. Upstream is the authoritative source for the core bridge firmware; this fork tracks it and layers add-on features on top.
+> **OLED Edition** is a fork of **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) that adds an optional Pico-OLED-1.3 128×64 display add-on with 11 screens (status, 4-slot multi-controller pairing, light bar color picker with favorites and effect presets, trigger test, gyro tilt, touch pad, diagnostics, CPU/clock, BT signal strength, audio VU meters, and a persistent settings menu), plus a DS5 button-combo soft-reboot. Upstream is the authoritative source for the core bridge firmware; this fork tracks it and layers add-on features on top.
 
 > **🧪 Want the newest features? Try the Development channel.** In the app: **App settings → Updates → Development** (it asks first; **Back to stable** returns you any time). Development builds pass the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The current one, **0.9.5-dev.19**, adds over stable 0.9.4:
 >
@@ -126,7 +126,7 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 **OLED Edition additions:**
 
 - **Native DualSense adaptive triggers in PC games on Linux/Proton — through the dongle.** Games with native DualSense support drive the controller's adaptive triggers wirelessly via the dongle, **1:1 with a directly-wired DualSense**. Requires a Proton carrying the Wine `winebus.sys` #9034 fix (Wine 11 / current Proton-GE) with Steam Input disabled — **no launch option needed** (Wine 11 enables the hidraw native path by default). Works on **both Steam and Heroic** (Epic/GOG). The firmware makes the dongle byte-for-byte indistinguishable from a real DS5 so the game accepts it (full write-up in [CHANGELOG.md](./CHANGELOG.md)).
-- Optional Pico-OLED-1.3 status display with **11 screens** (status, slots, lightbar, trigger test, gyro tilt, touchpad, diagnostics, CPU/clock, RSSI, VU meters, settings)
+- Optional Pico-OLED-1.3 status display with **11 screens** (status, slots, light bar, trigger test, gyro tilt, touch pad, diagnostics, CPU/clock, RSSI, VU meters, settings)
 - **Calibration in the dongle (v0.9)** — stick center offset, deadzone and full-tilt radius, trigger travel and gyro zero, per pairing slot, applied to what games receive (never written to the controller). Set from the app's guided calibration.
 - **Vibration intensity per side (v0.9)** — left and right separately, for haptic feedback and classic vibration alike.
 - **Sensitivity curves (v0.9.5)** — a curve per stick (Linear, Precise, Steady, Quick, Digital or four custom points), applied in the dongle after calibration, so it works in every game; a game's profile can switch its own in while it runs.
@@ -138,7 +138,7 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 - **PC sleep and wake (upstream awalol)** — the controller turns off once the PC has slept for 3 s (on by default), and optionally the PS button wakes the PC (off by default: with no controller connected the dongle then shows up as a small wake-only keyboard, "DS5 Dongle Wake Keyboard", which the PC must allow to wake it). With a controller connected the dongle is the DualSense exactly as before. Both are in the app and the OLED Settings menu. Waking needs the PC to keep USB powered while it sleeps.
 - **Trigger effect intensity, speaker boost, volume lock, mic and speaker choice, status pin (upstream's settings, protocol 1.13)** — weaker adaptive triggers in 10 steps (the game's own strength by default), the controller amp's pre-gain, games kept from changing the controller's volume, the mic as Auto / Built-in / Headset, the PC's audio on Auto / Speaker / Headset / Off, and a GPIO that shows the controller connection. The mute button's light follows the mic mute, and the PC's mute switches and mic level reach the controller. A fresh config polls at 500 Hz.
 - **4-slot persistent multi-controller pairing** — bond up to four DualSenses, switch between them from the OLED, slot 0 reconnects automatically on boot
-- **Lightbar color picker** with 4 user favorite slots + breathing / rainbow / fade effect presets
+- **Light bar color picker** with 4 user favorite slots + breathing / rainbow / fade effect presets
 - **Persistent settings menu** on the OLED: 25 settings in six groups (haptics and triggers, audio, connection, screen and lights, PC sleep), plus hold-to-confirm Reset to defaults and Wipe all slots
 - **OLED idle power ladder** — manual brightness cycle (KEY1 long-press), automatic deep-dim with a small breathing dot at 2 min idle, full display-off at 15 min idle. Wakes instantly on button, controller pair, or input. Real burn-in protection, not just a contrast tweak.
 - **Soft-reboot** without unplugging USB via DS5 `PS + Mute` hold (works headless) or **KEY0 + KEY1 held together for 1 s** on the OLED add-on (replaces the older KEY0 double-click gesture, which was easy to fire by accident while paging quickly)
@@ -236,7 +236,7 @@ There are four ways to configure the firmware:
 
 **Configurator app (recommended):** the [DS5 Dongle OLED Edition Configurator](#️-get-started-download-the-app) for Linux, Windows and macOS (the Games page lists Steam, Heroic and Lutris games on Linux and Steam, GOG Galaxy and Epic games on Windows, and its Proton setup is Linux-only). It finds the dongle by itself, applies changes live, and saves to the dongle's flash with one click. Needs firmware v0.8+.
 
-**On-device (OLED add-on present):** use the on-screen **Settings** menu (11th screen). D-pad ▲▼ moves the selection, ✕ opens a group and ○ goes back, ▶◀ adjusts values, △ saves to flash.
+**On-device (OLED add-on present):** use the on-screen **Settings** menu (11th screen). Directional buttons ▲▼ move the selection, ✕ opens a group and ○ goes back, ▶◀ adjusts values, △ saves to flash.
 
 **Terminal CLI (any OS, any browser):** install hidapi, then use `scripts/set_ds5.py`:
 
@@ -301,12 +301,12 @@ This was long believed impossible — earlier versions of this fork documented i
 ## Known Issues
 
 - HD haptics may not fire in every game on Linux + Steam; this is game-side (some titles only send HD-haptic audio under Windows-specific APIs). Tested working in Spider-Man Remastered; not delivered in Ghost of Tsushima — same firmware, same controller.
-- **USB 3.0 ports can disrupt pairing** — the controller may get stuck on a solid amber/yellow lightbar and never connect, while the same dongle works fine on a USB 2.0 port. This is RF interference, not a firmware bug; see [USB 3.0 ports & Bluetooth interference](#usb-30-ports--bluetooth-interference) below. (As of v0.6.8 the firmware auto-retries a stalled connection instead of hanging, which recovers many — but not all — marginal cases.)
+- **USB 3.0 ports can disrupt pairing** — the controller may get stuck on a solid amber/yellow light bar and never connect, while the same dongle works fine on a USB 2.0 port. This is RF interference, not a firmware bug; see [USB 3.0 ports & Bluetooth interference](#usb-30-ports--bluetooth-interference) below. (As of v0.6.8 the firmware auto-retries a stalled connection instead of hanging, which recovers many — but not all — marginal cases.)
 - **Windows: the app can't open the dongle** on PCs where a real DualSense was plugged in by USB before (the dongle shares its USB IDs, and Windows remembered "no driver needed" for them). From app 0.9.2 the setup screen offers **Repair USB driver**: one admin prompt, then replug. The full PowerShell it runs, line by line, is in the [app's README](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web#repair-usb-driver-exactly-what-it-runs).
 
 ## USB 3.0 ports & Bluetooth interference
 
-If the dongle works on one port but not another, **try a USB 2.0 port first.** USB 3.0 ports and (especially) USB 3.0 extension cables emit broadband RF noise centered near 2.4 GHz — the same band the dongle's Bluetooth radio uses to talk to the controller. This is a well-documented industry issue (Intel, *"USB 3.0 Radio Frequency Interference Impact on 2.4 GHz Wireless Devices"*), not specific to this firmware. The noise desensitizes the dongle's BT receiver, so the controller can start connecting (amber lightbar) but the link is too noisy to complete — it hangs on yellow.
+If the dongle works on one port but not another, **try a USB 2.0 port first.** USB 3.0 ports and (especially) USB 3.0 extension cables emit broadband RF noise centered near 2.4 GHz — the same band the dongle's Bluetooth radio uses to talk to the controller. This is a well-documented industry issue (Intel, *"USB 3.0 Radio Frequency Interference Impact on 2.4 GHz Wireless Devices"*), not specific to this firmware. The noise desensitizes the dongle's BT receiver, so the controller can start connecting (amber light bar) but the link is too noisy to complete — it hangs on yellow.
 
 Mitigations, roughly in order of effectiveness:
 
@@ -316,7 +316,7 @@ Mitigations, roughly in order of effectiveness:
 4. **Clip a ferrite bead** onto the cable near the dongle.
 5. **Keep the controller closer / in line of sight** of the dongle during pairing.
 
-The firmware will keep retrying a stalled connection on its own, so leaving it plugged in for ~10–20 s after the lightbar goes amber may let it recover without a replug.
+The firmware will keep retrying a stalled connection on its own, so leaving it plugged in for ~10–20 s after the light bar goes amber may let it recover without a replug.
 
 ## Performance / Clock
 
@@ -398,13 +398,13 @@ Centered firmware version on a blank screen for 1.5 seconds, then jumps to the S
 
 ### Eleven screens, cycled with KEY0 on the add-on
 
-Cycle order: **Status → Slots → Lightbar → Trigger Test → Gyro Tilt → Touchpad → Diagnostics → CPU/Clock → BT Signal → VU Meters → Settings →** wrap. **KEY0 short-press steps forward; KEY1 short-press steps backward** — on *every* screen. Per-screen interactions (cycling the trigger preset, cycling the lightbar mode, navigating the Settings cursor, switching slots) live on the **DualSense controller buttons**, never on KEY0/KEY1, so the two physical buttons on the OLED add-on always mean the same thing.
+Cycle order: **Status → Slots → Lightbar → Trigger Test → Gyro Tilt → Touchpad → Diagnostics → CPU/Clock → BT Signal → VU Meters → Settings →** wrap. **KEY0 short-press steps forward; KEY1 short-press steps backward** — on *every* screen. Per-screen interactions (cycling the trigger preset, cycling the light bar mode, navigating the Settings cursor, switching slots) live on the **DualSense controller buttons**, never on KEY0/KEY1, so the two physical buttons on the OLED add-on always mean the same thing.
 
 Every screen also paints **`>`** at the top-left edge (next to KEY0) and **`<`** at the bottom-left edge (next to KEY1) so the on-screen labels physically pair with the buttons.
 
 #### 1. Status
 
-Connection state, paired DualSense BD address, battery % with bar (`+` charging / `*` complete / `!` error), live analog stick positions (each stick box flashes inverse — a black dot on a white box — while its **L3 / R3** is clicked in), D-pad, face buttons (△ ◯ ✕ □), L1/R1, and L2/R2 analog trigger fill bars. The link indicator and battery use small pixel icons. While charging, a `~Nm` estimate of the time to 100% appears next to the battery.
+Connection state, paired DualSense BD address, battery % with bar (`+` charging / `*` complete / `!` error), live analog stick positions (each stick box flashes inverse — a black dot on a white box — while its **L3 / R3** is clicked in), directional buttons, action buttons (△ ◯ ✕ □), L1/R1, and L2/R2 analog trigger fill bars. The link indicator and battery use small pixel icons. While charging, a `~Nm` estimate of the time to 100% appears next to the battery.
 
 With no controller connected it says what to do: **Press PS to connect** (or *No DualSense paired*) and **Hold KEY0 for 2 s to pair a DualSense**. Holding KEY0 for 2 s there opens a 2-minute pairing window for the current slot (the board scans only in such a window: at boot, after a slot switch / forget / wipe, or this), and the screen then shows **Pairing: hold Create + PS** with the time left and a bar. This is the one KEY0 action besides "next screen", and only there: without a controller the board is off USB, so the app can't start pairing.
 
@@ -416,20 +416,20 @@ Persistent 4-slot multi-controller pairing. Browse stored controllers, switch ac
 
 <img src="./assets/oled/oled_sc02.png" alt="Slots screen on the OLED" width="512">
 
-- **D-pad ▲▼** — move cursor across slots 0–3
+- **Directional buttons ▲▼** — move the cursor across slots 0–3
 - **△** — switch to the cursor slot (disconnect current, reconnect to slot's stored controller)
 - **□ hold 1.5 s** — wipe the cursor slot (drops bd_addr + BTstack link key)
 - Active slot is persisted; the dongle reconnects to it on next boot
 
 #### 3. Lightbar Color Picker
 
-Tilt the controller on each axis to dial in R / G / B; the firmware sends the resulting color to the DualSense's actual lightbar at 10 Hz, so the lightbar IS the visual preview (the OLED is monochrome).
+Tilt the controller on each axis to dial in R / G / B; the firmware sends the resulting color to the DualSense's actual light bar at 10 Hz, so the light bar IS the visual preview (the OLED is monochrome).
 
 <img src="./assets/oled/oled_sc03.png" alt="Lightbar color picker on the OLED" width="512">
 
 - Press **△ ◯ ✕ □** on the controller to **save** the current color into favorite slot 0 / 1 / 2 / 3
 - Press **R1** on the controller to cycle the mode tag: `[LIVE]` → `[FAV0]` → `[FAV1]` → `[FAV2]` → `[FAV3]` → effects (Breathing / Rainbow / Fade) → `[HOST]` → back to `[LIVE]`
-- `[HOST]` (the default) hands the lightbar to the PC / game; the dongle sets no color. Any other mode keeps the dongle's color, whatever the game sends
+- `[HOST]` (the default) hands the light bar to the PC / game; the dongle sets no color. Any other mode keeps the dongle's color, whatever the game sends
 - Default favorites: Red, Green, Blue, White
 
 #### 4. Trigger Test
@@ -448,13 +448,13 @@ Live X/Y/Z accelerometer values with a 40×40 crosshair box. The dot tracks the 
 
 #### 6. Touchpad
 
-Live render of the touchpad surface. Dots appear at current finger positions; the count updates as fingers touch / leave.
+Live render of the touch pad surface. Dots appear at current finger positions; the count updates as fingers touch / leave.
 
 <img src="./assets/oled/oled_sc06.png" alt="Touchpad screen on the OLED" width="512">
 
 #### 7. Diagnostics
 
-Scrollable list of live counters — uptime, BT state, host → BT trigger flow (`host02` / `trig` / `tx`), BT 0x31 input rate, USB audio frames/sec, BT 0x32 packets/sec, and parked mic-investigation counters at the bottom. Controller D-pad ▲/▼ scrolls; tiny `^` / `v` glyphs at the right edge mark "more above/below." Read-only, so no cursor. Useful for verifying the bridge is moving bytes without needing a UART cable.
+Scrollable list of live counters — uptime, BT state, host → BT trigger flow (`host02` / `trig` / `tx`), BT 0x31 input rate, USB audio frames/sec, BT 0x32 packets/sec, and parked mic-investigation counters at the bottom. Controller directional buttons ▲/▼ scroll; tiny `^` / `v` glyphs at the right edge mark "more above/below." Read-only, so no cursor. Useful for verifying the bridge is moving bytes without needing a UART cable.
 
 The same counters are also exported on HID feature report `0xFD` for host-side tooling — see `scripts/mic_diag.sh bt-trace` below.
 
@@ -482,7 +482,7 @@ Live peak meters for the speaker and haptic audio paths. Useful for verifying au
 
 #### 11. Settings
 
-Persistent config editor. It opens on a menu of six groups, each with how many settings it holds: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** and **Reset**. D-pad ▲▼ moves the selection; ✕ (or ▶) opens a group, and ○ goes back to the menu where you left it. In a group, ▶◀ adjusts the value. △ saves to flash from anywhere. The row you're on is a lit bar; a value you've changed but not saved yet shows in a dark window in that bar, and the title shows `(*)` until you save.
+Persistent config editor. It opens on a menu of six groups, each with how many settings it holds: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** and **Reset**. Directional buttons ▲▼ move the selection; ✕ (or ▶) opens a group, and ○ goes back to the menu where you left it. In a group, ▶◀ adjusts the value. △ saves to flash from anywhere. The row you're on is a lit bar; a value you've changed but not saved yet shows in a dark window in that bar, and the title shows `(*)` until you save.
 
 <img src="./assets/oled/oled_sc11.png" alt="Settings screen on the OLED" width="512">
 
@@ -507,7 +507,7 @@ The two physical buttons on the OLED add-on are **strictly navigation**:
 | **KEY1** held for more than 1.5 s | Change brightness once while held; release does not go back |
 | **KEY0 + KEY1** held together ≥ 1 s | `watchdog_reboot` — soft-reboot without unplugging USB |
 
-Per-screen state changes (cycling the trigger preset, cycling the lightbar mode, navigating Settings, switching slots, saving colors to favorite slots) all happen on the **DualSense controller buttons** — never on KEY0 / KEY1 — so the two physical buttons always mean the same thing across every screen (the one exception: KEY0 held 2 s on the Status screen with no controller pairs, see Status). A save that fails outside Settings / Slots (the KEY1 brightness, the Lightbar screen's changes, the slot a connecting controller takes) shows a status line over the bottom row of whatever screen is up for 3 s, e.g. `Bright: Save FAIL`. See each screen's section above for which controller button does what.
+Per-screen state changes (cycling the trigger preset, cycling the light bar mode, navigating Settings, switching slots, saving colors to favorite slots) all happen on the **DualSense controller buttons** — never on KEY0 / KEY1 — so the two physical buttons always mean the same thing across every screen (the one exception: KEY0 held 2 s on the Status screen with no controller pairs, see Status). A save that fails outside Settings / Slots (the KEY1 brightness, the Lightbar screen's changes, the slot a connecting controller takes) shows a status line over the bottom row of whatever screen is up for 3 s, e.g. `Bright: Save FAIL`. See each screen's section above for which controller button does what.
 
 ### Pinout (standard Waveshare Pico HAT layout)
 
@@ -532,7 +532,7 @@ Two ways to reboot the dongle without unplugging USB — handy if pairing gets s
 
 Some features and design ideas in this fork are borrowed from other forks of upstream, with credit:
 
-- **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** — pixel-art icons in the OLED status header (visual approach), the "hold for factory reset" UX pattern used by the Settings screen's "Reset to defaults" item (hold △ for 2 s to confirm), and the multi-slot persistent BT pairing system on the new Slots screen (4 bonded controllers, D-pad to navigate, △ to switch slots, □ hold to wipe a slot, plus "Wipe all slots" in the Settings menu).
+- **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** — pixel-art icons in the OLED status header (visual approach), the "hold for factory reset" UX pattern used by the Settings screen's "Reset to defaults" item (hold △ for 2 s to confirm), and the multi-slot persistent BT pairing system on the new Slots screen (4 bonded controllers, directional buttons to navigate, △ to switch slots, □ hold to wipe a slot, plus "Wipe all slots" in the Settings menu).
 - **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — independent rediscovery of the upstream `3a31bd7` regression that broke speaker / HD haptic output (commit `c7a8d3c`); the fix in our `src/audio.cpp` restores the same SetStateData sub-report. Also the source of the Audio Auto Haptics DSP (1-pole LP + envelope follower, see Settings → Haptics/trigger) and the "don't sync USB-side UAC1 volume to the persistent config" fix.
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** — a sibling Pico DualSense bridge. The button-remapping apply logic and digital-control set in `src/remap.{h,cpp}` are ported from it. Its audio architecture (on-device Opus encoding vs an optional host-encoding companion app) was also the reference for diagnosing our speaker-cadence ("warble") work. Thanks for the groundwork.
 - **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — the base of our configurator, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) (a web app at first, the desktop app since 0.8.0). The fork adapted upstream's 13-byte Config_body layout to ours (19 bytes then, 51 now) and added UI for our additions (multi-slot pairing, Auto Haptics).
