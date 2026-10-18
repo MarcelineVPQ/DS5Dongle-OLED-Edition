@@ -23,7 +23,7 @@
 
 ## 🛠️ Pour commencer : télécharger l'app
 
-**[→ Télécharger DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage Linux et installateur Windows sans droits administrateur, tous deux testés ; la version macOS est testée par la communauté : [signalée fonctionnelle sous macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Télécharger DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage Linux, installateur Windows sans droits administrateur et app macOS universelle ; testée sous Linux, Windows 11 et macOS, où le test rapide macOS l'installe et la lance sur un vrai Mac Apple Silicon. Elle est aussi [signalée fonctionnelle sous macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
 L'app suffit. Chaque version contient le firmware correspondant : l'app l'installe sur ton Pico, le tient à jour et configure tout :
 
@@ -232,7 +232,7 @@ L'[app](#️-pour-commencer--télécharger-lapp) le fait pour toi. Pour flasher 
 
 Il y a quatre façons de configurer le firmware :
 
-**App de configuration (recommandée) :** le [DS5 Dongle OLED Edition Configurator](#️-pour-commencer--télécharger-lapp) pour Linux et Windows (une version macOS est incluse, signalée fonctionnelle sous macOS 27.0.1 ; la page Jeux liste les jeux Steam, Heroic et Lutris sous Linux et les jeux Steam, GOG Galaxy et Epic sous Windows, et sa configuration de Proton est réservée à Linux). Elle trouve la carte toute seule, applique les changements en direct et enregistre dans la flash de la carte en un clic. Nécessite le firmware v0.8+.
+**App de configuration (recommandée) :** le [DS5 Dongle OLED Edition Configurator](#️-pour-commencer--télécharger-lapp) pour Linux, Windows et macOS (la page Jeux liste les jeux Steam, Heroic et Lutris sous Linux et les jeux Steam, GOG Galaxy et Epic sous Windows, et sa configuration de Proton est réservée à Linux). Elle trouve la carte toute seule, applique les changements en direct et enregistre dans la flash de la carte en un clic. Nécessite le firmware v0.8+.
 
 **Sur l'appareil (module OLED présent) :** utilise le menu **Settings** à l'écran (11e écran). ▲▼ des touches directionnelles déplacent la sélection, ▶◀ ajustent les valeurs, △ enregistre en flash.
 

@@ -23,7 +23,7 @@
 
 ## 🛠️ 快速上手：下载应用
 
-**[→ 下载 DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage 和无需管理员权限的 Windows 安装程序，两者都经过测试；macOS 版本由社区测试：[已有用户报告在 macOS 27.0.1 上可用](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)）
+**[→ 下载 DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage、无需管理员权限的 Windows 安装程序和 macOS 通用版应用；已在 Linux、Windows 11 和 macOS 上测试，macOS 冒烟测试会在真实的 Apple Silicon Mac 上安装并运行它。另外也[已有用户报告在 macOS 27.0.1 上可用](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)。）
 
 只需要这个应用。每个版本都自带对应的固件，应用会把固件装到你的 Pico 上、保持更新，并配置所有功能：
 
@@ -232,7 +232,7 @@ Pico 2 W 和 Waveshare Pico-OLED-1.3 在全球都很容易买到：
 
 有四种方式配置固件：
 
-**配置应用（推荐）：** 适用于 Linux 和 Windows 的 [DS5 Dongle OLED Edition Configurator](#️-快速上手下载应用)（也包含 macOS 版本，已有用户报告在 macOS 27.0.1 上可用；游戏页面在 Linux 上列出 Steam、Heroic 和 Lutris 游戏，在 Windows 上列出 Steam、GOG Galaxy 和 Epic 游戏，其中的 Proton 设置仅限 Linux）。它会自己找到 Pico，修改即时生效，一键保存到 Pico 的闪存。需要 v0.8 及以上固件。
+**配置应用（推荐）：** 适用于 Linux、Windows 和 macOS 的 [DS5 Dongle OLED Edition Configurator](#️-快速上手下载应用)（游戏页面在 Linux 上列出 Steam、Heroic 和 Lutris 游戏，在 Windows 上列出 Steam、GOG Galaxy 和 Epic 游戏，其中的 Proton 设置仅限 Linux）。它会自己找到 Pico，修改即时生效，一键保存到 Pico 的闪存。需要 v0.8 及以上固件。
 
 **设备端（装有 OLED 插件）：** 使用屏幕上的 **Settings** 菜单（第 11 个屏幕）。方向键 ▲▼ 移动选择，▶◀ 调整数值，△ 保存到闪存。
 

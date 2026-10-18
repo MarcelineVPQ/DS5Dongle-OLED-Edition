@@ -23,7 +23,7 @@
 
 ## 🛠️ Comece aqui: baixe o app
 
-**[→ Baixe o DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux e um instalador para Windows que não precisa de direitos de administrador, ambos testados; a versão para macOS é testada pela comunidade: [relatado como funcionando no macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Baixe o DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux, um instalador para Windows que não precisa de direitos de administrador e o app universal para macOS; testado no Linux, Windows 11 e macOS, onde o teste rápido do macOS o instala e o executa num Mac de verdade com Apple Silicon. Ele também foi [relatado como funcionando no macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
 O app é tudo de que você precisa. Cada versão inclui o firmware correspondente, então o app o instala no seu Pico, mantém tudo atualizado e configura tudo:
 
@@ -232,7 +232,7 @@ O [app](#️-comece-aqui-baixe-o-app) faz isso por você. Para gravar à mão (o
 
 Há quatro jeitos de configurar o firmware:
 
-**App de configuração (recomendado):** o [DS5 Dongle OLED Edition Configurator](#️-comece-aqui-baixe-o-app) para Linux e Windows (há também uma versão para macOS, relatada como funcionando no macOS 27.0.1; a página Jogos lista jogos da Steam, Heroic e Lutris no Linux e da Steam, GOG Galaxy e Epic no Windows, e a configuração do Proton é só para Linux). Ele encontra a placa sozinho, aplica as mudanças ao vivo e salva na flash do Pico com um clique. Requer firmware v0.8+.
+**App de configuração (recomendado):** o [DS5 Dongle OLED Edition Configurator](#️-comece-aqui-baixe-o-app) para Linux, Windows e macOS (a página Jogos lista jogos da Steam, Heroic e Lutris no Linux e da Steam, GOG Galaxy e Epic no Windows, e a configuração do Proton é só para Linux). Ele encontra a placa sozinho, aplica as mudanças ao vivo e salva na flash do Pico com um clique. Requer firmware v0.8+.
 
 **No dispositivo (com o módulo OLED):** use o menu **Settings** na tela (11ª tela). Botões de direção ▲▼ movem a seleção, ▶◀ ajustam valores, △ salva na flash.
 

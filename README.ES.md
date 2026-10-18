@@ -23,7 +23,7 @@
 
 ## 🛠️ Primeros pasos: descarga la app
 
-**[→ Descargar DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux y un instalador para Windows que no necesita permisos de administrador, ambos probados; la versión para macOS la ha probado la comunidad: [funciona en macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Descargar DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux, un instalador para Windows que no necesita permisos de administrador y la app universal para macOS; probada en Linux, Windows 11 y macOS, donde la prueba rápida de macOS la instala y la ejecuta en un Mac real con Apple Silicon. Además, [se ha informado de que funciona en macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
 La app es todo lo que necesitas. Cada versión incluye el firmware correspondiente, así que la app lo instala en tu Pico, lo mantiene al día y lo configura todo:
 
@@ -232,7 +232,7 @@ La [app](#️-primeros-pasos-descarga-la-app) lo hace por ti. Para flashear a ma
 
 Hay cuatro formas de configurar el firmware:
 
-**App de configuración (recomendada):** [DS5 Dongle OLED Edition Configurator](#️-primeros-pasos-descarga-la-app) para Linux y Windows (incluye una versión para macOS que funciona en macOS 27.0.1; la página Juegos muestra los juegos de Steam, Heroic y Lutris en Linux y los de Steam, GOG Galaxy y Epic en Windows, y su configuración de Proton es solo para Linux). Encuentra la placa por sí sola, aplica los cambios en directo y los guarda en la flash de la placa con un clic. Necesita firmware v0.8 o posterior.
+**App de configuración (recomendada):** [DS5 Dongle OLED Edition Configurator](#️-primeros-pasos-descarga-la-app) para Linux, Windows y macOS (la página Juegos muestra los juegos de Steam, Heroic y Lutris en Linux y los de Steam, GOG Galaxy y Epic en Windows, y su configuración de Proton es solo para Linux). Encuentra la placa por sí sola, aplica los cambios en directo y los guarda en la flash de la placa con un clic. Necesita firmware v0.8 o posterior.
 
 **En el propio dispositivo (con el módulo OLED):** usa el menú **Settings** en pantalla (la 11.ª pantalla). Los botones de dirección ▲▼ mueven la selección, ▶◀ ajustan los valores, △ guarda en la flash.
 

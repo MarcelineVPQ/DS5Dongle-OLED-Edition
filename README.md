@@ -23,7 +23,7 @@
 
 ## 🛠️ Get started: download the app
 
-**[→ Download the DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (Linux AppImage and a Windows installer that needs no admin rights, both tested; the macOS build is community-tested: [reported working on macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Download the DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (Linux AppImage, a Windows installer that needs no admin rights, and the universal macOS app; tested on Linux, Windows 11 and macOS, where the macOS smoke test installs and runs it on a real Apple Silicon Mac. It has also been [reported working on macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
 The app is all you need. Each release includes the matching firmware, so the app installs it on your Pico, keeps it up to date, and configures everything:
 
@@ -234,7 +234,7 @@ The dongle looks for a controller in pairing mode for 2 minutes after it's plugg
 
 There are four ways to configure the firmware:
 
-**Configurator app (recommended):** the [DS5 Dongle OLED Edition Configurator](#️-get-started-download-the-app) for Linux and Windows (a macOS build is included, reported working on macOS 27.0.1; the Games page lists Steam, Heroic and Lutris games on Linux and Steam, GOG Galaxy and Epic games on Windows, and its Proton setup is Linux-only). It finds the dongle by itself, applies changes live, and saves to the dongle's flash with one click. Needs firmware v0.8+.
+**Configurator app (recommended):** the [DS5 Dongle OLED Edition Configurator](#️-get-started-download-the-app) for Linux, Windows and macOS (the Games page lists Steam, Heroic and Lutris games on Linux and Steam, GOG Galaxy and Epic games on Windows, and its Proton setup is Linux-only). It finds the dongle by itself, applies changes live, and saves to the dongle's flash with one click. Needs firmware v0.8+.
 
 **On-device (OLED add-on present):** use the on-screen **Settings** menu (11th screen). D-pad ▲▼ moves selection, ▶◀ adjusts values, △ saves to flash.
 

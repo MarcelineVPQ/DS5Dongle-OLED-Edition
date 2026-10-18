@@ -314,7 +314,7 @@ jobs:
               fi
             fi
             if [ "$win_checked" = false ]; then
-              echo "Checked on Linux (the AppImage) before release. The Windows 11 installer (no admin rights needed) and the macOS build come from the same workflow and pass the same automated tests on Linux, Windows and macOS; **the macOS build hasn't been tried on a Mac yet**. Reports welcome. The Games page is on Linux and Windows."
+              echo "Tested on Linux (the AppImage) and macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test). The Windows 11 installer (no admin rights needed) comes from the same workflow and passes the same automated tests on Windows; this development build skipped the hands-on check in the Windows 11 test VM. The Games page is on Linux and Windows."
             else
               echo "Tested on Linux (the AppImage), Windows 11 (the installer, which needs no admin rights) and macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test). The Games page is on Linux and Windows."
             fi

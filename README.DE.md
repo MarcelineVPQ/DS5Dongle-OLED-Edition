@@ -23,7 +23,7 @@
 
 ## 🛠️ Erste Schritte: die App herunterladen
 
-**[→ DS5 Dongle OLED Edition Configurator herunterladen](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (Linux-AppImage und ein Windows-Installer ohne Administratorrechte, beide getestet; der macOS-Build ist von der Community getestet: [läuft laut Bericht unter macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ DS5 Dongle OLED Edition Configurator herunterladen](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (Linux-AppImage, ein Windows-Installer ohne Administratorrechte und die universelle macOS-App; getestet unter Linux, Windows 11 und macOS, wo der macOS-Smoke-Test sie auf einem echten Apple-Silicon-Mac installiert und startet. Sie [läuft laut Bericht auch unter macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
 Mehr als die App brauchst du nicht. Jedes Release enthält die passende Firmware: Die App installiert sie auf deinem Pico, hält sie aktuell und richtet alles ein:
 
@@ -232,7 +232,7 @@ Die [App](#️-erste-schritte-die-app-herunterladen) erledigt das für dich. Wen
 
 Es gibt vier Wege, die Firmware zu konfigurieren:
 
-**Konfigurations-App (empfohlen):** der [DS5 Dongle OLED Edition Configurator](#️-erste-schritte-die-app-herunterladen) für Linux und Windows (ein macOS-Build liegt bei und läuft laut Bericht unter macOS 27.0.1; die Seite Spiele listet unter Linux Spiele aus Steam, Heroic und Lutris und unter Windows aus Steam, GOG Galaxy und Epic, und die Proton-Einrichtung gibt es nur unter Linux). Sie findet den Pico von selbst, übernimmt Änderungen sofort und speichert sie mit einem Klick in seinen Flash. Braucht Firmware v0.8+.
+**Konfigurations-App (empfohlen):** der [DS5 Dongle OLED Edition Configurator](#️-erste-schritte-die-app-herunterladen) für Linux, Windows und macOS (die Seite Spiele listet unter Linux Spiele aus Steam, Heroic und Lutris und unter Windows aus Steam, GOG Galaxy und Epic, und die Proton-Einrichtung gibt es nur unter Linux). Sie findet den Pico von selbst, übernimmt Änderungen sofort und speichert sie mit einem Klick in seinen Flash. Braucht Firmware v0.8+.
 
 **Am Gerät (mit OLED-Add-on):** nutze das Menü **Settings** auf dem Bildschirm (11. Bildschirm). Richtungstasten ▲▼ bewegen die Auswahl, ▶◀ ändern Werte, △ speichert in den Flash.
 

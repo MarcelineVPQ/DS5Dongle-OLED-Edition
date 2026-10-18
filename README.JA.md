@@ -23,7 +23,7 @@
 
 ## 🛠️ はじめに：アプリをダウンロード
 
-**[→ DS5 Dongle OLED Edition Configurator をダウンロード](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage と、管理者権限不要の Windows インストーラー。どちらもテスト済みです。macOS 版はコミュニティによるテストで、[macOS 27.0.1 で動作報告あり](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)）
+**[→ DS5 Dongle OLED Edition Configurator をダウンロード](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage、管理者権限不要の Windows インストーラー、macOS 用ユニバーサルアプリ。Linux、Windows 11、macOS でテスト済みで、macOS ではスモークテストが実機の Apple Silicon Mac にインストールして起動します。[macOS 27.0.1 での動作報告](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)もあります。）
 
 必要なのはこのアプリだけです。各リリースには対応するファームウェアが含まれており、アプリが Pico にインストールし、最新の状態に保ち、すべてを設定します：
 
@@ -232,7 +232,7 @@ Pico 2 W と Waveshare Pico-OLED-1.3 はどちらも世界中で広く入手で�
 
 ファームウェアを設定する方法は 4 つあります：
 
-**設定アプリ（推奨）：** Linux と Windows 向けの [DS5 Dongle OLED Edition Configurator](#️-はじめにアプリをダウンロード)（macOS 版も同梱され、macOS 27.0.1 で動作報告あり。**ゲーム** ページには Linux では Steam、Heroic、Lutris のゲームが、Windows では Steam、GOG Galaxy、Epic のゲームが表示され、Proton の設定は Linux のみです）。ボードを自動的に見つけ、変更をすぐに反映し、ワンクリックでボードのフラッシュに保存します。ファームウェア v0.8 以降が必要です。
+**設定アプリ（推奨）：** Linux、Windows、macOS 向けの [DS5 Dongle OLED Edition Configurator](#️-はじめにアプリをダウンロード)（**ゲーム** ページには Linux では Steam、Heroic、Lutris のゲームが、Windows では Steam、GOG Galaxy、Epic のゲームが表示され、Proton の設定は Linux のみです）。ボードを自動的に見つけ、変更をすぐに反映し、ワンクリックでボードのフラッシュに保存します。ファームウェア v0.8 以降が必要です。
 
 **本体（OLED アドオンあり）：** 画面上の **Settings** メニュー（11 番目の画面）を使います。方向キー ▲▼ で選択を移動、▶◀ で値を調整、△ でフラッシュに保存します。
 
