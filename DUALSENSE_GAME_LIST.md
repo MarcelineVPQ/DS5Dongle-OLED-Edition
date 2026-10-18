@@ -4,6 +4,8 @@ Cross-referenced across Steam + Epic + GOG (~1,271 owned games). Native adaptive
 on **both Steam and Heroic**, flag-free, with **runner = GE-Proton11-7-DualSense (Wine 11)**. Verified
 2026-06-07 by running Cyberpunk on *both* launchers — identical trigger behaviour (on the earlier
 GE-Proton10-based build); re-verified on GE-Proton11-7-DualSense with Uncharted on 2026-09-27.
+The current build, GE-Proton11-7.2-DualSense, keeps the same native path (it adds the standard-gamepad
+route for XInput-only games with `PROTON_PREFER_SDL=1`).
 
 - **Steam:** GE-Proton11-7-DualSense + **Steam Input off**. No launch option needed (Wine 11 enables
   the hidraw native path by default).
