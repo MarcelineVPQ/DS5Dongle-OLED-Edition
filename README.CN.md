@@ -147,13 +147,13 @@
 
 ## 🐧 Linux：原生自适应扳机（Proton）
 
-在 Linux 上让游戏**通过 Pico 驱动控制器的自适应扳机**，需要带有 Wine `winebus.sys` **#9034** 修复的 Proton。官方 **GE-Proton 11** 版本现在已包含它。这里提供的版本 **`GE-Proton11-7-DualSense`**（见[它的发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)）是官方 `GE-Proton11-7` 加上一个额外的 `winebus.sys` 修复：DualSense 把序列号报告为冒号分隔的蓝牙 MAC，这让它的设备路径在 Windows 中无法打开，于是使用索尼 libScePad 的游戏无法访问扳机。此版本替换了这些字符，路径就能打开了。下面的扳机结果就是在这个版本上验证的。
+在 Linux 上让游戏**通过 Pico 驱动控制器的自适应扳机**，需要带有 Wine `winebus.sys` **#9034** 修复的 Proton。官方 **GE-Proton 11** 版本现在已包含它。这里提供的版本 **`GE-Proton11-7.2-DualSense`**（见[它的发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)）是官方 `GE-Proton11-7` 加上一个额外的 `winebus.sys` 修复：DualSense 把序列号报告为冒号分隔的蓝牙 MAC，这让它的设备路径在 Windows 中无法打开，于是使用索尼 libScePad 的游戏无法访问扳机。此版本替换了这些字符，路径就能打开了。设置 `PROTON_PREFER_SDL=1` 后，它还能让仅支持 XInput 的游戏把控制器当作标准手柄使用，并支持震动（[更新日志](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)）。下面的扳机结果是在它之前的版本 GE-Proton11-7-DualSense 上验证的，原生路径没有变化。
 
 > 原因：#9034 的 bug 会在同一 VID/PID 存在 hidraw 设备时屏蔽 SDL 手柄设备，于是手柄*除了游戏里*到处都能看到。修复让原生（支持扳机的）路径和正常工作的手柄可以共存。
 
 **一次性设置**
 
-1. **安装这个 Proton 版本。** 从[发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)下载 `GE-Proton11-7-DualSense.tar.gz` 并解压到：
+1. **安装这个 Proton 版本。** 从[发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)下载 `GE-Proton11-7.2-DualSense.tar.gz` 并解压到：
    - **Steam：** `~/.steam/root/compatibilitytools.d/`
    - **Heroic：** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@
 
 **每个游戏**
 
-3. **强制使用该 Proton：** Steam → 右键点击游戏 → **属性 → 兼容性 → 强制使用特定 Steam Play 兼容性工具 → `GE-Proton11-7-DualSense`**。（Heroic：把游戏的 *Wine 版本* 设为它。）
+3. **强制使用该 Proton：** Steam → 右键点击游戏 → **属性 → 兼容性 → 强制使用特定 Steam Play 兼容性工具 → `GE-Proton11-7.2-DualSense`**。（Heroic：把游戏的 *Wine 版本* 设为它。）
 
 **不需要启动选项** —— Wine 11 默认启用 hidraw 原生路径，所以 Pico 会自动交给游戏。直接启动即可 —— 原生自适应扳机通过 Pico 工作，与有线 DualSense 1:1 一致（已在 Cyberpunk 2077、Uncharted、Spider-Man Remastered、The Last of Us Part I、Avatar、Indiana Jones、Star Wars: Galactic Racer 上无需任何参数验证 —— 而且 **Steam 和 Heroic 都可以**）。游戏必须**原生支持 DualSense**（仅支持 XInput 的游戏只有震动，没有自适应扳机 —— 这是引擎的限制，不是 Pico 的问题）。在新的 Proton 下首次启动时会做区域/前缀设置，可能显示“未响应”一分钟 —— 那是在设置，不是崩溃；让它完成。
 
@@ -180,10 +180,10 @@
 | 变量 | 值 | 用途 |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *旧式 / 可选 —— 在 Wine 11 上**不需要***，Wine 11 默认启用 hidraw 原生路径。设置了也无害。只对 hidraw 需要手动开启的旧版 Proton 有意义（但那些版本也没有 #9034 修复，所以扳机在那里本来就不工作）。 |
-| `PROTON_PREFER_SDL` | `1` | *替代方案，仅输入。* 强制走 SDL 手柄路径 —— 输入和震动正常，但作为通用/Xbox 手柄（**没有扳机**）。只在游戏缺少原生 DualSense 支持、且 `ENABLE_HIDRAW` 无效时使用。对需要扳机的游戏**不要**和 `ENABLE_HIDRAW` 一起用。需要一个支持它的 Proton：已发布的 **GE-Proton11-7-DualSense** 会忽略它，所以在下一个 DualSense 版本发布之前，请用标准 GE-Proton 运行仅支持 XInput 的游戏。 |
+| `PROTON_PREFER_SDL` | `1` | *替代方案，仅输入。* 强制走 SDL 手柄路径 —— 输入和震动正常，但作为通用/Xbox 手柄（**没有扳机**）。只在游戏缺少原生 DualSense 支持、且 `ENABLE_HIDRAW` 无效时使用。对需要扳机的游戏**不要**和 `ENABLE_HIDRAW` 一起用。需要一个支持它的 Proton：**GE-Proton11-7.2-DualSense** 支持它（应用的游戏页面会为仅支持 XInput 的游戏设置它）；较旧的 GE-Proton11-7-DualSense 会忽略它。 |
 | `PROTON_LOG` | `+hid` | *仅用于诊断*（不用于正常游戏）。写出一份 HID 枚举跟踪 —— Steam 把它放在 `~/steam-<appid>.log`；Heroic 把 `PROTON_LOG_DIR` 设为你的主目录，所以它在 `~/steam-0.log`。可用于确认游戏打开了原生 HID 路径。 |
 
-> **Heroic 与 Steam：** 原生扳机在**两者**上都可用 —— 而且在 Wine 11 上都不需要启动选项。Steam：设置运行器 + 关闭 Steam Input。Heroic：设置运行器、**完全退出 Steam**（后台的 Steam 会从非 Steam 游戏那里抢走手柄），并保持 `PROTON_PREFER_SDL` 关闭。无论哪种，游戏都必须原生支持 DualSense —— 仅支持 XInput 的游戏（例如 Ghostrunner、Control）在任何系统上都只有震动，没有自适应扳机。这些游戏需要 `PROTON_PREFER_SDL=1` 和支持它的 Proton 版本：已发布的 **GE-Proton11-7-DualSense** 不支持，所以在下一个 DualSense 版本发布之前，请为它们使用标准 GE-Proton。
+> **Heroic 与 Steam：** 原生扳机在**两者**上都可用 —— 而且在 Wine 11 上都不需要启动选项。Steam：设置运行器 + 关闭 Steam Input。Heroic：设置运行器、**完全退出 Steam**（后台的 Steam 会从非 Steam 游戏那里抢走手柄），并保持 `PROTON_PREFER_SDL` 关闭。无论哪种，游戏都必须原生支持 DualSense —— 仅支持 XInput 的游戏（例如 Ghostrunner、Control）在任何系统上都只有震动，没有自适应扳机。这些游戏需要 `PROTON_PREFER_SDL=1` 和支持它的 Proton 版本，例如 **GE-Proton11-7.2-DualSense**。
 
 ## 硬件
 

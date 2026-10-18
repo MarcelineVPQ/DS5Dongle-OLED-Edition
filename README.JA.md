@@ -147,13 +147,13 @@
 
 ## 🐧 Linux：ネイティブのアダプティブトリガー（Proton）
 
-Linux でゲームに **ボード経由でコントローラーのアダプティブトリガー** を動かさせるには、Wine の `winebus.sys` **#9034** の修正を含む Proton が必要です。公式の **GE-Proton 11** リリースには現在この修正が含まれています。ここで提供しているビルド **`GE-Proton11-7-DualSense`**（[そのリリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)を参照）は、公式の `GE-Proton11-7` に `winebus.sys` の修正を 1 つ加えたものです：DualSense はシリアル番号をコロン区切りの Bluetooth MAC として報告するため、Windows ではそのデバイスパスを開けず、Sony の libScePad を使うゲームはトリガーに届きません。このビルドはその文字を置き換えてパスを開けるようにします。下記のトリガーの結果はこのビルドで検証しました。
+Linux でゲームに **ボード経由でコントローラーのアダプティブトリガー** を動かさせるには、Wine の `winebus.sys` **#9034** の修正を含む Proton が必要です。公式の **GE-Proton 11** リリースには現在この修正が含まれています。ここで提供しているビルド **`GE-Proton11-7.2-DualSense`**（[そのリリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)を参照）は、公式の `GE-Proton11-7` に `winebus.sys` の修正を 1 つ加えたものです：DualSense はシリアル番号をコロン区切りの Bluetooth MAC として報告するため、Windows ではそのデバイスパスを開けず、Sony の libScePad を使うゲームはトリガーに届きません。このビルドはその文字を置き換えてパスを開けるようにします。また、`PROTON_PREFER_SDL=1` を設定すると、XInput 専用のゲームでもコントローラーを標準のゲームパッドとして振動付きで使えます（[変更履歴](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)）。下記のトリガーの結果は 1 つ前のビルド GE-Proton11-7-DualSense で検証したもので、ネイティブ経路は変わっていません。
 
 > 理由：#9034 のバグは、同じ VID/PID の hidraw デバイスが存在するときに SDL のゲームパッドデバイスを抑制するため、パッドは *ゲーム内以外のどこでも* 認識されます。修正により、ネイティブ（トリガー対応）の経路と動作するゲームパッドが共存できます。
 
 **最初の一度だけの設定**
 
-1. **Proton ビルドをインストールします。** [リリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)から `GE-Proton11-7-DualSense.tar.gz` をダウンロードし、次の場所に展開します：
+1. **Proton ビルドをインストールします。** [リリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)から `GE-Proton11-7.2-DualSense.tar.gz` をダウンロードし、次の場所に展開します：
    - **Steam：** `~/.steam/root/compatibilitytools.d/`
    - **Heroic：** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Linux でゲームに **ボード経由でコントローラーのアダプテ�
 
 **ゲームごと**
 
-3. **Proton を強制します：** Steam → ゲームを右クリック → **プロパティ → 互換性 → 特定の Steam Play 互換性ツールの使用を強制する → `GE-Proton11-7-DualSense`**。（Heroic：ゲームの *Wine バージョン* をこれに設定します。）
+3. **Proton を強制します：** Steam → ゲームを右クリック → **プロパティ → 互換性 → 特定の Steam Play 互換性ツールの使用を強制する → `GE-Proton11-7.2-DualSense`**。（Heroic：ゲームの *Wine バージョン* をこれに設定します。）
 
 **起動オプションは不要です** — Wine 11 は hidraw のネイティブ経路をデフォルトで有効にするため、ボードは自動的にゲームに渡されます。起動するだけで、ボード経由でネイティブのアダプティブトリガーが動作し、有線の DualSense と 1:1 で同じです（フラグなしで検証済み：Cyberpunk 2077、Uncharted、Spider-Man Remastered、The Last of Us Part I、Avatar、Indiana Jones、Star Wars: Galactic Racer — **Steam と Heroic の両方** で）。ゲームが **DualSense にネイティブ対応** している必要があります（XInput 専用のゲームでは振動は出ますがアダプティブトリガーは動きません — これはエンジンの制限で、ボードの問題ではありません）。新しい Proton での初回起動ではロケールとプレフィックスの準備が行われ、1 分ほど「応答なし」になることがあります — これは準備中であってクラッシュではありません。終わるまで待ってください。
 
@@ -180,10 +180,10 @@ Linux でゲームに **ボード経由でコントローラーのアダプテ�
 | 変数 | 値 | 目的 |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *旧来／オプション — Wine 11 では **不要***。Wine 11 は hidraw のネイティブ経路をデフォルトで有効にします。設定しても害はありません。hidraw がオプトインだった古い Proton でのみ関係します（ただしそれらは #9034 の修正もないため、いずれにしてもトリガーは動きません）。 |
-| `PROTON_PREFER_SDL` | `1` | *代替、入力のみ。* SDL のゲームパッド経路を強制します — 入力と振動は動きますが、汎用／Xbox パッドとして扱われます（**トリガーなし**）。ゲームが DualSense にネイティブ対応しておらず、`ENABLE_HIDRAW` でも解決しない場合にのみ使ってください。トリガー対応ゲームでは `ENABLE_HIDRAW` と組み合わせ **ないで** ください。これを尊重する Proton が必要です：公開中の **GE-Proton11-7-DualSense** はこれを無視するため、次の DualSense ビルドが公開されるまでは、XInput 専用ゲームは通常の GE-Proton で実行してください。 |
+| `PROTON_PREFER_SDL` | `1` | *代替、入力のみ。* SDL のゲームパッド経路を強制します — 入力と振動は動きますが、汎用／Xbox パッドとして扱われます（**トリガーなし**）。ゲームが DualSense にネイティブ対応しておらず、`ENABLE_HIDRAW` でも解決しない場合にのみ使ってください。トリガー対応ゲームでは `ENABLE_HIDRAW` と組み合わせ **ないで** ください。これを尊重する Proton が必要です：**GE-Proton11-7.2-DualSense** は対応しています（アプリの **ゲーム** ページが XInput 専用ゲームに設定します）。古い GE-Proton11-7-DualSense はこれを無視します。 |
 | `PROTON_LOG` | `+hid` | *診断専用*（通常のプレイ向けではありません）。HID の列挙トレースを書き出します — Steam では `~/steam-<appid>.log` に、Heroic は `PROTON_LOG_DIR` をホームに設定するため `~/steam-0.log` に出力されます。ゲームがネイティブの HID 経路を開いたことを確認するのに便利です。 |
 
-> **Heroic と Steam の違い：** ネイティブのトリガーは **両方** で動作し、Wine 11 ではどちらも起動オプションは不要です。Steam：ランナーを設定し、Steam Input を無効化。Heroic：ランナーを設定し、**Steam を完全に終了**（バックグラウンドの Steam は Steam 以外のゲームからパッドを奪います）、`PROTON_PREFER_SDL` はオフのままにします。いずれの場合も、ゲームが DualSense にネイティブ対応している必要があります — XInput 専用のゲーム（例：Ghostrunner、Control）は、どの OS でも振動は出ますがアダプティブトリガーは動きません。それらのゲームには `PROTON_PREFER_SDL=1` と、それを尊重する Proton ビルドが必要です：公開中の **GE-Proton11-7-DualSense** は対応していないため、次の DualSense ビルドが公開されるまでは通常の GE-Proton を使ってください。
+> **Heroic と Steam の違い：** ネイティブのトリガーは **両方** で動作し、Wine 11 ではどちらも起動オプションは不要です。Steam：ランナーを設定し、Steam Input を無効化。Heroic：ランナーを設定し、**Steam を完全に終了**（バックグラウンドの Steam は Steam 以外のゲームからパッドを奪います）、`PROTON_PREFER_SDL` はオフのままにします。いずれの場合も、ゲームが DualSense にネイティブ対応している必要があります — XInput 専用のゲーム（例：Ghostrunner、Control）は、どの OS でも振動は出ますがアダプティブトリガーは動きません。それらのゲームには `PROTON_PREFER_SDL=1` と、**GE-Proton11-7.2-DualSense** のようにそれを尊重する Proton ビルドが必要です。
 
 ## ハードウェア
 

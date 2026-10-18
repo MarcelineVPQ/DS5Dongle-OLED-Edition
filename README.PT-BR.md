@@ -147,13 +147,13 @@ Este projeto faz o Raspberry Pi Pico2W funcionar como uma ponte Bluetooth para o
 
 ## 🐧 Linux: gatilhos adaptáveis nativos (Proton)
 
-Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux, é preciso um Proton que traga a correção **#9034** do `winebus.sys` do Wine. As versões oficiais do **GE-Proton 11** já a incluem. A build disponibilizada aqui, **`GE-Proton11-7-DualSense`** (veja [a versão dela](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)), é o `GE-Proton11-7` oficial mais uma correção extra no `winebus.sys`: o DualSense informa seu número de série como um MAC Bluetooth separado por dois-pontos, o que torna o caminho do dispositivo impossível de abrir no Windows, então jogos que usam a libScePad da Sony não alcançam os gatilhos. Esta build substitui esses caracteres para que o caminho abra. É a build em que os resultados de gatilhos abaixo foram verificados.
+Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux, é preciso um Proton que traga a correção **#9034** do `winebus.sys` do Wine. As versões oficiais do **GE-Proton 11** já a incluem. A build disponibilizada aqui, **`GE-Proton11-7.2-DualSense`** (veja [a versão dela](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)), é o `GE-Proton11-7` oficial mais uma correção extra no `winebus.sys`: o DualSense informa seu número de série como um MAC Bluetooth separado por dois-pontos, o que torna o caminho do dispositivo impossível de abrir no Windows, então jogos que usam a libScePad da Sony não alcançam os gatilhos. Esta build substitui esses caracteres para que o caminho abra. Com `PROTON_PREFER_SDL=1`, ela também deixa jogos só com XInput usarem o controle como um gamepad padrão, com vibração ([changelog](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)). Os resultados de gatilhos abaixo foram verificados na build anterior, GE-Proton11-7-DualSense, cujo caminho nativo não mudou.
 
 > Por quê: o bug #9034 suprime o dispositivo de gamepad SDL quando existe um dispositivo hidraw com o mesmo VID/PID, então o controle é visto *em todo lugar menos no jogo*. A correção deixa o caminho nativo (capaz de acionar os gatilhos) e um gamepad funcionando coexistirem.
 
 **Configuração única**
 
-1. **Instale a build do Proton.** Baixe `GE-Proton11-7-DualSense.tar.gz` [da versão](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense) e extraia em:
+1. **Instale a build do Proton.** Baixe `GE-Proton11-7.2-DualSense.tar.gz` [da versão](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense) e extraia em:
    - **Steam:** `~/.steam/root/compatibilitytools.d/`
    - **Heroic:** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux
 
 **Por jogo**
 
-3. **Force o Proton:** Steam → clique com o botão direito no jogo → **Propriedades → Compatibilidade → Forçar o uso de uma ferramenta de compatibilidade específica do Steam Play → `GE-Proton11-7-DualSense`**. (Heroic: defina a *versão do Wine* do jogo como ela.)
+3. **Force o Proton:** Steam → clique com o botão direito no jogo → **Propriedades → Compatibilidade → Forçar o uso de uma ferramenta de compatibilidade específica do Steam Play → `GE-Proton11-7.2-DualSense`**. (Heroic: defina a *versão do Wine* do jogo como ela.)
 
 **Nenhuma opção de inicialização é necessária**: o Wine 11 ativa o caminho nativo hidraw por padrão, então o Pico é entregue ao jogo automaticamente. É só abrir: os gatilhos adaptáveis nativos funcionam pelo Pico, 1:1 com um DualSense com cabo (verificado sem flags em Cyberpunk 2077, Uncharted, Spider-Man Remastered, The Last of Us Part I, Avatar, Indiana Jones, Star Wars: Galactic Racer, e **tanto na Steam quanto no Heroic**). O jogo precisa ter **suporte nativo ao DualSense** (jogos só com XInput dão vibração, mas sem gatilhos adaptáveis; é um limite do motor do jogo, não da placa). A primeira abertura com um Proton novo faz a configuração de locale/prefixo e pode ficar "Não respondendo" por um minuto; é configuração, não travamento; deixe terminar.
 
@@ -180,10 +180,10 @@ Os gatilhos nativos funcionam igual no Heroic, mas launchers fora da Steam são 
 | Variável | Valor | Finalidade |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *Legada / opcional, **não é necessária** no Wine 11*, que ativa o caminho nativo hidraw por padrão. Inofensiva se definida. Só importa em Protons antigos em que o hidraw era opcional (mas esses também não têm a correção #9034, então os gatilhos não funcionam neles de qualquer jeito). |
-| `PROTON_PREFER_SDL` | `1` | *Alternativa, só entrada.* Força o caminho de gamepad SDL: entrada e vibração funcionam, mas como controle genérico/Xbox (**sem gatilhos**). Use só quando um jogo não tem suporte nativo ao DualSense e `ENABLE_HIDRAW` não ajuda. **Não** combine com `ENABLE_HIDRAW` em jogos com gatilhos. Precisa de um Proton que a respeite: a **GE-Proton11-7-DualSense** publicada a ignora, então rode jogos só com XInput no GE-Proton padrão até a próxima build DualSense ser publicada. |
+| `PROTON_PREFER_SDL` | `1` | *Alternativa, só entrada.* Força o caminho de gamepad SDL: entrada e vibração funcionam, mas como controle genérico/Xbox (**sem gatilhos**). Use só quando um jogo não tem suporte nativo ao DualSense e `ENABLE_HIDRAW` não ajuda. **Não** combine com `ENABLE_HIDRAW` em jogos com gatilhos. Precisa de um Proton que a respeite: a **GE-Proton11-7.2-DualSense** respeita (a página Jogos do app a define para jogos só com XInput); a antiga GE-Proton11-7-DualSense a ignora. |
 | `PROTON_LOG` | `+hid` | *Só diagnóstico* (não para jogar normalmente). Grava um rastro da enumeração HID: a Steam o coloca em `~/steam-<appid>.log`; o Heroic define `PROTON_LOG_DIR` como sua pasta pessoal, então ele vai para `~/steam-0.log`. Útil para confirmar que o jogo abriu o caminho HID nativo. |
 
-> **Heroic x Steam:** os gatilhos nativos funcionam nos **dois**, e nenhum precisa de opção de inicialização no Wine 11. Steam: defina o runner + desative o Steam Input. Heroic: defina o runner, **feche a Steam por completo** (uma Steam em segundo plano rouba o controle dos jogos fora da Steam) e mantenha `PROTON_PREFER_SDL` desligada. Em qualquer caso o jogo precisa suportar o DualSense de forma nativa: jogos só com XInput (por exemplo Ghostrunner, Control) dão vibração, mas sem gatilhos adaptáveis, em qualquer sistema. Esses jogos precisam de `PROTON_PREFER_SDL=1` e de um Proton que a respeite: a **GE-Proton11-7-DualSense** publicada não respeita, então use o GE-Proton padrão neles até a próxima build DualSense ser publicada.
+> **Heroic x Steam:** os gatilhos nativos funcionam nos **dois**, e nenhum precisa de opção de inicialização no Wine 11. Steam: defina o runner + desative o Steam Input. Heroic: defina o runner, **feche a Steam por completo** (uma Steam em segundo plano rouba o controle dos jogos fora da Steam) e mantenha `PROTON_PREFER_SDL` desligada. Em qualquer caso o jogo precisa suportar o DualSense de forma nativa: jogos só com XInput (por exemplo Ghostrunner, Control) dão vibração, mas sem gatilhos adaptáveis, em qualquer sistema. Esses jogos precisam de `PROTON_PREFER_SDL=1` e de um Proton que a respeite, como a **GE-Proton11-7.2-DualSense**.
 
 ## Hardware
 

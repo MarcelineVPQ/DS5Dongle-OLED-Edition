@@ -147,13 +147,13 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 
 ## 🐧 Linux: native adaptive triggers (Proton)
 
-Getting a game to drive the controller's **adaptive triggers through the dongle** on Linux needs a Proton that carries the Wine `winebus.sys` **#9034** fix. Official **GE-Proton 11** releases now include it. The build provided here, **`GE-Proton11-7-DualSense`** (see [its release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)), is official `GE-Proton11-7` plus one extra `winebus.sys` fix: the DualSense reports its serial number as a colon-separated Bluetooth MAC, which makes its device path unopenable in Windows, so games that use Sony's libScePad can't reach the triggers. This build replaces those characters so the path opens. It's the build the trigger results below were verified on.
+Getting a game to drive the controller's **adaptive triggers through the dongle** on Linux needs a Proton that carries the Wine `winebus.sys` **#9034** fix. Official **GE-Proton 11** releases now include it. The build provided here, **`GE-Proton11-7.2-DualSense`** (see [its release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)), is official `GE-Proton11-7` plus one extra `winebus.sys` fix: the DualSense reports its serial number as a colon-separated Bluetooth MAC, which makes its device path unopenable in Windows, so games that use Sony's libScePad can't reach the triggers. This build replaces those characters so the path opens. It also lets XInput-only games use the controller as a standard gamepad, with rumble, when `PROTON_PREFER_SDL=1` is set ([changelog](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)). The trigger results below were verified on the build before it, GE-Proton11-7-DualSense, whose native path is unchanged.
 
 > Why: the #9034 bug suppresses the SDL gamepad device when a hidraw device exists for the same VID/PID, so the pad is seen *everywhere except in-game*. The fix lets the native (trigger-capable) path and a working gamepad coexist.
 
 **One-time setup**
 
-1. **Install the Proton build.** Download `GE-Proton11-7-DualSense.tar.gz` from [the release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense) and extract it to:
+1. **Install the Proton build.** Download `GE-Proton11-7.2-DualSense.tar.gz` from [the release](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense) and extract it to:
    - **Steam:** `~/.steam/root/compatibilitytools.d/`
    - **Heroic:** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Getting a game to drive the controller's **adaptive triggers through the dongle*
 
 **Per game**
 
-3. **Force the Proton:** Steam → right-click the game → **Properties → Compatibility → Force the use of a specific Steam Play compatibility tool → `GE-Proton11-7-DualSense`**. (Heroic: set the game's *Wine version* to it.)
+3. **Force the Proton:** Steam → right-click the game → **Properties → Compatibility → Force the use of a specific Steam Play compatibility tool → `GE-Proton11-7.2-DualSense`**. (Heroic: set the game's *Wine version* to it.)
 
 **No launch option is needed** — Wine 11 enables the hidraw native path by default, so the dongle is handed to the game automatically. Just launch — native adaptive triggers fire through the dongle, 1:1 with a wired DualSense (verified flag-free on Cyberpunk 2077, Uncharted, Spider-Man Remastered, The Last of Us Part I, Avatar, Indiana Jones, Star Wars: Galactic Racer — and on **both Steam and Heroic**). The game must have **native DualSense support** (XInput-only games give rumble but no adaptive triggers — that's an engine limit, not the dongle). First launch under a new Proton does locale/prefix setup and can sit "Not Responding" for a minute — that's setup, not a crash; let it finish.
 
@@ -180,10 +180,10 @@ Native triggers work identically on Heroic, but non-Steam launchers are sensitiv
 | Variable | Value | Purpose |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *Legacy / optional — **not needed** on Wine 11*, which enables the hidraw native path by default. Harmless if set. Only relevant on older Proton where hidraw was opt-in (but those also lack the #9034 fix, so triggers won't work there anyway). |
-| `PROTON_PREFER_SDL` | `1` | *Alternative, input-only.* Forces the SDL gamepad path — gives working input + rumble but as a generic/Xbox pad (**no triggers**). Use only when a game lacks native DualSense support and `ENABLE_HIDRAW` doesn't help. Do **not** combine with `ENABLE_HIDRAW` for trigger games. Needs a Proton that honours it: the published **GE-Proton11-7-DualSense** ignores it, so run XInput-only games on stock GE-Proton until the next DualSense build is published. |
+| `PROTON_PREFER_SDL` | `1` | *Alternative, input-only.* Forces the SDL gamepad path — gives working input + rumble but as a generic/Xbox pad (**no triggers**). Use only when a game lacks native DualSense support and `ENABLE_HIDRAW` doesn't help. Do **not** combine with `ENABLE_HIDRAW` for trigger games. Needs a Proton that honours it: **GE-Proton11-7.2-DualSense** does (the app's Games page sets it for XInput-only games); the older GE-Proton11-7-DualSense ignores it. |
 | `PROTON_LOG` | `+hid` | *Diagnostic only* (not for normal play). Writes a HID enumeration trace — Steam lands it at `~/steam-<appid>.log`; Heroic sets `PROTON_LOG_DIR` to your home, so it lands at `~/steam-0.log`. Useful for confirming the game opened the native HID path. |
 
-> **Heroic vs Steam:** Native triggers work on **both** — and neither needs a launch option on Wine 11. Steam: set the runner + disable Steam Input. Heroic: set the runner, **fully quit Steam** (a background Steam steals the pad from non-Steam games), and keep `PROTON_PREFER_SDL` off. Either way the game must natively support DualSense — XInput-only games (e.g. Ghostrunner, Control) give rumble but no adaptive triggers, on any OS. Those games need `PROTON_PREFER_SDL=1` and a Proton build that honours it: the published **GE-Proton11-7-DualSense** doesn't, so use stock GE-Proton for them until the next DualSense build is published.
+> **Heroic vs Steam:** Native triggers work on **both** — and neither needs a launch option on Wine 11. Steam: set the runner + disable Steam Input. Heroic: set the runner, **fully quit Steam** (a background Steam steals the pad from non-Steam games), and keep `PROTON_PREFER_SDL` off. Either way the game must natively support DualSense — XInput-only games (e.g. Ghostrunner, Control) give rumble but no adaptive triggers, on any OS. Those games need `PROTON_PREFER_SDL=1` and a Proton build that honours it, such as **GE-Proton11-7.2-DualSense**.
 
 ## Hardware
 
