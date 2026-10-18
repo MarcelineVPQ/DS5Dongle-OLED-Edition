@@ -313,11 +313,39 @@ jobs:
                 win_checked=true
               fi
             fi
-            if [ "$win_checked" = false ]; then
-              echo "Tested on Linux (the AppImage) and macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test). The Windows 11 installer (no admin rights needed) comes from the same workflow and passes the same automated tests on Windows; this development build skipped the hands-on check in the Windows 11 test VM. The Games page is on Linux and Windows."
-            else
-              echo "Tested on Linux (the AppImage), Windows 11 (the installer, which needs no admin rights) and macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test). The Games page is on Linux and Windows."
-            fi
+            # macOS counts as tested only when this tag's macOS smoke test passed:
+            # the app repo's mac-smoke.yml, started by the same tag push
+            # (tools/release.sh), installs this tag's universal app on a real
+            # Apple Silicon Mac and drives it. Its run for this tag and this app
+            # commit is read here (public repo: this job's token reads it, no
+            # secret), waiting while it is still running. Not found, failed,
+            # cancelled or still running after the wait: no macOS claim.
+            mac_checked=false
+            app_sha="$(git -C app rev-parse HEAD)"
+            # Up to 50 minutes (mac-smoke's own limit is 45); a run that never
+            # shows up stops the wait after 10.
+            run=""; seen=false
+            for i in $(seq 1 100); do
+              run="$(gh run list -R "$APP_REPO" --workflow mac-smoke.yml --event push --branch "$tag" --commit "$app_sha" -L 1 --json status,conclusion --jq '.[0] | select(.) | .status + " " + (.conclusion // "")' || true)"
+              case "$run" in
+                "completed success") mac_checked=true; break ;;
+                completed*) break ;;
+                "") if [ "$seen" = true ] || [ "$i" -ge 20 ]; then break; fi ;;
+                *) seen=true ;;
+              esac
+              sleep 30
+            done
+            echo "macOS smoke test for $tag (app $app_sha): ${run:-no run found}" >&2
+            linux="Linux (the AppImage)"
+            win="Windows 11 (the installer, which needs no admin rights)"
+            mac="macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test)"
+            win_skipped="The Windows 11 installer (no admin rights needed) comes from the same workflow and passes the same automated tests on Windows; this development build skipped the hands-on check in the Windows 11 test VM."
+            case "$win_checked $mac_checked" in
+              "true true") echo "Tested on $linux, $win and $mac. The Games page is on Linux and Windows." ;;
+              "true false") echo "Tested on $linux and $win. The Games page is on Linux and Windows." ;;
+              "false true") echo "Tested on $linux and $mac. $win_skipped The Games page is on Linux and Windows." ;;
+              *) echo "Tested on $linux. $win_skipped The Games page is on Linux and Windows." ;;
+            esac
             echo
             section CHANGELOG.md "$fw"
             echo
