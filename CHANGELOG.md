@@ -12,7 +12,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 - **The READMEs (all 7 languages) are up to date again.** macOS is tested: the macOS smoke test installs and runs the universal app on a real Apple Silicon Mac on every release tag (they said "community-tested"; the development-build release note said it hadn't been tried on a Mac). The OLED Settings section shows the grouped screen from 0.9.5-dev.19 with its real labels. The Proton section points at GE-Proton11-7.2-DualSense, which honours `PROTON_PREFER_SDL` for XInput-only games. Also: current test counts, Sony's names in the English text (light bar, directional buttons, touch pad), and no more mentions of the retired browser tool's tabs.
 
-## [0.9.5-dev.19-oled-edition] - 2026-10-17
+## [0.9.5-dev.19-oled-edition] — Release Candidate 1 — 2026-10-17
+
+**Release Candidate 1 for 0.9.5.**
 
 ### Added
 - **Several boards on one PC: each board says which one it is** (protocol 1.20). The identity report now carries the board's own id (the Pico's flash unique id, identity [49] bit 0, [50..57]), the same whatever controller is paired, so the app can tell two boards apart even when the same DualSense has been paired to both (the USB serial stays the controller's MAC, on purpose, for Wine and Steam). And the app can ask a board to show itself (0xF6 `0x1A [tenths]`, identity [49] bit 1): the OLED shows **THIS ONE** with the board's name and the slot in use, flashing, at full brightness for 3 s (up to 10 s), and the board's LED blinks in step, so a board without the OLED add-on shows itself too. The screen wakes for it whatever the dim / off timers say and goes back to what it was afterwards (on, dimmed or off), and the LED goes back to its usual state (`src/identify_screen.h`, host-tested: every frame fits and is centred, the flash, the timer).

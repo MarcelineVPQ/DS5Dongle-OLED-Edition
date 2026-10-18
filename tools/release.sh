@@ -8,6 +8,10 @@
 #   tools/release.sh 0.8.0 [--app ../DS5Dongle-OLED-Config-Web]
 #   tools/release.sh 0.9.1-dev.1      a development build: a GitHub pre-release,
 #                                     offered only on the app's Development channel
+#   tools/release.sh 0.9.5-dev.20 --label "Release Candidate 1"
+#                                     a release name: in both CHANGELOG headings
+#                                     ("## [X] — LABEL — date") and the GitHub
+#                                     release's title (release.yml reads it there)
 #
 # Before running a stable release: both CHANGELOGs have a section for the
 # version (firmware: "## [0.8.0-oled-edition]", app: "## [0.8.0]"). For a
@@ -22,9 +26,17 @@
 # whose [Unreleased] is empty in both CHANGELOGs.
 set -euo pipefail
 
-VERSION="${1:?usage: tools/release.sh X.Y.Z[-dev.N] [--app PATH]}"
+VERSION="${1:?usage: tools/release.sh X.Y.Z[-dev.N] [--app PATH] [--label TEXT]}"
 APP_DIR="$(cd "$(dirname "$0")/../.." && pwd)/DS5Dongle-OLED-Config-Web"
-[ "${2:-}" = "--app" ] && APP_DIR="$(cd "${3:?--app needs a path}" && pwd)"
+LABEL=""
+shift
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --app) APP_DIR="$(cd "${2:?--app needs a path}" && pwd)"; shift 2 ;;
+    --label) LABEL="${2:?--label needs a text}"; shift 2 ;;
+    *) echo "release: unknown argument $1" >&2; exit 1 ;;
+  esac
+done
 FW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="v$VERSION-oled-edition"
 
@@ -32,6 +44,8 @@ die() { echo "release: $*" >&2; exit 1; }
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]] || die "version must be X.Y.Z or X.Y.Z-dev.N"
 DEV=false
 [[ "$VERSION" == *-dev.* ]] && DEV=true
+[[ "$LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9\ .]*$ ]] || [ -z "$LABEL" ] || die "--label: letters, digits, spaces and dots only"
+[ -z "$LABEL" ] || [ "$DEV" = true ] || die "--label is for development builds (a stable release's section is written by hand)"
 # PICO_SDK_PATH / PICO_TOOLCHAIN_PATH pick the SDK and compiler for the local
 # build check (tools/toolchain.sh); CI builds the release itself.
 . "$FW_DIR/tools/toolchain.sh"
@@ -52,11 +66,14 @@ fi
 unreleased_has_entries() {
   awk '/^## \[Unreleased\]/ {on=1; next} on && /^## / {exit} on && NF && !/^### / {found=1} END {exit !found}' "$1"
 }
-# Rename CHANGELOG $1's [Unreleased] to "## [$2] - today" under a fresh, empty [Unreleased].
+# Rename CHANGELOG $1's [Unreleased] to "## [$2] - today" (with --label:
+# "## [$2] — LABEL — today") under a fresh, empty [Unreleased].
 cut_dev_section() {
   grep -q "^## \[Unreleased\]" "$1" || die "$1 has no '## [Unreleased]' section"
   grep -q "^## \[$2\]" "$1" && die "$1 already has a '## [$2]' section"
-  awk -v head="## [$2] - $(date +%F)" '!done && /^## \[Unreleased\]/ {print; print ""; print head; done=1; next} {print}' "$1" > "$1.tmp"
+  local head="## [$2] - $(date +%F)"
+  [ -z "$LABEL" ] || head="## [$2] — $LABEL — $(date +%F)"
+  awk -v head="$head" '!done && /^## \[Unreleased\]/ {print; print ""; print head; done=1; next} {print}' "$1" > "$1.tmp"
   mv "$1.tmp" "$1"
 }
 if [ "$DEV" = true ]; then

@@ -289,6 +289,8 @@ jobs:
         run: |
           set -euo pipefail
           tag="$TAG"; fw="${tag#v}"; app="${fw%-oled-edition}"
+          # A release name (tools/release.sh --label): "## [fw] — Release Candidate 1 — date".
+          label="$(sed -n "s/^## \[$fw\] — \(.*\) — [0-9-]*\$/\1/p" CHANGELOG.md | head -n 1)"
           section() { awk -v v="$2" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' "$1"; }
           dev=false; case "$app" in *-dev.*) dev=true ;; esac
           app_section="$app"
@@ -363,7 +365,7 @@ jobs:
               echo "**This is a development build**: newer than the stable release, with the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The app offers it only on App settings -> Updates -> Development; **Back to stable** there returns to the latest stable app and firmware."
             } >> notes.md
           fi
-          gh release create "$tag" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition} — OLED Edition" --notes-file notes.md
+          gh release create "$tag" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition}${label:+ — $label} — OLED Edition" --notes-file notes.md
           gh release upload "$tag" "${files[@]}" dist/SHA256SUMS.txt
           if [ "$dev" = true ]; then gh release edit "$tag" --draft=false; else gh release edit "$tag" --draft=false --latest; fi
 

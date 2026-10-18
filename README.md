@@ -6,7 +6,7 @@
 
 > **OLED Edition** is a fork of **[awalol/DS5Dongle](https://github.com/awalol/DS5Dongle)** (upstream) that adds an optional Pico-OLED-1.3 128×64 display add-on with 11 screens (status, 4-slot multi-controller pairing, light bar color picker with favorites and effect presets, trigger test, gyro tilt, touch pad, diagnostics, CPU/clock, BT signal strength, audio VU meters, and a persistent settings menu), plus a DS5 button-combo soft-reboot. Upstream is the authoritative source for the core bridge firmware; this fork tracks it and layers add-on features on top.
 
-> **🧪 Want the newest features? Try the Development channel.** In the app: **App settings → Updates → Development** (it asks first; **Back to stable** returns you any time). Development builds pass the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The current one, **0.9.5-dev.19**, adds over stable 0.9.4:
+> **🧪 Want the newest features? Try the Development channel.** In the app: **App settings → Updates → Development** (it asks first; **Back to stable** returns you any time). Development builds pass the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The current one, **0.9.5-dev.19** (Release Candidate 1), adds over stable 0.9.4:
 >
 > - **DualSense Edge:** remap the Fn and back buttons, Edge profiles in PlayStation Accessories, and its own drawing and OLED view
 > - **Sticks:** response curves and stick tests
