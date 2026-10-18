@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+**Release Candidate 2 for 0.9.5.**
+
 ### Fixed
 
 - **A request to the controller is no longer lost when Bluetooth is busy** (upstream awalol d4af34e, "feature report get busy when init"). Requests on the controller's control channel (reading a feature report, a test command, the DualSense Edge's profile unlock, the PC's own feature-report writes such as PS Accessories saving an Edge profile) were dropped whenever the controller still held every Bluetooth buffer: several requests in a row at connect, the Edge unlock's two writes, or a test command while the speaker streams. The last request at connect (firmware report `0x20`) is the one that connects USB, so losing it left the controller unusable until the 10 s connect watchdog started over. A request that can't go out at once now waits in a small queue (`src/ctrl_send.h`, host-tested) and goes out, in order, as soon as Bluetooth has room. Upstream waits up to 100 ms for room instead; the queue never blocks.

@@ -8,7 +8,7 @@
 #   tools/release.sh 0.8.0 [--app ../DS5Dongle-OLED-Config-Web]
 #   tools/release.sh 0.9.1-dev.1      a development build: a GitHub pre-release,
 #                                     offered only on the app's Development channel
-#   tools/release.sh 0.9.5-dev.20 --label "Release Candidate 1"
+#   tools/release.sh 0.9.5-dev.20 --label "Release Candidate 2"
 #                                     a release name: in both CHANGELOG headings
 #                                     ("## [X] — LABEL — date") and the GitHub
 #                                     release's title (release.yml reads it there)
