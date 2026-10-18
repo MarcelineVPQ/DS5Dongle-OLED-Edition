@@ -23,9 +23,9 @@
 
 ## 🛠️ はじめに：アプリをダウンロード
 
-**[→ DS5 Dongle OLED Edition Configurator をダウンロード](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage と、管理者権限不要の Windows インストーラー。どちらもテスト済みです。macOS 版はコミュニティによるテストで、[macOS 27.0.1 で動作報告あり](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)）
+**[→ DS5 Dongle OLED Edition Configurator をダウンロード](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage、管理者権限不要の Windows インストーラー、macOS 用ユニバーサルアプリ。Linux、Windows 11、macOS でテスト済みで、macOS ではスモークテストが実機の Apple Silicon Mac にインストールして起動します。[macOS 27.0.1 での動作報告](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)もあります。）
 
-必要なのはこのアプリだけです。各リリースには対応するファームウェアが含まれており、アプリが Pico にインストールし、最新の状態に保ち、すべてを設定します：
+必要なのはこのアプリだけです。各リリースには対応するファームウェアが含まれており、アプリが Raspberry Pi Pico 2 W にインストールし、最新の状態に保ち、すべてを設定します：
 
 1. ボードを組み立て（下の[ハードウェア](#ハードウェア)を参照）、アプリを起動します。
 2. **BOOTSEL ボタンを押しながら** Pico を接続します（新品の Pico ではボタンは不要です）。アプリが Pico を見つけ、ワンクリックでファームウェアをインストールします。手でファイルをコピーする必要はありません。
@@ -69,8 +69,8 @@
 
 **変更のたびに**
 
-- **アプリ：** 1,600 件以上のテスト（ユニット、統合、セキュリティ）を Linux、Windows、macOS で実行。型チェック、ESLint、Prettier も。
-- **ファームウェア：** ファームウェアのロジックを AddressSanitizer と UndefinedBehaviorSanitizer 付きで検証する 185 件の PC 上のテストと、5 種類のファームウェアビルド（Pico 2 W、Pico W、デバッグ、2 つのバリエーション）。タイミングが重要なコードが RAM から外れたり、フラッシュの設定が変わったりするとビルドが失敗します。
+- **アプリ：** 1,800 件以上のテスト（ユニット、統合、セキュリティ）を Linux、Windows、macOS で実行。型チェック、ESLint、Prettier も。
+- **ファームウェア：** ファームウェアのロジックを AddressSanitizer と UndefinedBehaviorSanitizer 付きで検証する 270 件以上の PC 上のテストと、5 種類のファームウェアビルド（Pico 2 W、Pico W、デバッグ、2 つのバリエーション）。タイミングが重要なコードが RAM から外れたり、フラッシュの設定が変わったりするとビルドが失敗します。
 - **アプリのルールチェック：** Electron のセキュリティ設定、危険な HTML の禁止、色の直書きのない単一のテーマシステム、判定のない重複コードや重複ファイルの禁止。
 - **判定を書面で：** 待機するループやホットパスで動くループ、すべてのエラー経路、すべてのキャッシュ、コードが確保するすべてのリソース（タイマー、リスナー、デバイス）に、判定を書いたコメントが付いています。判定のない新しいものがあるとチェックが失敗します。
 - **セキュリティスキャン：** Semgrep、Gitleaks、npm audit。毎週も実行します。
@@ -125,7 +125,7 @@
 
 **OLED Edition の追加機能：**
 
-- **Linux/Proton の PC ゲームで、ボード経由のネイティブ DualSense アダプティブトリガー。** DualSense にネイティブ対応したゲームは、ボードを通じてワイヤレスでコントローラーのアダプティブトリガーを動かします。**有線接続の DualSense と 1:1 で同じ** です。Wine の `winebus.sys` #9034 の修正を含む Proton（Wine 11／現行の Proton-GE）と、Steam Input の無効化が必要です。**起動オプションは不要** です（Wine 11 は hidraw のネイティブ経路をデフォルトで有効にします）。**Steam と Heroic の両方**（Epic/GOG）で動作します。ファームウェアはボードを本物の DS5 とバイト単位で区別できないようにし、ゲームに受け入れられるようにしています（詳しくは [CHANGELOG.md](./CHANGELOG.md)）。トレードオフ：このファームウェアではブラウザー版の Config/Remap タブは無効です（上の注記を参照）。
+- **Linux/Proton の PC ゲームで、ボード経由のネイティブ DualSense アダプティブトリガー。** DualSense にネイティブ対応したゲームは、ボードを通じてワイヤレスでコントローラーのアダプティブトリガーを動かします。**有線接続の DualSense と 1:1 で同じ** です。Wine の `winebus.sys` #9034 の修正を含む Proton（Wine 11／現行の Proton-GE）と、Steam Input の無効化が必要です。**起動オプションは不要** です（Wine 11 は hidraw のネイティブ経路をデフォルトで有効にします）。**Steam と Heroic の両方**（Epic/GOG）で動作します。ファームウェアはボードを本物の DS5 とバイト単位で区別できないようにし、ゲームに受け入れられるようにしています（詳しくは [CHANGELOG.md](./CHANGELOG.md)）。
 - Pico-OLED-1.3 ステータスディスプレイ（オプション）、**11 の画面**（ステータス、スロット、ライトバー、トリガーテスト、ジャイロ傾き、タッチパッド、診断、CPU／クロック、RSSI、VU メーター、設定）
 - **ボード内のキャリブレーション（v0.9）** — スティックの中心オフセット、デッドゾーンと最大傾き半径、トリガーのストローク、ジャイロのゼロ点を、ペアリングスロットごとに、ゲームが受け取るデータに適用します（コントローラーには書き込みません）。アプリのガイド付きキャリブレーションから設定します。
 - **左右別の振動の強さ（v0.9）** — 左右を個別に。ハプティックフィードバックと従来の振動の両方に適用。
@@ -139,7 +139,7 @@
 - **トリガーエフェクトの強さ、スピーカーブースト、音量をロック、マイクとスピーカーの選択、ステータスピン（アップストリームの設定、プロトコル 1.13）** — アダプティブトリガーを 10 段階で弱める（デフォルトはゲーム本来の強さ）、コントローラーのアンプのプリゲイン、ゲームによるコントローラー音量の変更を防ぐ、マイクを 自動／内蔵／ヘッドセット から選択、PC の音声出力を 自動／スピーカー／ヘッドセット／オフ から選択、コントローラーの接続状態を示す GPIO。MUTEボタンのランプがマイクのミュートに連動し、PC のミュートとマイクレベルがコントローラーに届きます。新しい設定は 500 Hz でポーリングします。
 - **4 スロットの保存される複数コントローラーペアリング** — 最大 4 台の DualSense を登録し、OLED から切り替え。起動時にスロット 0 に自動で再接続
 - **ライトバーカラーピッカー**、4 つのお気に入りスロット + ブリージング／レインボー／フェードのエフェクトプリセット
-- **保存される設定メニュー**、8 つのファームウェア設定項目（ハプティクスゲイン、スピーカー音量、ポーリングレートなど）と、長押しで確定するリセット・全スロット消去の操作
+- **保存される設定メニュー**（OLED）：6 つのグループ（ハプティクスとトリガー、オーディオ、接続、画面とライト、PC のスリープ）に 25 の設定と、長押しで確定する Reset to defaults・Wipe all slots の操作
 - **OLED のアイドル時省電力段階** — 手動の明るさ切り替え（KEY1 長押し）、2 分間操作がないと小さな呼吸ドットを残して自動で大きく減光、15 分で表示を完全にオフ。ボタン、コントローラーのペアリング、入力ですぐに復帰します。コントラストの調整だけでなく、本当の焼き付け防止です。
 - **ソフトリブート**：USB を抜かずに、DS5 の `PS + Mute` 長押し（画面なしでも動作）、または OLED アドオンの **KEY0 + KEY1 を 1 秒同時押し**（以前の KEY0 ダブルクリックの代わり。素早くページを送ると誤って発動しやすかったため）
 - **クリアなコントローラーのスピーカーとマイク** — core1 のオーディオ経路（Opus、リサンプラー、メモリ操作）を RAM から実行し、音声はアップストリームのパックされた `0x39` レポートで送られ、マイクは core1 でデコードされてホストの USB クロックに合わせて送り出されます。これにより、長年のスピーカーのノイズとマイクオン時の途切れが解消されました（[CHANGELOG.md](./CHANGELOG.md) を参照）。**[awalol](https://github.com/awalol/DS5Dongle) に感謝**：これはアップストリームのオーディオの成果を移植したものです。
@@ -147,13 +147,13 @@
 
 ## 🐧 Linux：ネイティブのアダプティブトリガー（Proton）
 
-Linux でゲームに **ボード経由でコントローラーのアダプティブトリガー** を動かさせるには、Wine の `winebus.sys` **#9034** の修正を含む Proton が必要です。公式の **GE-Proton 11** リリースには現在この修正が含まれています。ここで提供しているビルド **`GE-Proton11-7-DualSense`**（[そのリリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)を参照）は、公式の `GE-Proton11-7` に `winebus.sys` の修正を 1 つ加えたものです：DualSense はシリアル番号をコロン区切りの Bluetooth MAC として報告するため、Windows ではそのデバイスパスを開けず、Sony の libScePad を使うゲームはトリガーに届きません。このビルドはその文字を置き換えてパスを開けるようにします。下記のトリガーの結果はこのビルドで検証しました。
+Linux でゲームに **ボード経由でコントローラーのアダプティブトリガー** を動かさせるには、Wine の `winebus.sys` **#9034** の修正を含む Proton が必要です。公式の **GE-Proton 11** リリースには現在この修正が含まれています。ここで提供しているビルド **`GE-Proton11-7.2-DualSense`**（[そのリリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)を参照）は、公式の `GE-Proton11-7` に `winebus.sys` の修正を 1 つ加えたものです：DualSense はシリアル番号をコロン区切りの Bluetooth MAC として報告するため、Windows ではそのデバイスパスを開けず、Sony の libScePad を使うゲームはトリガーに届きません。このビルドはその文字を置き換えてパスを開けるようにします。また、`PROTON_PREFER_SDL=1` を設定すると、XInput 専用のゲームでもコントローラーを標準のゲームパッドとして振動付きで使えます（[変更履歴](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)）。下記のトリガーの結果は 1 つ前のビルド GE-Proton11-7-DualSense で検証したもので、ネイティブ経路は変わっていません。
 
 > 理由：#9034 のバグは、同じ VID/PID の hidraw デバイスが存在するときに SDL のゲームパッドデバイスを抑制するため、パッドは *ゲーム内以外のどこでも* 認識されます。修正により、ネイティブ（トリガー対応）の経路と動作するゲームパッドが共存できます。
 
 **最初の一度だけの設定**
 
-1. **Proton ビルドをインストールします。** [リリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)から `GE-Proton11-7-DualSense.tar.gz` をダウンロードし、次の場所に展開します：
+1. **Proton ビルドをインストールします。** [リリース](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)から `GE-Proton11-7.2-DualSense.tar.gz` をダウンロードし、次の場所に展開します：
    - **Steam：** `~/.steam/root/compatibilitytools.d/`
    - **Heroic：** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Linux でゲームに **ボード経由でコントローラーのアダプテ�
 
 **ゲームごと**
 
-3. **Proton を強制します：** Steam → ゲームを右クリック → **プロパティ → 互換性 → 特定の Steam Play 互換性ツールの使用を強制する → `GE-Proton11-7-DualSense`**。（Heroic：ゲームの *Wine バージョン* をこれに設定します。）
+3. **Proton を強制します：** Steam → ゲームを右クリック → **プロパティ → 互換性 → 特定の Steam Play 互換性ツールの使用を強制する → `GE-Proton11-7.2-DualSense`**。（Heroic：ゲームの *Wine バージョン* をこれに設定します。）
 
 **起動オプションは不要です** — Wine 11 は hidraw のネイティブ経路をデフォルトで有効にするため、ボードは自動的にゲームに渡されます。起動するだけで、ボード経由でネイティブのアダプティブトリガーが動作し、有線の DualSense と 1:1 で同じです（フラグなしで検証済み：Cyberpunk 2077、Uncharted、Spider-Man Remastered、The Last of Us Part I、Avatar、Indiana Jones、Star Wars: Galactic Racer — **Steam と Heroic の両方** で）。ゲームが **DualSense にネイティブ対応** している必要があります（XInput 専用のゲームでは振動は出ますがアダプティブトリガーは動きません — これはエンジンの制限で、ボードの問題ではありません）。新しい Proton での初回起動ではロケールとプレフィックスの準備が行われ、1 分ほど「応答なし」になることがあります — これは準備中であってクラッシュではありません。終わるまで待ってください。
 
@@ -180,10 +180,10 @@ Linux でゲームに **ボード経由でコントローラーのアダプテ�
 | 変数 | 値 | 目的 |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *旧来／オプション — Wine 11 では **不要***。Wine 11 は hidraw のネイティブ経路をデフォルトで有効にします。設定しても害はありません。hidraw がオプトインだった古い Proton でのみ関係します（ただしそれらは #9034 の修正もないため、いずれにしてもトリガーは動きません）。 |
-| `PROTON_PREFER_SDL` | `1` | *代替、入力のみ。* SDL のゲームパッド経路を強制します — 入力と振動は動きますが、汎用／Xbox パッドとして扱われます（**トリガーなし**）。ゲームが DualSense にネイティブ対応しておらず、`ENABLE_HIDRAW` でも解決しない場合にのみ使ってください。トリガー対応ゲームでは `ENABLE_HIDRAW` と組み合わせ **ないで** ください。これを尊重する Proton が必要です：公開中の **GE-Proton11-7-DualSense** はこれを無視するため、次の DualSense ビルドが公開されるまでは、XInput 専用ゲームは通常の GE-Proton で実行してください。 |
+| `PROTON_PREFER_SDL` | `1` | *代替、入力のみ。* SDL のゲームパッド経路を強制します — 入力と振動は動きますが、汎用／Xbox パッドとして扱われます（**トリガーなし**）。ゲームが DualSense にネイティブ対応しておらず、`ENABLE_HIDRAW` でも解決しない場合にのみ使ってください。トリガー対応ゲームでは `ENABLE_HIDRAW` と組み合わせ **ないで** ください。これを尊重する Proton が必要です：**GE-Proton11-7.2-DualSense** は対応しています（アプリの **ゲーム** ページが XInput 専用ゲームに設定します）。古い GE-Proton11-7-DualSense はこれを無視します。 |
 | `PROTON_LOG` | `+hid` | *診断専用*（通常のプレイ向けではありません）。HID の列挙トレースを書き出します — Steam では `~/steam-<appid>.log` に、Heroic は `PROTON_LOG_DIR` をホームに設定するため `~/steam-0.log` に出力されます。ゲームがネイティブの HID 経路を開いたことを確認するのに便利です。 |
 
-> **Heroic と Steam の違い：** ネイティブのトリガーは **両方** で動作し、Wine 11 ではどちらも起動オプションは不要です。Steam：ランナーを設定し、Steam Input を無効化。Heroic：ランナーを設定し、**Steam を完全に終了**（バックグラウンドの Steam は Steam 以外のゲームからパッドを奪います）、`PROTON_PREFER_SDL` はオフのままにします。いずれの場合も、ゲームが DualSense にネイティブ対応している必要があります — XInput 専用のゲーム（例：Ghostrunner、Control）は、どの OS でも振動は出ますがアダプティブトリガーは動きません。それらのゲームには `PROTON_PREFER_SDL=1` と、それを尊重する Proton ビルドが必要です：公開中の **GE-Proton11-7-DualSense** は対応していないため、次の DualSense ビルドが公開されるまでは通常の GE-Proton を使ってください。
+> **Heroic と Steam の違い：** ネイティブのトリガーは **両方** で動作し、Wine 11 ではどちらも起動オプションは不要です。Steam：ランナーを設定し、Steam Input を無効化。Heroic：ランナーを設定し、**Steam を完全に終了**（バックグラウンドの Steam は Steam 以外のゲームからパッドを奪います）、`PROTON_PREFER_SDL` はオフのままにします。いずれの場合も、ゲームが DualSense にネイティブ対応している必要があります — XInput 専用のゲーム（例：Ghostrunner、Control）は、どの OS でも振動は出ますがアダプティブトリガーは動きません。それらのゲームには `PROTON_PREFER_SDL=1` と、**GE-Proton11-7.2-DualSense** のようにそれを尊重する Proton ビルドが必要です。
 
 ## ハードウェア
 
@@ -232,9 +232,9 @@ Pico 2 W と Waveshare Pico-OLED-1.3 はどちらも世界中で広く入手で�
 
 ファームウェアを設定する方法は 4 つあります：
 
-**設定アプリ（推奨）：** Linux と Windows 向けの [DS5 Dongle OLED Edition Configurator](#️-はじめにアプリをダウンロード)（macOS 版も同梱され、macOS 27.0.1 で動作報告あり。**ゲーム** ページには Linux では Steam、Heroic、Lutris のゲームが、Windows では Steam、GOG Galaxy、Epic のゲームが表示され、Proton の設定は Linux のみです）。ボードを自動的に見つけ、変更をすぐに反映し、ワンクリックでボードのフラッシュに保存します。ファームウェア v0.8 以降が必要です。
+**設定アプリ（推奨）：** Linux、Windows、macOS 向けの [DS5 Dongle OLED Edition Configurator](#️-はじめにアプリをダウンロード)（**ゲーム** ページには Linux では Steam、Heroic、Lutris のゲームが、Windows では Steam、GOG Galaxy、Epic のゲームが表示され、Proton の設定は Linux のみです）。ボードを自動的に見つけ、変更をすぐに反映し、ワンクリックでボードのフラッシュに保存します。ファームウェア v0.8 以降が必要です。
 
-**本体（OLED アドオンあり）：** 画面上の **Settings** メニュー（11 番目の画面）を使います。方向キー ▲▼ で選択を移動、▶◀ で値を調整、△ でフラッシュに保存します。
+**本体（OLED アドオンあり）：** 画面上の **Settings** メニュー（11 番目の画面）を使います。方向キー ▲▼ で選択を移動、✕ でグループを開き ○ で戻る、▶◀ で値を調整、△ でフラッシュに保存します。
 
 **ターミナル CLI（任意の OS、任意のブラウザー）：** hidapi をインストールし、`scripts/set_ds5.py` を使います：
 
@@ -287,7 +287,7 @@ Pico デバイスは、コントローラーが接続された後にのみシス
 
 - **デフォルトでオン。** コントローラーをペアリングすると 1〜2 秒でマイクの送信が始まります — ゲームの音声は不要です（ボードが自分でストリームを維持します）。
 - **ホスト側でキャプチャー音量を上げてください** — デフォルトでは低めです。Linux では `arecord -l` でカードを探し、例えば `amixer -c <DualSense card> sset 'Headset' 90%` を実行します。`scripts/mic_diag.sh capture` でキャプチャーを確認できます。
-- **コントローラーのバッテリーを節約するにはオフに** — OLED の **Settings → BT Mic**、または[設定アプリ](#️-はじめにアプリをダウンロード)の **内蔵マイク** スイッチで切り替えます。マイクを常にオンにすると DS5 のオーディオ回路が動き続け、バッテリーの消耗が目に見えて早くなるため、ボイスチャットを使わない場合はオフにしてください。
+- **コントローラーのバッテリーを節約するにはオフに** — OLED の **Settings → Audio → Built-in mic**、または[設定アプリ](#️-はじめにアプリをダウンロード)の **内蔵マイク** スイッチで切り替えます。マイクを常にオンにすると DS5 のオーディオ回路が動き続け、バッテリーの消耗が目に見えて早くなるため、ボイスチャットを使わない場合はオフにしてください。
 
 **注意点：**
 
@@ -478,24 +478,18 @@ RP2350 のライブの状態：設定値（`Set`）と実際に動作してい�
 
 #### 11. 設定
 
-保存される設定エディター。方向キー ▲▼ で選択を移動、▶◀ で値を調整、△ でフラッシュに保存します。ファームウェアの設定項目（ハプティクスゲイン、スピーカー音量、無操作タイムアウト、ポーリングレート）、Audio Auto Haptics の設定、長押しで確定する 2 つの操作があります：
-
-`Hap Left` と `Hap Right` で左右のグリップを個別に調整します。△ を押すと変更が適用・保存されます。
+保存される設定エディター。6 つのグループのメニューで開き、それぞれに含まれる設定の数が表示されます：**Haptics/trigger**、**Audio**、**Connection**、**Screen & lights**、**PC sleep**、**Reset**。方向キー ▲▼ で選択を移動し、✕（または ▶）でグループを開き、○ でメニューの元の位置に戻ります。グループ内では ▶◀ で値を調整します。△ はどこからでもフラッシュに保存します。選択中の行は明るいバーで表示され、変更してまだ保存していない値はそのバーの中の暗い窓に表示され、保存するまでタイトルに `(*)` が付きます。
 
 <img src="./assets/oled/oled_sc11.png" alt="OLED の設定画面" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** — Audio Auto Haptics のモードを選びます。デフォルトは `Off`：ハプティクスはゲームからのみ。`Fallback` はゲームがネイティブのハプティクスデータを送らないときだけ（例：Linux の Ghost of Tsushima）派生した振動を出します — 音楽やデスクトップの音声に合わせても振動する点に注意してください。ネイティブのハプティクスを *送る* ゲーム（Spider-Man Remastered）はそのまま通します。`Mix` はネイティブに派生した振動を重ね、`Replace` はネイティブを完全に無視します。
-- **AH Gain N%** — 派生信号のゲイン、0〜200 %、10 % 刻み。デフォルト 100 %。
-- **AH LP 80/160/250/400 Hz** — エンベロープ追従の前にスピーカーの音声にかけるローパスのカットオフ。低いほど重低音が増え、高いほど存在感が増します。デフォルト 160 Hz。
-- **TrigEff game / -1 … -10** — トリガーエフェクトの強さ：ゲームのアダプティブトリガーの抵抗を 10 段階で弱めます。デフォルトは `game`（0）：ゲーム本来の強さで、レポートをそのまま通します。
-- **SpkBoost game / 1 … 7** — スピーカーブースト：コントローラーのアンプのプリゲイン。デフォルトは `game`（0）：ゲームに任せます。`Spk Vol` とは別です。
-- **VolLock on / off** — 音量をロック：ゲームはコントローラーのスピーカー、ヘッドセット、マイクの音量、ミュート、ミュートランプを変更できません。PC 自身の音量とミュートは引き続き反映されます。デフォルトはオフ。
-- **SPK Out Auto / SPK / Hset / off** — 音声出力：PC の音声をどこで再生するか（Auto = コントローラーにヘッドセットが接続されていればヘッドセット）。デフォルトは Auto。
-- **Mic In Auto / Int / Hset** — 使用するマイク：自動、内蔵マイク、またはヘッドセットのマイク。デフォルトは Auto。マイクをオフにするスイッチは引き続き `BT Mic` です。
-- **Sleep CtrlOff on / off** — PC が 3 秒スリープするとコントローラーの電源を切ります。デフォルトはオン。
-- **PS Wakes PC on / off** — コントローラーが接続されていないとき、ボードが復帰専用キーボード（「DS5 Dongle Wake Keyboard」）として認識され、PSボタンで PC を復帰できます。デフォルトはオフ。
-- **Reset to defaults** — △ を 2 秒長押しで、すべての設定項目を元に戻します
-- **Wipe all slots** — △ を 2 秒長押しで、ペアリング済みの 4 台のコントローラーとすべての BTstack のリンクキーを削除します
+- **Haptics/trigger：** `Vibration L` と `Vibration R`（左右それぞれの振動の強さ）、`Trig. effect`（トリガーエフェクトの強さ：`game` はゲーム本来の強さ、-1〜-10 で弱く）、`AutoHap`（Audio Auto Haptics のモード、下記）、`AutoHap gain`（0〜200 %、10 % 刻み、デフォルト 100 %）、`Auto filter`（エンベロープ追従の前のローパスのカットオフ、80 / 160 / 250 / 400 Hz、デフォルト 160 Hz：低いほど重低音が増えます）。
+- **Audio：** `Spk volume`、`Spk boost`（スピーカーブースト、コントローラーのアンプのプリゲイン：`game` はゲームに任せる、または 1〜7）、`Lock volume`（ゲームはコントローラーのスピーカー、ヘッドセット、マイクの音量、ミュート、ミュートランプを変更できません。PC 自身の音量とミュートは引き続き反映されます）、`Audio out`（Auto / SPK / Hset / off：PC の音声をどこで再生するか。Auto = コントローラーにヘッドセットが接続されていればヘッドセット）、`Built-in mic`（マイクをオフにするスイッチ）、`Mic used`（Auto / Int / Hset）、`Mic level`（`PC` は PC のマイクレベルに従う、または 1〜64）、`Echo cancel`、`Audio buffer`（32〜128）。
+- **Connection：** `Controller`（DS5 / DSE / Auto）、`Poll rate`（250Hz / 500Hz / RT）、`Disconnect`（操作のないコントローラーを切断）、`Idle time`（10〜60 分）。
+- **Screen & lights：** `Screen dim` と `Screen off`（分。`off` = しない）、`Wake on input`（コントローラーの操作で画面を復帰）、`Status LED`（Pico の LED）。
+- **PC sleep：** `Turn off ctrl`（PC が 3 秒スリープするとコントローラーの電源を切る、デフォルトはオン）、`PS wakes PC`（コントローラーが接続されていないとき、ボードが復帰専用キーボード「DS5 Dongle Wake Keyboard」として認識され、PS ボタンで PC を復帰できます。デフォルトはオフ）。
+- **Reset：** `Reset to defaults`（△ を 2 秒長押し。すべての設定を元に戻し、現在のスロットは残します）、`Wipe all slots`（△ を 2 秒長押し。ペアリング済みの 4 台のコントローラーとすべての BTstack のリンクキーを削除）。
+
+`AutoHap` のモード：`Off`（デフォルト）はハプティクスをゲームからのみ受け取ります。`Fallback` はゲームがネイティブのハプティクスデータを送らないときだけ（例：Linux の Ghost of Tsushima）派生した振動を出します。音楽やデスクトップの音声に合わせても振動する点に注意してください。ネイティブのハプティクスを *送る* ゲーム（Spider-Man Remastered）はそのまま通します。`Mix` はネイティブに派生した振動を重ね、`Replace` はネイティブを完全に無視します。
 
 ### ボタンの一覧
 
@@ -534,9 +528,9 @@ USB を抜かずにボードを再起動する方法は 2 つあります — �
 このフォークの一部の機能と設計のアイデアは、アップストリームのほかのフォークから感謝とともに取り入れています：
 
 - **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** — OLED のステータスヘッダーのピクセルアートアイコン（見た目の方針）、Settings 画面の「Reset to defaults」項目で使う「長押しで初期化」の操作パターン（△ を 2 秒長押しで確定）、そして新しいスロット画面の複数スロットの保存される BT ペアリングの仕組み（登録済みのコントローラー 4 台、方向キーで移動、△ でスロットを切り替え、□ 長押しでスロットを消去、さらに Settings メニューの「Wipe all slots」）。
-- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — スピーカー／HD ハプティクスの出力を壊したアップストリームの `3a31bd7` の不具合を独自に再発見しました（コミット `c7a8d3c`）。私たちの `src/audio.cpp` の修正は、同じ SetStateData サブレポートを復元しています。Audio Auto Haptics の DSP（1 極の LP + エンベロープフォロワー、Settings → Auto Haptics を参照）と、「USB 側の UAC1 音量を保存される設定に同期しない」修正の出どころでもあります。
+- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — スピーカー／HD ハプティクスの出力を壊したアップストリームの `3a31bd7` の不具合を独自に再発見しました（コミット `c7a8d3c`）。私たちの `src/audio.cpp` の修正は、同じ SetStateData サブレポートを復元しています。Audio Auto Haptics の DSP（1 極の LP + エンベロープフォロワー、Settings → Haptics/trigger を参照）と、「USB 側の UAC1 音量を保存される設定に同期しない」修正の出どころでもあります。
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** — 兄弟プロジェクトにあたる Pico の DualSense ブリッジ。`src/remap.{h,cpp}` のボタン割り当ての適用ロジックとデジタル操作のセットは、ここから移植しています。そのオーディオの構成（本体での Opus エンコード、またはオプションのホスト側エンコード用コンパニオンアプリ）は、私たちのスピーカーの周期（「うなり」）の問題を調べる際の参考にもなりました。土台となる成果に感謝します。
-- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — フォークした Web 設定アプリ [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) のベース。このフォークはアップストリームの 13 バイトの Config_body レイアウトを私たちの 19 バイトのレイアウトに合わせ、追加機能（複数スロットのペアリング、Auto Haptics）の UI を加えています。
+- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — 私たちの設定アプリ [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web)（最初は Web アプリ、0.8.0 からはデスクトップアプリ）のベース。このフォークはアップストリームの 13 バイトの Config_body レイアウトを私たちのレイアウト（当時 19 バイト、現在 51 バイト）に合わせ、追加機能（複数スロットのペアリング、Auto Haptics）の UI を加えました。
 - **Zacksly** 氏の **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)**：設定ツール（デスクトップアプリと Web ツール）の「ボタンの割り当て」ページで使っている DualSense コントローラーの輪郭とボタンアイコン。[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) ライセンス（`currentColor` に色を変更し、テーマに合わせてトリミング）。
 
 ## ロードマップ

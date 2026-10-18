@@ -23,9 +23,9 @@
 
 ## 🛠️ Comece aqui: baixe o app
 
-**[→ Baixe o DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux e um instalador para Windows que não precisa de direitos de administrador, ambos testados; a versão para macOS é testada pela comunidade: [relatado como funcionando no macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Baixe o DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage para Linux, um instalador para Windows que não precisa de direitos de administrador e o app universal para macOS; testado no Linux, Windows 11 e macOS, onde o teste rápido do macOS o instala e o executa num Mac de verdade com Apple Silicon. Ele também foi [relatado como funcionando no macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
-O app é tudo de que você precisa. Cada versão inclui o firmware correspondente, então o app o instala no seu Pico, mantém tudo atualizado e configura tudo:
+O app é tudo de que você precisa. Cada versão inclui o firmware correspondente, então o app o instala no seu Raspberry Pi Pico 2 W, mantém tudo atualizado e configura tudo:
 
 1. Monte sua placa (veja [Hardware](#hardware) abaixo) e abra o app.
 2. Conecte o Pico **segurando o botão BOOTSEL** (um Pico novinho não precisa do botão). O app o encontra e instala o firmware com um clique; nada para copiar à mão.
@@ -69,8 +69,8 @@ Toda mudança passa por todas as verificações automáticas. Toda versão ganha
 
 **Toda mudança**
 
-- **App:** mais de 1.600 testes (de unidade, de integração e de segurança) no Linux, Windows e macOS, além de checagem de tipos, ESLint e Prettier.
-- **Firmware:** 185 testes no PC da lógica do firmware com AddressSanitizer e UndefinedBehaviorSanitizer, e cinco compilações do firmware (Pico 2 W, Pico W, depuração e duas variantes). A compilação falha se o código crítico em tempo sair da RAM ou se a configuração da flash mudar.
+- **App:** mais de 1.800 testes (de unidade, de integração e de segurança) no Linux, Windows e macOS, além de checagem de tipos, ESLint e Prettier.
+- **Firmware:** mais de 270 testes no PC da lógica do firmware com AddressSanitizer e UndefinedBehaviorSanitizer, e cinco compilações do firmware (Pico 2 W, Pico W, depuração e duas variantes). A compilação falha se o código crítico em tempo sair da RAM ou se a configuração da flash mudar.
 - **Regras do app:** as configurações de segurança do Electron, nada de HTML inseguro, um único sistema de temas sem cores soltas, nada de código ou arquivos duplicados sem veredito.
 - **Vereditos por escrito:** todo laço que espera ou roda num caminho crítico, todo caminho de erro, todo cache e todo recurso que o código pega (um timer, um ouvinte, um dispositivo) tem um comentário com o seu veredito. Um novo sem veredito faz a verificação falhar.
 - **Varreduras de segurança:** Semgrep, Gitleaks e npm audit, também toda semana.
@@ -125,7 +125,7 @@ Este projeto faz o Raspberry Pi Pico2W funcionar como uma ponte Bluetooth para o
 
 **Acréscimos da OLED Edition:**
 
-- **Gatilhos adaptáveis nativos do DualSense em jogos de PC no Linux/Proton, pela placa.** Jogos com suporte nativo ao DualSense acionam os gatilhos adaptáveis do controle sem fio pelo Pico, **1:1 com um DualSense ligado por cabo**. Requer um Proton que traga a correção #9034 do `winebus.sys` do Wine (Wine 11 / Proton-GE atual) com o Steam Input desativado; **nenhuma opção de inicialização é necessária** (o Wine 11 ativa o caminho nativo hidraw por padrão). Funciona **tanto na Steam quanto no Heroic** (Epic/GOG). O firmware deixa o Pico idêntico byte a byte a um DS5 real, para que o jogo o aceite (detalhes completos no [CHANGELOG.md](./CHANGELOG.md)). Contrapartida: as abas Config/Remap do navegador ficam desativadas neste firmware (veja a nota acima).
+- **Gatilhos adaptáveis nativos do DualSense em jogos de PC no Linux/Proton, pela placa.** Jogos com suporte nativo ao DualSense acionam os gatilhos adaptáveis do controle sem fio pelo Pico, **1:1 com um DualSense ligado por cabo**. Requer um Proton que traga a correção #9034 do `winebus.sys` do Wine (Wine 11 / Proton-GE atual) com o Steam Input desativado; **nenhuma opção de inicialização é necessária** (o Wine 11 ativa o caminho nativo hidraw por padrão). Funciona **tanto na Steam quanto no Heroic** (Epic/GOG). O firmware deixa o Pico idêntico byte a byte a um DS5 real, para que o jogo o aceite (detalhes completos no [CHANGELOG.md](./CHANGELOG.md)).
 - Tela de status opcional Pico-OLED-1.3 com **11 telas** (status, slots, barra de luz, teste de gatilhos, inclinação do giroscópio, touch pad, diagnóstico, CPU/clock, RSSI, medidores VU, configurações)
 - **Calibração no Pico (v0.9)**: deslocamento do centro do analógico, zona inativa e raio de inclinação total, curso dos gatilhos e zero do giroscópio, por slot de emparelhamento, aplicados ao que os jogos recebem (nunca gravados no controle). Configurada pela calibração guiada do app.
 - **Intensidade da vibração por lado (v0.9)**: esquerda e direita separadas, tanto para a resposta tátil quanto para a vibração clássica.
@@ -139,7 +139,7 @@ Este projeto faz o Raspberry Pi Pico2W funcionar como uma ponte Bluetooth para o
 - **Intensidade do efeito gatilho, amplificação do alto-falante, travar volume, escolha de microfone e alto-falante, pino de status (configurações do upstream, protocolo 1.13)**: gatilhos adaptáveis mais fracos em 10 passos (a força do próprio jogo por padrão), o pré-ganho do amplificador do controle, jogos impedidos de mudar o volume do controle, o microfone como Auto / Embutido / Headset, o áudio do PC em Auto / Alto-falante / Headset / Desligado, e um GPIO que mostra a conexão do controle. A luz do botão de desativar o som acompanha o mudo do microfone, e os botões de mudo e o nível do microfone do PC chegam ao controle. Uma configuração nova faz polling a 500 Hz.
 - **Emparelhamento persistente de até 4 controles em slots**: vincule até quatro DualSense, troque entre eles pela OLED; o slot 0 reconecta automaticamente ao ligar
 - **Seletor de cor da barra de luz** com 4 slots de favoritos + predefinições de efeito respiração / arco-íris / transição
-- **Menu de configurações persistente** para os 8 campos de configuração do firmware (ganho da resposta tátil, volume do alto-falante, taxa de polling etc.) com ações de Reset e Apagar todos os slots confirmadas segurando o botão
+- **Menu de configurações persistente** no OLED: 25 configurações em seis grupos (resposta tátil e gatilhos, áudio, conexão, tela e luzes, suspensão do PC), mais Reset to defaults e Wipe all slots, confirmadas segurando o botão
 - **Escada de economia de energia da OLED**: ciclo manual de brilho (pressão longa em KEY1), escurecimento profundo automático com um pequeno ponto pulsante após 2 min parado, tela totalmente apagada após 15 min parado. Acorda na hora com um botão, emparelhamento do controle ou entrada. Proteção real contra burn-in, não só um ajuste de contraste.
 - **Reinicialização por software** sem desconectar a USB, segurando `PS + Mute` no DS5 (funciona sem tela) ou **KEY0 + KEY1 juntos por 1 s** no módulo OLED (substitui o antigo gesto de duplo clique em KEY0, fácil de disparar sem querer ao passar telas rápido)
 - **Alto-falante e microfone do controle limpos**: o caminho de áudio do core1 (Opus, reamostrador, operações de memória) roda a partir da RAM, o áudio sai nos relatórios `0x39` compactados do upstream, e o microfone é decodificado no core1 e cadenciado pelo clock USB do host. Isso eliminou o antigo chiado do alto-falante e as travadas com o microfone ligado (veja o [CHANGELOG.md](./CHANGELOG.md)). **Crédito para [awalol](https://github.com/awalol/DS5Dongle)**: este é o trabalho de áudio do upstream, portado para cá.
@@ -147,13 +147,13 @@ Este projeto faz o Raspberry Pi Pico2W funcionar como uma ponte Bluetooth para o
 
 ## 🐧 Linux: gatilhos adaptáveis nativos (Proton)
 
-Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux, é preciso um Proton que traga a correção **#9034** do `winebus.sys` do Wine. As versões oficiais do **GE-Proton 11** já a incluem. A build disponibilizada aqui, **`GE-Proton11-7-DualSense`** (veja [a versão dela](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)), é o `GE-Proton11-7` oficial mais uma correção extra no `winebus.sys`: o DualSense informa seu número de série como um MAC Bluetooth separado por dois-pontos, o que torna o caminho do dispositivo impossível de abrir no Windows, então jogos que usam a libScePad da Sony não alcançam os gatilhos. Esta build substitui esses caracteres para que o caminho abra. É a build em que os resultados de gatilhos abaixo foram verificados.
+Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux, é preciso um Proton que traga a correção **#9034** do `winebus.sys` do Wine. As versões oficiais do **GE-Proton 11** já a incluem. A build disponibilizada aqui, **`GE-Proton11-7.2-DualSense`** (veja [a versão dela](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)), é o `GE-Proton11-7` oficial mais uma correção extra no `winebus.sys`: o DualSense informa seu número de série como um MAC Bluetooth separado por dois-pontos, o que torna o caminho do dispositivo impossível de abrir no Windows, então jogos que usam a libScePad da Sony não alcançam os gatilhos. Esta build substitui esses caracteres para que o caminho abra. Com `PROTON_PREFER_SDL=1`, ela também deixa jogos só com XInput usarem o controle como um gamepad padrão, com vibração ([changelog](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)). Os resultados de gatilhos abaixo foram verificados na build anterior, GE-Proton11-7-DualSense, cujo caminho nativo não mudou.
 
 > Por quê: o bug #9034 suprime o dispositivo de gamepad SDL quando existe um dispositivo hidraw com o mesmo VID/PID, então o controle é visto *em todo lugar menos no jogo*. A correção deixa o caminho nativo (capaz de acionar os gatilhos) e um gamepad funcionando coexistirem.
 
 **Configuração única**
 
-1. **Instale a build do Proton.** Baixe `GE-Proton11-7-DualSense.tar.gz` [da versão](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense) e extraia em:
+1. **Instale a build do Proton.** Baixe `GE-Proton11-7.2-DualSense.tar.gz` [da versão](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense) e extraia em:
    - **Steam:** `~/.steam/root/compatibilitytools.d/`
    - **Heroic:** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Para um jogo acionar os **gatilhos adaptáveis do controle pela placa** no Linux
 
 **Por jogo**
 
-3. **Force o Proton:** Steam → clique com o botão direito no jogo → **Propriedades → Compatibilidade → Forçar o uso de uma ferramenta de compatibilidade específica do Steam Play → `GE-Proton11-7-DualSense`**. (Heroic: defina a *versão do Wine* do jogo como ela.)
+3. **Force o Proton:** Steam → clique com o botão direito no jogo → **Propriedades → Compatibilidade → Forçar o uso de uma ferramenta de compatibilidade específica do Steam Play → `GE-Proton11-7.2-DualSense`**. (Heroic: defina a *versão do Wine* do jogo como ela.)
 
 **Nenhuma opção de inicialização é necessária**: o Wine 11 ativa o caminho nativo hidraw por padrão, então o Pico é entregue ao jogo automaticamente. É só abrir: os gatilhos adaptáveis nativos funcionam pelo Pico, 1:1 com um DualSense com cabo (verificado sem flags em Cyberpunk 2077, Uncharted, Spider-Man Remastered, The Last of Us Part I, Avatar, Indiana Jones, Star Wars: Galactic Racer, e **tanto na Steam quanto no Heroic**). O jogo precisa ter **suporte nativo ao DualSense** (jogos só com XInput dão vibração, mas sem gatilhos adaptáveis; é um limite do motor do jogo, não da placa). A primeira abertura com um Proton novo faz a configuração de locale/prefixo e pode ficar "Não respondendo" por um minuto; é configuração, não travamento; deixe terminar.
 
@@ -180,10 +180,10 @@ Os gatilhos nativos funcionam igual no Heroic, mas launchers fora da Steam são 
 | Variável | Valor | Finalidade |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *Legada / opcional, **não é necessária** no Wine 11*, que ativa o caminho nativo hidraw por padrão. Inofensiva se definida. Só importa em Protons antigos em que o hidraw era opcional (mas esses também não têm a correção #9034, então os gatilhos não funcionam neles de qualquer jeito). |
-| `PROTON_PREFER_SDL` | `1` | *Alternativa, só entrada.* Força o caminho de gamepad SDL: entrada e vibração funcionam, mas como controle genérico/Xbox (**sem gatilhos**). Use só quando um jogo não tem suporte nativo ao DualSense e `ENABLE_HIDRAW` não ajuda. **Não** combine com `ENABLE_HIDRAW` em jogos com gatilhos. Precisa de um Proton que a respeite: a **GE-Proton11-7-DualSense** publicada a ignora, então rode jogos só com XInput no GE-Proton padrão até a próxima build DualSense ser publicada. |
+| `PROTON_PREFER_SDL` | `1` | *Alternativa, só entrada.* Força o caminho de gamepad SDL: entrada e vibração funcionam, mas como controle genérico/Xbox (**sem gatilhos**). Use só quando um jogo não tem suporte nativo ao DualSense e `ENABLE_HIDRAW` não ajuda. **Não** combine com `ENABLE_HIDRAW` em jogos com gatilhos. Precisa de um Proton que a respeite: a **GE-Proton11-7.2-DualSense** respeita (a página Jogos do app a define para jogos só com XInput); a antiga GE-Proton11-7-DualSense a ignora. |
 | `PROTON_LOG` | `+hid` | *Só diagnóstico* (não para jogar normalmente). Grava um rastro da enumeração HID: a Steam o coloca em `~/steam-<appid>.log`; o Heroic define `PROTON_LOG_DIR` como sua pasta pessoal, então ele vai para `~/steam-0.log`. Útil para confirmar que o jogo abriu o caminho HID nativo. |
 
-> **Heroic x Steam:** os gatilhos nativos funcionam nos **dois**, e nenhum precisa de opção de inicialização no Wine 11. Steam: defina o runner + desative o Steam Input. Heroic: defina o runner, **feche a Steam por completo** (uma Steam em segundo plano rouba o controle dos jogos fora da Steam) e mantenha `PROTON_PREFER_SDL` desligada. Em qualquer caso o jogo precisa suportar o DualSense de forma nativa: jogos só com XInput (por exemplo Ghostrunner, Control) dão vibração, mas sem gatilhos adaptáveis, em qualquer sistema. Esses jogos precisam de `PROTON_PREFER_SDL=1` e de um Proton que a respeite: a **GE-Proton11-7-DualSense** publicada não respeita, então use o GE-Proton padrão neles até a próxima build DualSense ser publicada.
+> **Heroic x Steam:** os gatilhos nativos funcionam nos **dois**, e nenhum precisa de opção de inicialização no Wine 11. Steam: defina o runner + desative o Steam Input. Heroic: defina o runner, **feche a Steam por completo** (uma Steam em segundo plano rouba o controle dos jogos fora da Steam) e mantenha `PROTON_PREFER_SDL` desligada. Em qualquer caso o jogo precisa suportar o DualSense de forma nativa: jogos só com XInput (por exemplo Ghostrunner, Control) dão vibração, mas sem gatilhos adaptáveis, em qualquer sistema. Esses jogos precisam de `PROTON_PREFER_SDL=1` e de um Proton que a respeite, como a **GE-Proton11-7.2-DualSense**.
 
 ## Hardware
 
@@ -232,9 +232,9 @@ O [app](#️-comece-aqui-baixe-o-app) faz isso por você. Para gravar à mão (o
 
 Há quatro jeitos de configurar o firmware:
 
-**App de configuração (recomendado):** o [DS5 Dongle OLED Edition Configurator](#️-comece-aqui-baixe-o-app) para Linux e Windows (há também uma versão para macOS, relatada como funcionando no macOS 27.0.1; a página Jogos lista jogos da Steam, Heroic e Lutris no Linux e da Steam, GOG Galaxy e Epic no Windows, e a configuração do Proton é só para Linux). Ele encontra a placa sozinho, aplica as mudanças ao vivo e salva na flash do Pico com um clique. Requer firmware v0.8+.
+**App de configuração (recomendado):** o [DS5 Dongle OLED Edition Configurator](#️-comece-aqui-baixe-o-app) para Linux, Windows e macOS (a página Jogos lista jogos da Steam, Heroic e Lutris no Linux e da Steam, GOG Galaxy e Epic no Windows, e a configuração do Proton é só para Linux). Ele encontra a placa sozinho, aplica as mudanças ao vivo e salva na flash do Pico com um clique. Requer firmware v0.8+.
 
-**No dispositivo (com o módulo OLED):** use o menu **Settings** na tela (11ª tela). Botões de direção ▲▼ movem a seleção, ▶◀ ajustam valores, △ salva na flash.
+**No dispositivo (com o módulo OLED):** use o menu **Settings** na tela (11ª tela). Botões de direção ▲▼ movem a seleção, ✕ abre um grupo e ○ volta, ▶◀ ajustam valores, △ salva na flash.
 
 **CLI no terminal (qualquer sistema, qualquer navegador):** instale o hidapi e use `scripts/set_ds5.py`:
 
@@ -287,7 +287,7 @@ Por muito tempo isso foi considerado impossível: versões anteriores deste fork
 
 - **Ligado por padrão.** Emparelhe o controle e o microfone começa a transmitir em um ou dois segundos, sem precisar de áudio do jogo (o Pico mantém a transmissão viva sozinho).
 - **Aumente o volume de captura no host**: ele começa baixo. No Linux, encontre a placa de som com `arecord -l` e depois, por exemplo, `amixer -c <placa do DualSense> sset 'Headset' 90%`. Confira a captura com `scripts/mic_diag.sh capture`.
-- **Desligue para poupar a bateria do controle**: OLED **Settings → BT Mic**, ou a chave **Microfone embutido** no [app de configuração](#️-comece-aqui-baixe-o-app). O microfone sempre ligado mantém o subsistema de áudio do DS5 acordado, o que gasta a bateria bem mais rápido; desative-o se você não usa voz.
+- **Desligue para poupar a bateria do controle**: OLED **Settings → Audio → Built-in mic**, ou a chave **Microfone embutido** no [app de configuração](#️-comece-aqui-baixe-o-app). O microfone sempre ligado mantém o subsistema de áudio do DS5 acordado, o que gasta a bateria bem mais rápido; desative-o se você não usa voz.
 
 **Ressalvas:**
 
@@ -478,24 +478,18 @@ Medidores de pico ao vivo para os caminhos de áudio do alto-falante e da respos
 
 #### 11. Configurações
 
-Editor de configuração persistente. Botões de direção ▲▼ movem a seleção, ▶◀ ajustam valores, △ salva na flash. Inclui os campos de configuração do firmware (ganho da resposta tátil, volume do alto-falante, tempo de inatividade, taxa de polling), os controles do Audio Auto Haptics e duas ações confirmadas segurando o botão:
-
-`Hap Left` e `Hap Right` ajustam cada empunhadura separadamente. Pressione △ para aplicar e salvar as alterações.
+Editor de configuração persistente. Ele abre num menu de seis grupos, cada um com quantas configurações tem: **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** e **Reset**. Botões de direção ▲▼ movem a seleção; ✕ (ou ▶) abre um grupo e ○ volta ao menu, onde você parou. Dentro de um grupo, ▶◀ ajustam o valor. △ salva na flash de qualquer lugar. A linha selecionada é uma barra acesa; um valor alterado e ainda não salvo aparece numa janela escura nessa barra, e o título mostra `(*)` até você salvar.
 
 <img src="./assets/oled/oled_sc11.png" alt="Tela Settings na OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace**: escolhe o modo do Audio Auto Haptics. Padrão `Off`: a resposta tátil vem só do jogo. `Fallback` gera vibração derivada só quando o jogo não envia dados táteis nativos (por exemplo Ghost of Tsushima no Linux); note que ele também vibra junto com música e áudio do desktop; jogos que *enviam* resposta tátil nativa (Spider-Man Remastered) passam sem alteração. `Mix` soma o derivado ao nativo, `Replace` ignora o nativo por completo.
-- **AH Gain N%**: ganho do sinal derivado, 0–200 % em passos de 10 %. Padrão 100 %.
-- **AH LP 80/160/250/400 Hz**: corte do passa-baixa aplicado ao áudio do alto-falante antes do seguidor de envelope. Mais baixo = mais subgrave, mais alto = mais presença. Padrão 160 Hz.
-- **TrigEff game / -1 … -10**: Intensidade do efeito gatilho; enfraquece a resistência dos gatilhos adaptáveis dos jogos em 10 passos. Padrão `game` (0): a força do próprio jogo, com o relatório dele passado intacto.
-- **SpkBoost game / 1 … 7**: Amplificação do alto-falante; o pré-ganho do amplificador do controle. Padrão `game` (0): fica a cargo do jogo. Separado de `Spk Vol`.
-- **VolLock on / off**: Travar volume; os jogos não podem mudar o volume do alto-falante, do headset ou do microfone do controle, o mudo nem a luz do mudo; o volume e o mudo do próprio PC continuam valendo. Padrão off.
-- **SPK Out Auto / SPK / Hset / off**: Saída de áudio; onde o áudio do PC toca (Auto = o headset quando há um ligado ao controle). Padrão Auto.
-- **Mic In Auto / Int / Hset**: Microfone usado; Auto, o microfone embutido ou o de um headset. Padrão Auto. `BT Mic` continua sendo a chave que desliga o microfone.
-- **Sleep CtrlOff on / off**: desliga o controle depois que o PC está em suspensão há 3 s. Padrão on.
-- **PS Wakes PC on / off**: sem controle conectado, o Pico aparece como um teclado só para ativação ("DS5 Dongle Wake Keyboard") para o Botão PS poder ativar o PC. Padrão off.
-- **Reset to defaults**: segure △ por 2 s para voltar todos os campos ao padrão
-- **Wipe all slots**: segure △ por 2 s para descartar os 4 controles emparelhados + todas as chaves de link do BTstack
+- **Haptics/trigger:** `Vibration L` e `Vibration R` (intensidade da vibração por lado), `Trig. effect` (intensidade do efeito dos gatilhos: `game`, a força do próprio jogo, ou -1 … -10 mais fraco), `AutoHap` (o modo do Audio Auto Haptics, abaixo), `AutoHap gain` (0–200 % em passos de 10 %, padrão 100 %) e `Auto filter` (o corte do passa-baixa antes do seguidor de envelope, 80 / 160 / 250 / 400 Hz, padrão 160 Hz: mais baixo = mais subgrave).
+- **Audio:** `Spk volume`, `Spk boost` (reforço do alto-falante, o pré-ganho do amplificador do controle: `game`, por conta do jogo, ou 1 … 7), `Lock volume` (os jogos não podem mudar o volume do alto-falante, do headset nem do microfone do controle, o mudo nem a luz dele; o volume e o mudo do próprio PC continuam valendo), `Audio out` (Auto / SPK / Hset / off: onde o áudio do PC toca; Auto = o headset quando há um ligado ao controle), `Built-in mic` (a chave que desliga o microfone), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` segue o nível do microfone do PC, ou 1–64), `Echo cancel` e `Audio buffer` (32–128).
+- **Connection:** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (desconectar um controle parado) e `Idle time` (10–60 min).
+- **Screen & lights:** `Screen dim` e `Screen off` (minutos; `off` = nunca), `Wake on input` (usar o controle acende a tela) e `Status LED` (o LED do Pico).
+- **PC sleep:** `Turn off ctrl` (desligar o controle quando o PC está em suspensão há 3 s, ligado por padrão) e `PS wakes PC` (sem controle conectado, a placa aparece como um teclado só para acordar, "DS5 Dongle Wake Keyboard", para o botão PS poder acordar o PC; desligado por padrão).
+- **Reset:** `Reset to defaults` (segure △ por 2 s; volta todas as configurações ao padrão e mantém o slot atual) e `Wipe all slots` (segure △ por 2 s; apaga os 4 controles emparelhados e todas as chaves de link do BTstack).
+
+Modos do `AutoHap`: `Off` (padrão) usa a resposta tátil só do jogo. `Fallback` gera vibração derivada só quando o jogo não envia dados táteis nativos (ex.: Ghost of Tsushima no Linux); note que ele também vibra com música e áudio da área de trabalho, enquanto jogos que *enviam* resposta tátil nativa (Spider-Man Remastered) passam sem mudança. `Mix` soma a derivada à nativa, `Replace` ignora a nativa por completo.
 
 ### Referência dos botões
 
@@ -534,9 +528,9 @@ Dois jeitos de reiniciar a placa sem desconectar a USB, úteis se o emparelhamen
 Alguns recursos e ideias de design deste fork vêm de outros forks do upstream, com crédito:
 
 - **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)**: ícones em pixel art no cabeçalho de status da OLED (abordagem visual), o padrão de UX "segure para restaurar de fábrica" usado no item "Reset to defaults" da tela Settings (segure △ por 2 s para confirmar) e o sistema de emparelhamento BT persistente em vários slots da nova tela Slots (4 controles vinculados, botões de direção para navegar, △ para trocar de slot, □ segurado para apagar um slot, além de "Wipe all slots" no menu Settings).
-- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)**: redescoberta independente da regressão `3a31bd7` do upstream que quebrou a saída do alto-falante / da resposta tátil HD (commit `c7a8d3c`); a correção no nosso `src/audio.cpp` restaura o mesmo sub-relatório SetStateData. Também é a origem do DSP do Audio Auto Haptics (passa-baixa de 1 polo + seguidor de envelope, veja Settings → Auto Haptics) e da correção "não sincronizar o volume UAC1 do lado USB com a configuração persistente".
+- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)**: redescoberta independente da regressão `3a31bd7` do upstream que quebrou a saída do alto-falante / da resposta tátil HD (commit `c7a8d3c`); a correção no nosso `src/audio.cpp` restaura o mesmo sub-relatório SetStateData. Também é a origem do DSP do Audio Auto Haptics (passa-baixa de 1 polo + seguidor de envelope, veja Settings → Haptics/trigger) e da correção "não sincronizar o volume UAC1 do lado USB com a configuração persistente".
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)**: uma ponte Pico DualSense irmã. A lógica de aplicação da reatribuição de botões e o conjunto de controles digitais em `src/remap.{h,cpp}` foram portados dela. A arquitetura de áudio dela (codificação Opus no dispositivo x um app companheiro opcional que codifica no host) também foi a referência para diagnosticar nosso trabalho na cadência do alto-falante ("warble"). Obrigado pela base.
-- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)**: base do nosso app de configuração web em fork, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web). O fork adapta o layout Config_body de 13 bytes do upstream ao nosso de 19 bytes e acrescenta interface para os nossos acréscimos (emparelhamento em vários slots, Auto Haptics).
+- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)**: base do nosso app de configuração, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) (primeiro um app web, o app de desktop desde a 0.8.0). O fork adaptou o layout Config_body de 13 bytes do upstream ao nosso (19 bytes na época, 51 hoje) e acrescentou interface para os nossos acréscimos (emparelhamento em vários slots, Auto Haptics).
 - **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)** de **Zacksly**: o contorno do controle DualSense e os ícones de botões da página “Atribuições de botões” do configurador (app para desktop e ferramenta web), sob licença [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) (recoloridos para `currentColor` e recortados para os temas).
 
 ## Roadmap

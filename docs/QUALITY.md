@@ -14,7 +14,7 @@ A rule that matters gets a gate (a script or test that fails the build), not jus
 
 | Check | Runs on | Where |
 | --- | --- | --- |
-| Unit, integration and security tests (1,620 tests in 134 files, with coverage) | Linux | `app:tests/` (Vitest) |
+| Unit, integration and security tests (over 1,800 tests in 160 files, with coverage) | Linux | `app:tests/` (Vitest) |
 | The same tests, plus a desktop build | Windows, macOS | `test-windows`, `test-macos` jobs |
 | Typecheck | Linux | `tsc -b` |
 | ESLint, including no floating or misused promises and no empty `catch` | Linux | `app:eslint.config.js` |
@@ -44,7 +44,7 @@ Tests worth naming: every locale has exactly the strings English has (`app:tests
 
 | Check | Where |
 | --- | --- |
-| 185 host tests of the firmware's pure logic (calibration, button assignments, config, commands, stick curves, OLED, USB sleep and wake, haptics, slots…), built with AddressSanitizer and UndefinedBehaviorSanitizer, no hardware | `tests/host/` |
+| Over 270 host tests of the firmware's pure logic (calibration, button assignments, config, commands, stick curves, OLED, USB sleep and wake, haptics, slots…), built with AddressSanitizer and UndefinedBehaviorSanitizer, no hardware | `tests/host/` |
 | Every loop that waits or sits on a hot path has a verdict | `tools/list_loops.py` |
 | Every failure path has a verdict | `tools/list_errors.py` |
 | Every acquisition has a verdict | `tools/list_lifetimes.py` |

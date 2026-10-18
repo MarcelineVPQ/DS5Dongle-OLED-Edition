@@ -23,9 +23,9 @@
 
 ## 🛠️ 快速上手：下载应用
 
-**[→ 下载 DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage 和无需管理员权限的 Windows 安装程序，两者都经过测试；macOS 版本由社区测试：[已有用户报告在 macOS 27.0.1 上可用](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)）
+**[→ 下载 DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)**（Linux AppImage、无需管理员权限的 Windows 安装程序和 macOS 通用版应用；已在 Linux、Windows 11 和 macOS 上测试，macOS 冒烟测试会在真实的 Apple Silicon Mac 上安装并运行它。另外也[已有用户报告在 macOS 27.0.1 上可用](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17)。）
 
-只需要这个应用。每个版本都自带对应的固件，应用会把固件装到你的 Pico 上、保持更新，并配置所有功能：
+只需要这个应用。每个版本都自带对应的固件，应用会把固件装到你的 Raspberry Pi Pico 2 W 上、保持更新，并配置所有功能：
 
 1. 组装好你的开发板（见下方[硬件](#硬件)），然后打开应用。
 2. **按住 BOOTSEL 按钮**把 Pico 插到电脑上（全新的 Pico 不需要按）。应用会找到它，一键安装固件，无需手动拷贝文件。
@@ -69,8 +69,8 @@
 
 **每次改动**
 
-- **应用：** 1,600 多个测试（单元、集成和安全测试），在 Linux、Windows 和 macOS 上运行，另有类型检查、ESLint 和 Prettier。
-- **固件：** 185 个在 PC 上运行的固件逻辑测试，启用 AddressSanitizer 和 UndefinedBehaviorSanitizer；以及五种固件构建（Pico 2 W、Pico W、调试版和两个变体）。如果时间关键的代码离开了 RAM，或闪存设置发生变化，构建就会失败。
+- **应用：** 1,800 多个测试（单元、集成和安全测试），在 Linux、Windows 和 macOS 上运行，另有类型检查、ESLint 和 Prettier。
+- **固件：** 270 多个在 PC 上运行的固件逻辑测试，启用 AddressSanitizer 和 UndefinedBehaviorSanitizer；以及五种固件构建（Pico 2 W、Pico W、调试版和两个变体）。如果时间关键的代码离开了 RAM，或闪存设置发生变化，构建就会失败。
 - **应用的规则检查：** Electron 安全设置、禁止不安全的 HTML、只有一套主题系统且没有散落的颜色、没有未给出结论的重复代码或重复文件。
 - **书面结论：** 每个会等待或位于热路径上的循环、每条错误路径、每个缓存，以及代码占用的每个资源（定时器、监听器、设备）都带有写明结论的注释。新增的若没有结论，检查就会失败。
 - **安全扫描：** Semgrep、Gitleaks 和 npm audit，并且每周运行。
@@ -125,7 +125,7 @@
 
 **OLED Edition 新增：**
 
-- **在 Linux/Proton 的 PC 游戏中通过 Pico 使用原生 DualSense 自适应扳机。** 原生支持 DualSense 的游戏会经由 Pico 无线驱动控制器的自适应扳机，**与有线直连的 DualSense 1:1 一致**。需要带有 Wine `winebus.sys` #9034 修复的 Proton（Wine 11 / 当前的 Proton-GE），并关闭 Steam Input —— **不需要启动选项**（Wine 11 默认启用 hidraw 原生路径）。**Steam 和 Heroic**（Epic/GOG）都可用。固件让 Pico 与真正的 DS5 逐字节无法区分，游戏因此接受它（完整说明见 [CHANGELOG.md](./CHANGELOG.md)）。代价：此固件上浏览器的 Config/Remap 标签页被停用（见上方说明）。
+- **在 Linux/Proton 的 PC 游戏中通过 Pico 使用原生 DualSense 自适应扳机。** 原生支持 DualSense 的游戏会经由 Pico 无线驱动控制器的自适应扳机，**与有线直连的 DualSense 1:1 一致**。需要带有 Wine `winebus.sys` #9034 修复的 Proton（Wine 11 / 当前的 Proton-GE），并关闭 Steam Input —— **不需要启动选项**（Wine 11 默认启用 hidraw 原生路径）。**Steam 和 Heroic**（Epic/GOG）都可用。固件让 Pico 与真正的 DS5 逐字节无法区分，游戏因此接受它（完整说明见 [CHANGELOG.md](./CHANGELOG.md)）。
 - 可选的 Pico-OLED-1.3 状态显示屏，含 **11 个屏幕**（状态、配对槽、光条、扳机测试、陀螺仪倾斜、触摸板、诊断、CPU/时钟、RSSI、VU 表、设置）
 - **在 Pico 里校准（v0.9）** —— 操作杆中心偏移、盲区和推满半径、扳机行程和陀螺仪零点，按配对槽位保存，作用于游戏收到的数据（从不写入控制器）。通过应用的引导式校准设置。
 - **左右分别的振动强度（v0.9）** —— 左右两侧分别设置，触觉反馈和传统振动都适用。
@@ -139,7 +139,7 @@
 - **扳机效果强度、扬声器增强、锁定音量、麦克风与扬声器选择、状态引脚（上游的设置，协议 1.13）** —— 分 10 级减弱自适应扳机（默认为游戏自己的强度）、控制器功放的前级增益、阻止游戏更改控制器音量、麦克风选择自动 / 内置 / 耳机、电脑音频输出到自动 / 扬声器 / 耳机 / 关，以及一个显示控制器连接状态的 GPIO。静音键指示灯跟随麦克风静音，电脑的静音开关和麦克风音量会同步到控制器。全新配置的轮询率为 500 Hz。
 - **4 槽持久化多控制器配对** —— 可绑定至多四个 DualSense，在 OLED 上切换，开机时自动重连槽 0
 - **光条调色器**，含 4 个用户收藏槽 + 呼吸 / 彩虹 / 渐变特效预设
-- **持久化设置菜单**，涵盖 8 个固件配置字段（触觉增益、扬声器音量、轮询率等），并提供按住确认的“重置”与“清除全部槽”操作
+- **持久化设置菜单**（OLED 上）：六个分组（触觉与扳机、音频、连接、屏幕与灯光、PC 睡眠）中的 25 项设置，并提供按住确认的 Reset to defaults 与 Wipe all slots 操作
 - **OLED 空闲省电阶梯** —— 手动亮度循环（长按 KEY1）、空闲 2 分钟自动深度变暗并显示一个呼吸小点、空闲 15 分钟完全熄屏。按键、控制器配对或输入时立即唤醒。是真正的防烧屏，而不只是调对比度。
 - **软重启**，无需拔 USB：按住 DS5 的 `PS + Mute`（无屏幕也可用），或在 OLED 插件上**同时按住 KEY0 + KEY1 1 秒**（取代了旧的 KEY0 双击手势，快速翻页时它很容易误触发）
 - **干净的控制器扬声器与麦克风** —— core1 的音频路径（Opus、重采样器、内存操作）在 RAM 中运行，音频以上游的打包 `0x39` 报告发送，麦克风在 core1 解码并按主机的 USB 时钟输出。这消除了长期存在的扬声器爆音和开麦卡顿（见 [CHANGELOG.md](./CHANGELOG.md)）。**归功于 [awalol](https://github.com/awalol/DS5Dongle)**：这是上游的音频工作，移植到了这里。
@@ -147,13 +147,13 @@
 
 ## 🐧 Linux：原生自适应扳机（Proton）
 
-在 Linux 上让游戏**通过 Pico 驱动控制器的自适应扳机**，需要带有 Wine `winebus.sys` **#9034** 修复的 Proton。官方 **GE-Proton 11** 版本现在已包含它。这里提供的版本 **`GE-Proton11-7-DualSense`**（见[它的发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)）是官方 `GE-Proton11-7` 加上一个额外的 `winebus.sys` 修复：DualSense 把序列号报告为冒号分隔的蓝牙 MAC，这让它的设备路径在 Windows 中无法打开，于是使用索尼 libScePad 的游戏无法访问扳机。此版本替换了这些字符，路径就能打开了。下面的扳机结果就是在这个版本上验证的。
+在 Linux 上让游戏**通过 Pico 驱动控制器的自适应扳机**，需要带有 Wine `winebus.sys` **#9034** 修复的 Proton。官方 **GE-Proton 11** 版本现在已包含它。这里提供的版本 **`GE-Proton11-7.2-DualSense`**（见[它的发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)）是官方 `GE-Proton11-7` 加上一个额外的 `winebus.sys` 修复：DualSense 把序列号报告为冒号分隔的蓝牙 MAC，这让它的设备路径在 Windows 中无法打开，于是使用索尼 libScePad 的游戏无法访问扳机。此版本替换了这些字符，路径就能打开了。设置 `PROTON_PREFER_SDL=1` 后，它还能让仅支持 XInput 的游戏把控制器当作标准手柄使用，并支持震动（[更新日志](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)）。下面的扳机结果是在它之前的版本 GE-Proton11-7-DualSense 上验证的，原生路径没有变化。
 
 > 原因：#9034 的 bug 会在同一 VID/PID 存在 hidraw 设备时屏蔽 SDL 手柄设备，于是手柄*除了游戏里*到处都能看到。修复让原生（支持扳机的）路径和正常工作的手柄可以共存。
 
 **一次性设置**
 
-1. **安装这个 Proton 版本。** 从[发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)下载 `GE-Proton11-7-DualSense.tar.gz` 并解压到：
+1. **安装这个 Proton 版本。** 从[发布页](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)下载 `GE-Proton11-7.2-DualSense.tar.gz` 并解压到：
    - **Steam：** `~/.steam/root/compatibilitytools.d/`
    - **Heroic：** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@
 
 **每个游戏**
 
-3. **强制使用该 Proton：** Steam → 右键点击游戏 → **属性 → 兼容性 → 强制使用特定 Steam Play 兼容性工具 → `GE-Proton11-7-DualSense`**。（Heroic：把游戏的 *Wine 版本* 设为它。）
+3. **强制使用该 Proton：** Steam → 右键点击游戏 → **属性 → 兼容性 → 强制使用特定 Steam Play 兼容性工具 → `GE-Proton11-7.2-DualSense`**。（Heroic：把游戏的 *Wine 版本* 设为它。）
 
 **不需要启动选项** —— Wine 11 默认启用 hidraw 原生路径，所以 Pico 会自动交给游戏。直接启动即可 —— 原生自适应扳机通过 Pico 工作，与有线 DualSense 1:1 一致（已在 Cyberpunk 2077、Uncharted、Spider-Man Remastered、The Last of Us Part I、Avatar、Indiana Jones、Star Wars: Galactic Racer 上无需任何参数验证 —— 而且 **Steam 和 Heroic 都可以**）。游戏必须**原生支持 DualSense**（仅支持 XInput 的游戏只有震动，没有自适应扳机 —— 这是引擎的限制，不是 Pico 的问题）。在新的 Proton 下首次启动时会做区域/前缀设置，可能显示“未响应”一分钟 —— 那是在设置，不是崩溃；让它完成。
 
@@ -180,10 +180,10 @@
 | 变量 | 值 | 用途 |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *旧式 / 可选 —— 在 Wine 11 上**不需要***，Wine 11 默认启用 hidraw 原生路径。设置了也无害。只对 hidraw 需要手动开启的旧版 Proton 有意义（但那些版本也没有 #9034 修复，所以扳机在那里本来就不工作）。 |
-| `PROTON_PREFER_SDL` | `1` | *替代方案，仅输入。* 强制走 SDL 手柄路径 —— 输入和震动正常，但作为通用/Xbox 手柄（**没有扳机**）。只在游戏缺少原生 DualSense 支持、且 `ENABLE_HIDRAW` 无效时使用。对需要扳机的游戏**不要**和 `ENABLE_HIDRAW` 一起用。需要一个支持它的 Proton：已发布的 **GE-Proton11-7-DualSense** 会忽略它，所以在下一个 DualSense 版本发布之前，请用标准 GE-Proton 运行仅支持 XInput 的游戏。 |
+| `PROTON_PREFER_SDL` | `1` | *替代方案，仅输入。* 强制走 SDL 手柄路径 —— 输入和震动正常，但作为通用/Xbox 手柄（**没有扳机**）。只在游戏缺少原生 DualSense 支持、且 `ENABLE_HIDRAW` 无效时使用。对需要扳机的游戏**不要**和 `ENABLE_HIDRAW` 一起用。需要一个支持它的 Proton：**GE-Proton11-7.2-DualSense** 支持它（应用的游戏页面会为仅支持 XInput 的游戏设置它）；较旧的 GE-Proton11-7-DualSense 会忽略它。 |
 | `PROTON_LOG` | `+hid` | *仅用于诊断*（不用于正常游戏）。写出一份 HID 枚举跟踪 —— Steam 把它放在 `~/steam-<appid>.log`；Heroic 把 `PROTON_LOG_DIR` 设为你的主目录，所以它在 `~/steam-0.log`。可用于确认游戏打开了原生 HID 路径。 |
 
-> **Heroic 与 Steam：** 原生扳机在**两者**上都可用 —— 而且在 Wine 11 上都不需要启动选项。Steam：设置运行器 + 关闭 Steam Input。Heroic：设置运行器、**完全退出 Steam**（后台的 Steam 会从非 Steam 游戏那里抢走手柄），并保持 `PROTON_PREFER_SDL` 关闭。无论哪种，游戏都必须原生支持 DualSense —— 仅支持 XInput 的游戏（例如 Ghostrunner、Control）在任何系统上都只有震动，没有自适应扳机。这些游戏需要 `PROTON_PREFER_SDL=1` 和支持它的 Proton 版本：已发布的 **GE-Proton11-7-DualSense** 不支持，所以在下一个 DualSense 版本发布之前，请为它们使用标准 GE-Proton。
+> **Heroic 与 Steam：** 原生扳机在**两者**上都可用 —— 而且在 Wine 11 上都不需要启动选项。Steam：设置运行器 + 关闭 Steam Input。Heroic：设置运行器、**完全退出 Steam**（后台的 Steam 会从非 Steam 游戏那里抢走手柄），并保持 `PROTON_PREFER_SDL` 关闭。无论哪种，游戏都必须原生支持 DualSense —— 仅支持 XInput 的游戏（例如 Ghostrunner、Control）在任何系统上都只有震动，没有自适应扳机。这些游戏需要 `PROTON_PREFER_SDL=1` 和支持它的 Proton 版本，例如 **GE-Proton11-7.2-DualSense**。
 
 ## 硬件
 
@@ -232,9 +232,9 @@ Pico 2 W 和 Waveshare Pico-OLED-1.3 在全球都很容易买到：
 
 有四种方式配置固件：
 
-**配置应用（推荐）：** 适用于 Linux 和 Windows 的 [DS5 Dongle OLED Edition Configurator](#️-快速上手下载应用)（也包含 macOS 版本，已有用户报告在 macOS 27.0.1 上可用；游戏页面在 Linux 上列出 Steam、Heroic 和 Lutris 游戏，在 Windows 上列出 Steam、GOG Galaxy 和 Epic 游戏，其中的 Proton 设置仅限 Linux）。它会自己找到 Pico，修改即时生效，一键保存到 Pico 的闪存。需要 v0.8 及以上固件。
+**配置应用（推荐）：** 适用于 Linux、Windows 和 macOS 的 [DS5 Dongle OLED Edition Configurator](#️-快速上手下载应用)（游戏页面在 Linux 上列出 Steam、Heroic 和 Lutris 游戏，在 Windows 上列出 Steam、GOG Galaxy 和 Epic 游戏，其中的 Proton 设置仅限 Linux）。它会自己找到 Pico，修改即时生效，一键保存到 Pico 的闪存。需要 v0.8 及以上固件。
 
-**设备端（装有 OLED 插件）：** 使用屏幕上的 **Settings** 菜单（第 11 个屏幕）。方向键 ▲▼ 移动选择，▶◀ 调整数值，△ 保存到闪存。
+**设备端（装有 OLED 插件）：** 使用屏幕上的 **Settings** 菜单（第 11 个屏幕）。方向键 ▲▼ 移动选择，✕ 打开分组、○ 返回，▶◀ 调整数值，△ 保存到闪存。
 
 **终端 CLI（任何系统、任何浏览器）：** 安装 hidapi，然后使用 `scripts/set_ds5.py`：
 
@@ -287,7 +287,7 @@ scripts/set_ds5.py --help                     # 完整参数列表
 
 - **默认开启。** 配对控制器后一两秒内麦克风便开始传输 —— 不需要游戏音频（Pico 会自己保持音频流）。
 - **在主机上调高录音音量** —— 它默认很低。在 Linux 上，用 `arecord -l` 找到声卡，然后例如 `amixer -c <DualSense 声卡> sset 'Headset' 90%`。用 `scripts/mic_diag.sh capture` 验证录音。
-- **关闭它以节省控制器电量** —— OLED **Settings → BT Mic**，或[配置应用](#️-快速上手下载应用)中的 **内置麦克风** 开关。常开的麦克风会让 DS5 的音频子系统保持唤醒，明显加快耗电，所以不用语音时请关闭。
+- **关闭它以节省控制器电量** —— OLED **Settings → Audio → Built-in mic**，或[配置应用](#️-快速上手下载应用)中的 **内置麦克风** 开关。常开的麦克风会让 DS5 的音频子系统保持唤醒，明显加快耗电，所以不用语音时请关闭。
 
 **注意点：**
 
@@ -478,24 +478,18 @@ scripts/mic_diag.sh bt-trace
 
 #### 11. 设置
 
-持久化配置编辑器。方向键 ▲▼ 移动选择，▶◀ 调整数值，△ 保存到闪存。包含固件配置字段（触觉增益、扬声器音量、空闲超时、轮询率）、音频自动触感控件，以及两个按住确认的操作：
-
-`Hap Left` 和 `Hap Right` 分别调整左右握把强度，按下 △ 应用并保存修改。
+持久化配置编辑器。它打开时是一个包含六个分组的菜单，每组显示其中的设置数量：**Haptics/trigger**、**Audio**、**Connection**、**Screen & lights**、**PC sleep** 和 **Reset**。方向键 ▲▼ 移动选择；✕（或 ▶）打开分组，○ 返回菜单中原来的位置。在分组里，▶◀ 调整数值。在任何位置按 △ 都会保存到闪存。当前行是一条亮条；已修改但尚未保存的值显示在亮条中的暗色窗口里，保存前标题会显示 `(*)`。
 
 <img src="./assets/oled/oled_sc11.png" alt="OLED 上的设置屏幕" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** —— 选择音频自动触感模式。默认 `Off`：触觉只来自游戏。`Fallback` 只在游戏不发送原生触觉数据时（例如 Linux 上的 Ghost of Tsushima）才产生派生的震动 —— 注意它也会跟着音乐和桌面音频震动；确实发送原生触觉的游戏（Spider-Man Remastered）原样通过。`Mix` 在原生之上叠加派生，`Replace` 完全忽略原生。
-- **AH Gain N%** —— 派生信号增益，0–200 %，每步 10 %。默认 100 %。
-- **AH LP 80/160/250/400 Hz** —— 包络跟随之前作用于扬声器音频的低通截止频率。越低越偏重低音，越高越有临场感。默认 160 Hz。
-- **TrigEff game / -1 … -10** —— 扳机效果强度：分 10 级减弱游戏的自适应扳机阻力。默认 `game`（0）：游戏自己的强度，报告原样通过。
-- **SpkBoost game / 1 … 7** —— 扬声器增强：控制器功放的前级增益。默认 `game`（0）：交给游戏决定。与 `Spk Vol` 是两个设置。
-- **VolLock on / off** —— 锁定音量：游戏不能更改控制器的扬声器、耳机或麦克风音量、静音或静音键指示灯；电脑自己的音量和静音仍然生效。默认 off。
-- **SPK Out Auto / SPK / Hset / off** —— 音频输出：电脑的声音从哪里播放（Auto = 控制器上插了耳机时用耳机）。默认 Auto。
-- **Mic In Auto / Int / Hset** —— 使用的麦克风：自动、内置麦克风或耳机麦克风。默认 Auto。`BT Mic` 仍是关闭麦克风的开关。
-- **Sleep CtrlOff on / off** —— 电脑睡眠 3 秒后关闭控制器。默认 on。
-- **PS Wakes PC on / off** —— 没有连接控制器时，Pico 显示为只用于唤醒的键盘（"DS5 Dongle Wake Keyboard"），这样 PS键可以唤醒电脑。默认 off。
-- **Reset to defaults** —— 按住 △ 2 秒，恢复所有配置字段
-- **Wipe all slots** —— 按住 △ 2 秒，删除全部 4 个已配对控制器 + 全部 BTstack 链路密钥
+- **Haptics/trigger：** `Vibration L` 和 `Vibration R`（左右各自的振动强度）、`Trig. effect`（扳机效果强度：`game` 为游戏自身的强度，或 -1 … -10 更弱）、`AutoHap`（音频自动触感模式，见下文）、`AutoHap gain`（0–200 %，步进 10 %，默认 100 %）以及 `Auto filter`（包络跟随之前的低通截止频率，80 / 160 / 250 / 400 Hz，默认 160 Hz：越低重低音越多）。
+- **Audio：** `Spk volume`、`Spk boost`（扬声器增强，控制器功放的前置增益：`game` 交给游戏，或 1 … 7）、`Lock volume`（游戏无法更改控制器的扬声器、耳机或麦克风音量、静音及静音指示灯；PC 自身的音量和静音仍然生效）、`Audio out`（Auto / SPK / Hset / off：PC 的声音从哪里播放；Auto = 控制器插着耳机时用耳机）、`Built-in mic`（关闭麦克风的开关）、`Mic used`（Auto / Int / Hset）、`Mic level`（`PC` 跟随 PC 的麦克风电平，或 1–64）、`Echo cancel` 以及 `Audio buffer`（32–128）。
+- **Connection：** `Controller`（DS5 / DSE / Auto）、`Poll rate`（250Hz / 500Hz / RT）、`Disconnect`（断开空闲的控制器）以及 `Idle time`（10–60 分钟）。
+- **Screen & lights：** `Screen dim` 和 `Screen off`（分钟；`off` = 从不）、`Wake on input`（操作控制器时唤醒屏幕）以及 `Status LED`（Pico 的 LED）。
+- **PC sleep：** `Turn off ctrl`（PC 睡眠 3 秒后关闭控制器，默认开启）以及 `PS wakes PC`（未连接控制器时，Pico 显示为仅用于唤醒的键盘“DS5 Dongle Wake Keyboard”，这样 PS 按钮可以唤醒 PC；默认关闭）。
+- **Reset：** `Reset to defaults`（按住 △ 2 秒；恢复所有设置并保留当前槽）以及 `Wipe all slots`（按住 △ 2 秒；清除全部 4 个已配对的控制器和所有 BTstack 链接密钥）。
+
+`AutoHap` 模式：`Off`（默认）只使用游戏的触觉。`Fallback` 只在游戏不发送原生触觉数据时（例如 Linux 上的 Ghost of Tsushima）才产生派生的震动；注意它也会跟着音乐和桌面音频震动，而确实发送原生触觉的游戏（Spider-Man Remastered）原样通过。`Mix` 在原生触觉之上叠加派生震动，`Replace` 完全忽略原生触觉。
 
 ### 按键参考
 
@@ -534,9 +528,9 @@ OLED 插件上的两个物理按键**只用于导航**：
 本分支的部分功能与设计思路借鉴自上游的其他分支，在此致谢：
 
 - **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** —— OLED 状态栏中的像素图标（视觉方案）、Settings 屏幕 "Reset to defaults" 项使用的“按住以恢复出厂设置”交互（按住 △ 2 秒确认），以及新的 Slots 屏幕上的多槽持久化蓝牙配对系统（4 个已绑定控制器、方向键导航、△ 切换槽、按住 □ 清除槽，以及 Settings 菜单中的 "Wipe all slots"）。
-- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** —— 独立地重新发现了上游 `3a31bd7` 破坏扬声器 / HD 触觉输出的回归（提交 `c7a8d3c`）；我们 `src/audio.cpp` 中的修复恢复了同样的 SetStateData 子报告。也是音频自动触感 DSP（单极点低通 + 包络跟随器，见 Settings → Auto Haptics）以及“不要把 USB 端 UAC1 音量同步到持久化配置”修复的来源。
+- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** —— 独立地重新发现了上游 `3a31bd7` 破坏扬声器 / HD 触觉输出的回归（提交 `c7a8d3c`）；我们 `src/audio.cpp` 中的修复恢复了同样的 SetStateData 子报告。也是音频自动触感 DSP（单极点低通 + 包络跟随器，见 Settings → Haptics/trigger）以及“不要把 USB 端 UAC1 音量同步到持久化配置”修复的来源。
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** —— 一个同类的 Pico DualSense 桥接项目。`src/remap.{h,cpp}` 中的按键重映射应用逻辑和数字控件集合移植自它。它的音频架构（设备端 Opus 编码 vs 可选的主机端编码配套应用）也是我们诊断扬声器节奏（“颤音”）问题时的参考。感谢它打下的基础。
-- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** —— 我们分支版网页配置应用 [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) 的基础。该分支把上游 13 字节的 Config_body 布局改为我们的 19 字节布局，并为我们的新增功能（多槽配对、Auto Haptics）添加了界面。
+- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** —— 我们的配置应用 [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web)（最初是网页应用，自 0.8.0 起为桌面应用）的基础。该分支把上游 13 字节的 Config_body 布局改为我们的布局（当时 19 字节，现在 51 字节），并为我们的新增功能（多槽配对、Auto Haptics）添加了界面。
 - **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)**（作者 **Zacksly**）—— 配置工具（桌面应用与网页工具）“按键配置”页面所用的 DualSense 控制器轮廓与按键图标，采用 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) 授权（已重新着色为 `currentColor` 并裁剪以适配主题）。
 
 ## 路线图

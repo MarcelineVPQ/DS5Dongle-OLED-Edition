@@ -23,9 +23,9 @@
 
 ## 🛠️ Pour commencer : télécharger l'app
 
-**[→ Télécharger DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage Linux et installateur Windows sans droits administrateur, tous deux testés ; la version macOS est testée par la communauté : [signalée fonctionnelle sous macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17))
+**[→ Télécharger DS5 Dongle OLED Edition Configurator](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/latest)** (AppImage Linux, installateur Windows sans droits administrateur et app macOS universelle ; testée sous Linux, Windows 11 et macOS, où le test rapide macOS l'installe et la lance sur un vrai Mac Apple Silicon. Elle est aussi [signalée fonctionnelle sous macOS 27.0.1](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/issues/17).)
 
-L'app suffit. Chaque version contient le firmware correspondant : l'app l'installe sur ton Pico, le tient à jour et configure tout :
+L'app suffit. Chaque version contient le firmware correspondant : l'app l'installe sur ton Raspberry Pi Pico 2 W, le tient à jour et configure tout :
 
 1. Assemble ta carte (voir [Matériel](#matériel) plus bas) et lance l'app.
 2. Branche le Pico **en maintenant son bouton BOOTSEL** (un Pico tout neuf n'a pas besoin du bouton). L'app le trouve et installe le firmware en un clic ; rien à copier à la main.
@@ -69,8 +69,8 @@ Chaque modification passe toutes les vérifications automatiques. Chaque version
 
 **Chaque modification**
 
-- **App :** plus de 1 600 tests (unitaires, d'intégration et de sécurité) sous Linux, Windows et macOS, plus la vérification des types, ESLint et Prettier.
-- **Firmware :** 185 tests sur PC de la logique du firmware avec AddressSanitizer et UndefinedBehaviorSanitizer, et cinq compilations du firmware (Pico 2 W, Pico W, débogage et deux variantes). La compilation échoue si le code critique en temps quitte la RAM ou si la configuration de la flash change.
+- **App :** plus de 1 800 tests (unitaires, d'intégration et de sécurité) sous Linux, Windows et macOS, plus la vérification des types, ESLint et Prettier.
+- **Firmware :** plus de 270 tests sur PC de la logique du firmware avec AddressSanitizer et UndefinedBehaviorSanitizer, et cinq compilations du firmware (Pico 2 W, Pico W, débogage et deux variantes). La compilation échoue si le code critique en temps quitte la RAM ou si la configuration de la flash change.
 - **Règles de l'app :** les réglages de sécurité d'Electron, pas de HTML dangereux, un seul système de thèmes sans couleurs isolées, pas de code ni de fichiers en double sans verdict.
 - **Verdicts écrits :** chaque boucle qui attend ou tourne sur un chemin critique, chaque chemin d'erreur, chaque cache et chaque ressource que le code prend (un minuteur, un écouteur, un appareil) porte un commentaire avec son verdict. Un nouveau sans verdict fait échouer la vérification.
 - **Analyses de sécurité :** Semgrep, Gitleaks et npm audit, aussi chaque semaine.
@@ -125,7 +125,7 @@ Ce projet permet au Raspberry Pi Pico2W de servir de pont Bluetooth pour la mane
 
 **Ajouts de l'OLED Edition :**
 
-- **Gâchettes adaptatives DualSense natives dans les jeux PC sous Linux/Proton, à travers la carte.** Les jeux qui prennent en charge la DualSense en natif pilotent les gâchettes adaptatives de la manette sans fil via la carte, **à l'identique d'une DualSense branchée par câble**. Nécessite un Proton qui contient le correctif Wine `winebus.sys` #9034 (Wine 11 / Proton-GE actuel) avec Steam Input désactivé ; **aucune option de lancement nécessaire** (Wine 11 active par défaut le chemin natif hidraw). Fonctionne **sur Steam et sur Heroic** (Epic/GOG). Le firmware rend la carte indiscernable, octet pour octet, d'une vraie DS5, pour que le jeu l'accepte (description complète dans [CHANGELOG.md](./CHANGELOG.md)). Contrepartie : les onglets Config/Remap de l'outil dans le navigateur sont désactivés avec ce firmware (voir la note ci-dessus).
+- **Gâchettes adaptatives DualSense natives dans les jeux PC sous Linux/Proton, à travers la carte.** Les jeux qui prennent en charge la DualSense en natif pilotent les gâchettes adaptatives de la manette sans fil via la carte, **à l'identique d'une DualSense branchée par câble**. Nécessite un Proton qui contient le correctif Wine `winebus.sys` #9034 (Wine 11 / Proton-GE actuel) avec Steam Input désactivé ; **aucune option de lancement nécessaire** (Wine 11 active par défaut le chemin natif hidraw). Fonctionne **sur Steam et sur Heroic** (Epic/GOG). Le firmware rend la carte indiscernable, octet pour octet, d'une vraie DS5, pour que le jeu l'accepte (description complète dans [CHANGELOG.md](./CHANGELOG.md)).
 - Écran d'état optionnel Pico-OLED-1.3 avec **11 écrans** (état, emplacements, barre lumineuse, test des gâchettes, inclinaison gyroscope, pavé tactile, diagnostic, CPU/horloge, RSSI, vumètres, réglages)
 - **Calibrage dans la carte (v0.9)** : décalage du centre du joystick, zone inerte et rayon d'inclinaison maximale, course des gâchettes et zéro du gyroscope, par emplacement d'association, appliqués à ce que reçoivent les jeux (jamais écrits dans la manette). Se règle depuis le calibrage guidé de l'app.
 - **Intensité des vibrations par côté (v0.9)** : gauche et droite séparément, pour le retour haptique comme pour la vibration classique.
@@ -139,7 +139,7 @@ Ce projet permet au Raspberry Pi Pico2W de servir de pont Bluetooth pour la mane
 - **Intensité de l'effet gâchette, amplification du haut-parleur, verrouillage du volume, choix du micro et du haut-parleur, broche d'état (réglages d'upstream, protocole 1.13)** : des gâchettes adaptatives plus faibles en 10 crans (la force propre du jeu par défaut), le pré-gain de l'ampli de la manette, des jeux empêchés de changer le volume de la manette, le micro en Auto / Intégré / Casque, l'audio du PC en Auto / Haut-parleur / Casque / Désactivé, et une GPIO qui indique la connexion de la manette. Le voyant de la touche mode silencieux suit la coupure du micro, et la coupure du son et le niveau du micro du PC arrivent jusqu'à la manette. Une configuration neuve interroge à 500 Hz.
 - **Association persistante de 4 manettes dans des emplacements** : associe jusqu'à quatre DualSense, passe de l'une à l'autre depuis l'OLED ; l'emplacement 0 se reconnecte automatiquement au démarrage
 - **Sélecteur de couleur de la barre lumineuse** avec 4 emplacements favoris + préréglages d'effets respiration / arc-en-ciel / fondu
-- **Menu de réglages persistant** pour les 8 champs de configuration du firmware (gain haptique, volume du haut-parleur, fréquence d'interrogation, etc.) avec des actions Reset et Wipe all slots à confirmer par appui long
+- **Menu de réglages persistant** sur l'OLED : 25 réglages en six groupes (haptique et gâchettes, audio, connexion, écran et lumières, veille du PC), plus Reset to defaults et Wipe all slots à confirmer par appui long
 - **Paliers d'économie de l'OLED au repos** : cycle de luminosité manuel (appui long sur KEY1), assombrissement profond automatique avec un petit point qui respire après 2 min d'inactivité, écran complètement éteint après 15 min. Se réveille instantanément sur une touche, une association de manette ou une entrée. Une vraie protection contre le marquage, pas un simple réglage de contraste.
 - **Redémarrage logiciel** sans débrancher l'USB : maintien de `PS + Mute` sur la DS5 (fonctionne sans écran) ou **KEY0 + KEY1 maintenus ensemble 1 s** sur le module OLED (remplace l'ancien double-clic sur KEY0, trop facile à déclencher par accident en feuilletant vite)
 - **Haut-parleur et micro de la manette propres** : la chaîne audio de core1 (Opus, rééchantillonneur, opérations mémoire) tourne depuis la RAM, l'audio part dans les rapports `0x39` groupés d'upstream, et le micro est décodé sur core1 et cadencé par l'horloge USB de l'hôte. Cela a supprimé le grésillement du haut-parleur de longue date et les saccades quand le micro est actif (voir [CHANGELOG.md](./CHANGELOG.md)). **Merci à [awalol](https://github.com/awalol/DS5Dongle)** : c'est le travail audio d'upstream, porté ici.
@@ -147,13 +147,13 @@ Ce projet permet au Raspberry Pi Pico2W de servir de pont Bluetooth pour la mane
 
 ## 🐧 Linux : gâchettes adaptatives natives (Proton)
 
-Pour qu'un jeu pilote les **gâchettes adaptatives de la manette à travers la carte** sous Linux, il faut un Proton qui contient le correctif Wine `winebus.sys` **#9034**. Les versions officielles de **GE-Proton 11** l'incluent désormais. La version fournie ici, **`GE-Proton11-7-DualSense`** (voir [sa version](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense)), est le `GE-Proton11-7` officiel plus un correctif `winebus.sys` supplémentaire : la DualSense annonce son numéro de série sous forme d'adresse MAC Bluetooth séparée par des deux-points, ce qui rend son chemin de périphérique impossible à ouvrir sous Windows, et les jeux qui utilisent la libScePad de Sony n'atteignent pas les gâchettes. Cette version remplace ces caractères pour que le chemin s'ouvre. C'est sur elle qu'ont été vérifiés les résultats ci-dessous.
+Pour qu'un jeu pilote les **gâchettes adaptatives de la manette à travers la carte** sous Linux, il faut un Proton qui contient le correctif Wine `winebus.sys` **#9034**. Les versions officielles de **GE-Proton 11** l'incluent désormais. La version fournie ici, **`GE-Proton11-7.2-DualSense`** (voir [sa version](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense)), est le `GE-Proton11-7` officiel plus un correctif `winebus.sys` supplémentaire : la DualSense annonce son numéro de série sous forme d'adresse MAC Bluetooth séparée par des deux-points, ce qui rend son chemin de périphérique impossible à ouvrir sous Windows, et les jeux qui utilisent la libScePad de Sony n'atteignent pas les gâchettes. Cette version remplace ces caractères pour que le chemin s'ouvre. Avec `PROTON_PREFER_SDL=1`, elle permet aussi aux jeux uniquement XInput d'utiliser la manette comme une manette standard, avec vibrations ([journal des modifications](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/blob/master/docs/PROTON_CHANGELOG.md)). Les résultats ci-dessous ont été vérifiés sur la version précédente, GE-Proton11-7-DualSense, dont le chemin natif n'a pas changé.
 
 > Pourquoi : le bug #9034 supprime le périphérique manette SDL quand un périphérique hidraw existe pour le même VID/PID, si bien que la manette est vue *partout sauf en jeu*. Le correctif laisse coexister le chemin natif (capable de piloter les gâchettes) et une manette qui fonctionne.
 
 **Configuration unique**
 
-1. **Installe la version de Proton.** Télécharge `GE-Proton11-7-DualSense.tar.gz` depuis [la version](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7-DualSense) et extrais-la dans :
+1. **Installe la version de Proton.** Télécharge `GE-Proton11-7.2-DualSense.tar.gz` depuis [la version](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense) et extrais-la dans :
    - **Steam :** `~/.steam/root/compatibilitytools.d/`
    - **Heroic :** `~/.config/heroic/tools/proton/`
 
@@ -162,7 +162,7 @@ Pour qu'un jeu pilote les **gâchettes adaptatives de la manette à travers la c
 
 **Pour chaque jeu**
 
-3. **Force le Proton :** Steam → clic droit sur le jeu → **Propriétés → Compatibilité → Forcer l'utilisation d'un outil de compatibilité Steam Play spécifique → `GE-Proton11-7-DualSense`**. (Heroic : règle la *version de Wine* du jeu sur celui-ci.)
+3. **Force le Proton :** Steam → clic droit sur le jeu → **Propriétés → Compatibilité → Forcer l'utilisation d'un outil de compatibilité Steam Play spécifique → `GE-Proton11-7.2-DualSense`**. (Heroic : règle la *version de Wine* du jeu sur celui-ci.)
 
 **Aucune option de lancement n'est nécessaire** : Wine 11 active par défaut le chemin natif hidraw, la carte est donc remise au jeu automatiquement. Lance simplement le jeu : les gâchettes adaptatives natives fonctionnent à travers la carte, à l'identique d'une DualSense filaire (vérifié sans option sur Cyberpunk 2077, Uncharted, Spider-Man Remastered, The Last of Us Part I, Avatar, Indiana Jones, Star Wars: Galactic Racer, et **sur Steam comme sur Heroic**). Le jeu doit avoir une **prise en charge native de la DualSense** (les jeux uniquement XInput donnent des vibrations mais pas de gâchettes adaptatives : c'est une limite du moteur, pas de la carte). Le premier lancement avec un nouveau Proton prépare la langue et le préfixe et peut rester « Ne répond pas » pendant une minute : c'est de la préparation, pas un plantage ; laisse-le finir.
 
@@ -180,10 +180,10 @@ Les gâchettes natives fonctionnent de la même façon sur Heroic, mais les lanc
 | Variable | Valeur | Rôle |
 |---|---|---|
 | `PROTON_ENABLE_HIDRAW` | `0x054c/0x0ce6` | *Ancienne / facultative : **inutile** sous Wine 11*, qui active par défaut le chemin natif hidraw. Sans effet nuisible si elle est définie. Utile seulement sur d'anciens Proton où hidraw était à activer (mais ceux-ci n'ont pas non plus le correctif #9034, donc les gâchettes n'y fonctionnent de toute façon pas). |
-| `PROTON_PREFER_SDL` | `1` | *Alternative, entrées seulement.* Force le chemin manette SDL : entrées et vibrations fonctionnent, mais comme une manette générique/Xbox (**pas de gâchettes**). À utiliser seulement quand un jeu n'a pas de prise en charge native de la DualSense et que `ENABLE_HIDRAW` n'aide pas. Ne la **combine pas** avec `ENABLE_HIDRAW` pour les jeux à gâchettes. Nécessite un Proton qui la respecte : le **GE-Proton11-7-DualSense** publié l'ignore, donc lance les jeux uniquement XInput avec un GE-Proton standard jusqu'à la publication de la prochaine version DualSense. |
+| `PROTON_PREFER_SDL` | `1` | *Alternative, entrées seulement.* Force le chemin manette SDL : entrées et vibrations fonctionnent, mais comme une manette générique/Xbox (**pas de gâchettes**). À utiliser seulement quand un jeu n'a pas de prise en charge native de la DualSense et que `ENABLE_HIDRAW` n'aide pas. Ne la **combine pas** avec `ENABLE_HIDRAW` pour les jeux à gâchettes. Nécessite un Proton qui la respecte : **GE-Proton11-7.2-DualSense** la respecte (la page Jeux de l'app la définit pour les jeux uniquement XInput) ; l'ancien GE-Proton11-7-DualSense l'ignore. |
 | `PROTON_LOG` | `+hid` | *Diagnostic uniquement* (pas pour jouer normalement). Écrit une trace de l'énumération HID : Steam la place dans `~/steam-<appid>.log` ; Heroic règle `PROTON_LOG_DIR` sur ton dossier personnel, elle arrive donc dans `~/steam-0.log`. Utile pour confirmer que le jeu a ouvert le chemin HID natif. |
 
-> **Heroic ou Steam :** les gâchettes natives fonctionnent sur **les deux**, et aucun n'a besoin d'option de lancement sous Wine 11. Steam : choisis le runner + désactive Steam Input. Heroic : choisis le runner, **quitte complètement Steam** (un Steam en arrière-plan vole la manette aux jeux hors Steam) et laisse `PROTON_PREFER_SDL` désactivé. Dans tous les cas, le jeu doit prendre en charge la DualSense en natif : les jeux uniquement XInput (par ex. Ghostrunner, Control) donnent des vibrations mais pas de gâchettes adaptatives, sur n'importe quel système. Ces jeux ont besoin de `PROTON_PREFER_SDL=1` et d'un Proton qui la respecte : le **GE-Proton11-7-DualSense** publié ne la respecte pas, utilise donc un GE-Proton standard pour eux jusqu'à la publication de la prochaine version DualSense.
+> **Heroic ou Steam :** les gâchettes natives fonctionnent sur **les deux**, et aucun n'a besoin d'option de lancement sous Wine 11. Steam : choisis le runner + désactive Steam Input. Heroic : choisis le runner, **quitte complètement Steam** (un Steam en arrière-plan vole la manette aux jeux hors Steam) et laisse `PROTON_PREFER_SDL` désactivé. Dans tous les cas, le jeu doit prendre en charge la DualSense en natif : les jeux uniquement XInput (par ex. Ghostrunner, Control) donnent des vibrations mais pas de gâchettes adaptatives, sur n'importe quel système. Ces jeux ont besoin de `PROTON_PREFER_SDL=1` et d'un Proton qui la respecte, comme **GE-Proton11-7.2-DualSense**.
 
 ## Matériel
 
@@ -232,9 +232,9 @@ L'[app](#️-pour-commencer--télécharger-lapp) le fait pour toi. Pour flasher 
 
 Il y a quatre façons de configurer le firmware :
 
-**App de configuration (recommandée) :** le [DS5 Dongle OLED Edition Configurator](#️-pour-commencer--télécharger-lapp) pour Linux et Windows (une version macOS est incluse, signalée fonctionnelle sous macOS 27.0.1 ; la page Jeux liste les jeux Steam, Heroic et Lutris sous Linux et les jeux Steam, GOG Galaxy et Epic sous Windows, et sa configuration de Proton est réservée à Linux). Elle trouve la carte toute seule, applique les changements en direct et enregistre dans la flash de la carte en un clic. Nécessite le firmware v0.8+.
+**App de configuration (recommandée) :** le [DS5 Dongle OLED Edition Configurator](#️-pour-commencer--télécharger-lapp) pour Linux, Windows et macOS (la page Jeux liste les jeux Steam, Heroic et Lutris sous Linux et les jeux Steam, GOG Galaxy et Epic sous Windows, et sa configuration de Proton est réservée à Linux). Elle trouve la carte toute seule, applique les changements en direct et enregistre dans la flash de la carte en un clic. Nécessite le firmware v0.8+.
 
-**Sur l'appareil (module OLED présent) :** utilise le menu **Settings** à l'écran (11e écran). ▲▼ des touches directionnelles déplacent la sélection, ▶◀ ajustent les valeurs, △ enregistre en flash.
+**Sur l'appareil (module OLED présent) :** utilise le menu **Settings** à l'écran (11e écran). ▲▼ des touches directionnelles déplacent la sélection, ✕ ouvre un groupe et ○ revient en arrière, ▶◀ ajustent les valeurs, △ enregistre en flash.
 
 **CLI en terminal (tout système, tout navigateur) :** installe hidapi, puis utilise `scripts/set_ds5.py` :
 
@@ -287,7 +287,7 @@ On l'a longtemps cru impossible : les premières versions de ce fork le décriva
 
 - **Activé par défaut.** Associe la manette et le micro commence à émettre en une seconde ou deux, sans audio de jeu nécessaire (la carte maintient le flux elle-même).
 - **Monte le volume de capture sur l'hôte** : il est bas par défaut. Sous Linux, trouve la carte son avec `arecord -l`, puis par ex. `amixer -c <DualSense card> sset 'Headset' 90%`. Vérifie la capture avec `scripts/mic_diag.sh capture`.
-- **Désactive-le pour économiser la batterie de la manette** : sur l'OLED **Settings → BT Mic**, ou l'interrupteur **Microphone intégré** dans l'[app de configuration](#️-pour-commencer--télécharger-lapp). Un micro toujours actif garde le sous-système audio de la DS5 éveillé, ce qui vide sa batterie nettement plus vite ; désactive-le si tu n'utilises pas la voix.
+- **Désactive-le pour économiser la batterie de la manette** : sur l'OLED **Settings → Audio → Built-in mic**, ou l'interrupteur **Microphone intégré** dans l'[app de configuration](#️-pour-commencer--télécharger-lapp). Un micro toujours actif garde le sous-système audio de la DS5 éveillé, ce qui vide sa batterie nettement plus vite ; désactive-le si tu n'utilises pas la voix.
 
 **Limites :**
 
@@ -478,24 +478,18 @@ Crête-mètres en direct pour les chaînes audio du haut-parleur et de l'haptiqu
 
 #### 11. Réglages
 
-Éditeur de configuration persistante. ▲▼ des touches directionnelles déplacent la sélection, ▶◀ ajustent les valeurs, △ enregistre en flash. Contient les champs de configuration du firmware (gain haptique, volume du haut-parleur, délai d'inactivité, fréquence d'interrogation), les réglages Audio Auto Haptics, et deux actions à confirmer par appui long :
-
-`Hap Left` et `Hap Right` règlent chaque poignée séparément. Appuie sur △ pour appliquer et enregistrer les modifications.
+Éditeur de configuration persistant. Il s'ouvre sur un menu de six groupes, chacun avec le nombre de réglages qu'il contient : **Haptics/trigger**, **Audio**, **Connection**, **Screen & lights**, **PC sleep** et **Reset**. Les touches directionnelles ▲▼ déplacent la sélection ; ✕ (ou ▶) ouvre un groupe et ○ revient au menu, là où tu l'avais laissé. Dans un groupe, ▶◀ ajustent la valeur. △ enregistre en flash depuis n'importe où. La ligne sélectionnée est une barre éclairée ; une valeur modifiée mais pas encore enregistrée s'affiche dans une fenêtre sombre dans cette barre, et le titre affiche `(*)` jusqu'à l'enregistrement.
 
 <img src="./assets/oled/oled_sc11.png" alt="Écran Réglages sur l'OLED" width="512">
 
-- **AutoHap Off / Fallback / Mix / Replace** : choisit le mode Audio Auto Haptics. Par défaut `Off` : l'haptique vient uniquement du jeu. `Fallback` ne déclenche des vibrations dérivées que quand le jeu n'envoie aucune donnée haptique native (par ex. Ghost of Tsushima sous Linux) ; note qu'il vibre aussi avec la musique et l'audio du bureau ; les jeux qui *envoient* de l'haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute le signal dérivé par-dessus le natif, `Replace` ignore entièrement le natif.
-- **AH Gain N%** : gain du signal dérivé, 0–200 % par pas de 10 %. Par défaut 100 %.
-- **AH LP 80/160/250/400 Hz** : fréquence de coupure du passe-bas appliqué à l'audio du haut-parleur avant le suivi d'enveloppe. Plus bas = plus d'infra-basses, plus haut = plus de présence. Par défaut 160 Hz.
-- **TrigEff game / -1 … -10** : Intensité de l'effet gâchette ; affaiblit la résistance des gâchettes adaptatives des jeux en 10 crans. Par défaut `game` (0) : la force propre du jeu, son rapport transmis tel quel.
-- **SpkBoost game / 1 … 7** : Amplification du haut-parleur ; le pré-gain de l'amplificateur de la manette. Par défaut `game` (0) : laissé au jeu. Distinct de `Spk Vol`.
-- **VolLock on / off** : Verrouiller le volume ; les jeux ne peuvent pas changer le volume du haut-parleur, du casque ou du micro de la manette, ni la coupure du son ou son voyant ; le volume et la coupure du son du PC lui-même s'appliquent toujours. Désactivé par défaut.
-- **SPK Out Auto / SPK / Hset / off** : Sortie audio ; où l'audio du PC est joué (Auto = le casque quand il y en a un branché sur la manette). Par défaut Auto.
-- **Mic In Auto / Int / Hset** : Microphone utilisé ; Auto, le micro intégré ou celui d'un casque. Par défaut Auto. `BT Mic` reste l'interrupteur qui coupe le micro.
-- **Sleep CtrlOff on / off** : éteint la manette quand le PC est en veille depuis 3 s. Activé par défaut.
-- **PS Wakes PC on / off** : sans manette connectée, la carte apparaît comme un clavier qui sert uniquement au réveil (« DS5 Dongle Wake Keyboard ») pour que la touche PS puisse réveiller le PC. Désactivé par défaut.
-- **Reset to defaults** : maintiens △ pendant 2 s pour rétablir tous les champs de configuration
-- **Wipe all slots** : maintiens △ pendant 2 s pour supprimer les 4 manettes associées + toutes les clés de lien BTstack
+- **Haptics/trigger :** `Vibration L` et `Vibration R` (intensité des vibrations par côté), `Trig. effect` (intensité de l'effet des gâchettes : `game`, la force du jeu lui-même, ou -1 … -10 plus faible), `AutoHap` (le mode d'Audio Auto Haptics, ci-dessous), `AutoHap gain` (0–200 % par pas de 10 %, 100 % par défaut) et `Auto filter` (la coupure du passe-bas avant le suiveur d'enveloppe, 80 / 160 / 250 / 400 Hz, 160 Hz par défaut : plus bas = plus d'infra-basses).
+- **Audio :** `Spk volume`, `Spk boost` (amplification du haut-parleur, le pré-gain de l'ampli de la manette : `game`, laissé au jeu, ou 1 … 7), `Lock volume` (les jeux ne peuvent pas changer le volume du haut-parleur, du casque ou du micro de la manette, la sourdine ni son voyant ; le volume et la sourdine du PC s'appliquent toujours), `Audio out` (Auto / SPK / Hset / off : où joue le son du PC ; Auto = le casque quand il y en a un branché sur la manette), `Built-in mic` (l'interrupteur qui coupe le micro), `Mic used` (Auto / Int / Hset), `Mic level` (`PC` suit le niveau du micro du PC, ou 1–64), `Echo cancel` et `Audio buffer` (32–128).
+- **Connection :** `Controller` (DS5 / DSE / Auto), `Poll rate` (250Hz / 500Hz / RT), `Disconnect` (déconnecter une manette inactive) et `Idle time` (10–60 min).
+- **Screen & lights :** `Screen dim` et `Screen off` (minutes ; `off` = jamais), `Wake on input` (utiliser la manette rallume l'écran) et `Status LED` (la LED du Pico).
+- **PC sleep :** `Turn off ctrl` (éteindre la manette quand le PC est en veille depuis 3 s, activé par défaut) et `PS wakes PC` (sans manette connectée, la carte apparaît comme un clavier de réveil seul, « DS5 Dongle Wake Keyboard », pour que la touche PS puisse réveiller le PC ; désactivé par défaut).
+- **Reset :** `Reset to defaults` (maintenir △ 2 s ; rétablit tous les réglages et garde l'emplacement actuel) et `Wipe all slots` (maintenir △ 2 s ; efface les 4 manettes associées et toutes les clés de liaison de BTstack).
+
+Modes d'`AutoHap` : `Off` (par défaut) ne prend l'haptique que du jeu. `Fallback` produit des vibrations dérivées seulement quand le jeu n'envoie pas de données haptiques natives (p. ex. Ghost of Tsushima sous Linux) ; il vibre aussi avec la musique et le son du bureau, tandis que les jeux qui envoient *bien* une haptique native (Spider-Man Remastered) passent sans changement. `Mix` ajoute la dérivée par-dessus la native, `Replace` ignore complètement la native.
 
 ### Référence des boutons
 
@@ -534,9 +528,9 @@ Deux façons de redémarrer la carte sans débrancher l'USB, pratiques si l'asso
 Certaines fonctions et idées de conception de ce fork viennent d'autres forks d'upstream, avec nos remerciements :
 
 - **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** : les icônes en pixel art de l'en-tête d'état de l'OLED (approche visuelle), le principe « maintenir pour réinitialiser » utilisé par l'élément « Reset to defaults » de l'écran Réglages (maintenir △ 2 s pour confirmer), et le système d'association BT persistante dans plusieurs emplacements du nouvel écran Emplacements (4 manettes associées, touches directionnelles pour naviguer, △ pour changer d'emplacement, □ maintenu pour effacer un emplacement, plus « Wipe all slots » dans le menu Settings).
-- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** : redécouverte indépendante de la régression d'upstream `3a31bd7` qui cassait la sortie haut-parleur / haptique HD (commit `c7a8d3c`) ; le correctif dans notre `src/audio.cpp` rétablit le même sous-rapport SetStateData. C'est aussi la source du DSP d'Audio Auto Haptics (passe-bas à 1 pôle + suiveur d'enveloppe, voir Settings → Auto Haptics) et du correctif « ne pas synchroniser le volume UAC1 côté USB avec la configuration persistante ».
+- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** : redécouverte indépendante de la régression d'upstream `3a31bd7` qui cassait la sortie haut-parleur / haptique HD (commit `c7a8d3c`) ; le correctif dans notre `src/audio.cpp` rétablit le même sous-rapport SetStateData. C'est aussi la source du DSP d'Audio Auto Haptics (passe-bas à 1 pôle + suiveur d'enveloppe, voir Settings → Haptics/trigger) et du correctif « ne pas synchroniser le volume UAC1 côté USB avec la configuration persistante ».
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** : un pont DualSense Pico frère. La logique d'application de la réattribution des touches et l'ensemble des commandes numériques dans `src/remap.{h,cpp}` en sont portés. Son architecture audio (encodage Opus sur l'appareil ou app compagnon optionnelle qui encode sur l'hôte) a aussi servi de référence pour diagnostiquer notre travail sur la cadence du haut-parleur (« warble »). Merci pour ces bases.
-- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** : base de notre app de configuration web forkée, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web). Le fork adapte la structure Config_body de 13 octets d'upstream à notre structure de 19 octets et ajoute l'interface pour nos ajouts (association dans plusieurs emplacements, Auto Haptics).
+- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** : base de notre app de configuration, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) (d'abord une app web, l'app de bureau depuis la 0.8.0). Le fork a adapté la structure Config_body de 13 octets d'upstream à la nôtre (19 octets à l'époque, 51 aujourd'hui) et ajouté l'interface pour nos ajouts (association dans plusieurs emplacements, Auto Haptics).
 - **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)** par **Zacksly** : le contour de la manette DualSense et les icônes des touches de la page « Attribution des touches » du configurateur (app de bureau et outil web), sous licence [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) (recolorés en `currentColor` et recadrés pour les thèmes).
 
 ## Feuille de route

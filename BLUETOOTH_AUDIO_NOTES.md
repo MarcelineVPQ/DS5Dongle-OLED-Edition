@@ -9,7 +9,7 @@
 3. **Decode + present.** `src/audio.cpp` Opus-decodes each frame to mono 48 kHz (480-sample / 10 ms frames), duplicates mono → stereo, and `tud_audio_write`s it to the UAC1 capture endpoint. The host sees a normal DualSense mic.
 4. **Sticky.** Once the DS5 starts streaming it **keeps going for the rest of the session** even after the enable bit / audio output stops (verified: mic stays live with no further `0x36` frames).
 5. **Always-on.** Because the enable normally only rides the audio-gated `0x36` frames, the dongle sends a **control-only `0x36` keep-alive** (enable bit + `SetStateData` + silent haptic, no speaker payload) at ~4 Hz *only until mic frames start arriving*, then stops (sticky takes over). So the mic works with no game audio playing, at minimal extra BT traffic. See `mic_enable_keepalive()` in `src/audio.cpp`.
-6. **Toggle.** Gated by `Config_body.bt_mic_enable` (default on) — OLED **Settings → BT Mic** and the web config tool. Off = no enable sent, no keep-alive, and inbound mic frames are not routed (so it's off host-side even if a previously-enabled DS5 is still streaming). Off by toggle saves DS5 battery (always-on keeps its audio subsystem awake).
+6. **Toggle.** Gated by `Config_body.bt_mic_enable` (default on) — OLED **Settings → Audio → Built-in mic** and the app's **Built-in microphone** switch. Off = no enable sent, no keep-alive, and inbound mic frames are not routed (so it's off host-side even if a previously-enabled DS5 is still streaming). Off by toggle saves DS5 battery (always-on keeps its audio subsystem awake).
 
 ## Why the original conclusion was wrong (the lesson)
 
