@@ -316,7 +316,7 @@ jobs:
             if [ "$win_checked" = false ]; then
               echo "Checked on Linux (the AppImage) before release. The Windows 11 installer (no admin rights needed) and the macOS build come from the same workflow and pass the same automated tests on Linux, Windows and macOS; **the macOS build hasn't been tried on a Mac yet**. Reports welcome. The Games page is on Linux and Windows."
             else
-              echo "Tested on Linux (the AppImage) and Windows 11 (the installer, which needs no admin rights). **The macOS build is untested**: it comes from the same workflow but hasn't been tried on a Mac yet. Reports welcome. The Games page is on Linux and Windows."
+              echo "Tested on Linux (the AppImage), Windows 11 (the installer, which needs no admin rights) and macOS (the universal app, installed and run on a real Apple Silicon Mac by the macOS smoke test). The Games page is on Linux and Windows."
             fi
             echo
             section CHANGELOG.md "$fw"
