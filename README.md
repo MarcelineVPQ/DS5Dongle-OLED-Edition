@@ -69,8 +69,8 @@ Every change runs the full set of automated checks. Every release adds more on t
 
 **Every change**
 
-- **App:** over 1,600 tests (unit, integration and security) on Linux, Windows and macOS, plus typecheck, ESLint and Prettier.
-- **Firmware:** 185 host tests of the firmware's logic with AddressSanitizer and UndefinedBehaviorSanitizer, and five firmware builds (Pico 2 W, Pico W, debug and two variants). The build fails if the time-critical code leaves RAM or the flash setup changes.
+- **App:** over 1,800 tests (unit, integration and security) on Linux, Windows and macOS, plus typecheck, ESLint and Prettier.
+- **Firmware:** over 270 host tests of the firmware's logic with AddressSanitizer and UndefinedBehaviorSanitizer, and five firmware builds (Pico 2 W, Pico W, debug and two variants). The build fails if the time-critical code leaves RAM or the flash setup changes.
 - **App rule gates:** the Electron security settings, no unsafe HTML, one theme system with no stray colors, no duplicate code or files without a verdict.
 - **Written verdicts:** every loop that waits or runs on a hot path, every error path, every cache and every resource the code takes (a timer, a listener, a device) carries a comment with its verdict. A new one without a verdict fails the check.
 - **Security scans:** Semgrep, Gitleaks and npm audit, also weekly.
@@ -125,7 +125,7 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 
 **OLED Edition additions:**
 
-- **Native DualSense adaptive triggers in PC games on Linux/Proton — through the dongle.** Games with native DualSense support drive the controller's adaptive triggers wirelessly via the dongle, **1:1 with a directly-wired DualSense**. Requires a Proton carrying the Wine `winebus.sys` #9034 fix (Wine 11 / current Proton-GE) with Steam Input disabled — **no launch option needed** (Wine 11 enables the hidraw native path by default). Works on **both Steam and Heroic** (Epic/GOG). The firmware makes the dongle byte-for-byte indistinguishable from a real DS5 so the game accepts it (full write-up in [CHANGELOG.md](./CHANGELOG.md)). Trade-off: the browser Config/Remap tabs are disabled on this firmware (see the note above).
+- **Native DualSense adaptive triggers in PC games on Linux/Proton — through the dongle.** Games with native DualSense support drive the controller's adaptive triggers wirelessly via the dongle, **1:1 with a directly-wired DualSense**. Requires a Proton carrying the Wine `winebus.sys` #9034 fix (Wine 11 / current Proton-GE) with Steam Input disabled — **no launch option needed** (Wine 11 enables the hidraw native path by default). Works on **both Steam and Heroic** (Epic/GOG). The firmware makes the dongle byte-for-byte indistinguishable from a real DS5 so the game accepts it (full write-up in [CHANGELOG.md](./CHANGELOG.md)).
 - Optional Pico-OLED-1.3 status display with **11 screens** (status, slots, lightbar, trigger test, gyro tilt, touchpad, diagnostics, CPU/clock, RSSI, VU meters, settings)
 - **Calibration in the dongle (v0.9)** — stick center offset, deadzone and full-tilt radius, trigger travel and gyro zero, per pairing slot, applied to what games receive (never written to the controller). Set from the app's guided calibration.
 - **Vibration intensity per side (v0.9)** — left and right separately, for haptic feedback and classic vibration alike.
@@ -139,7 +139,7 @@ This project enables the Raspberry Pi Pico2W to function as a Bluetooth bridge f
 - **Trigger effect intensity, speaker boost, volume lock, mic and speaker choice, status pin (upstream's settings, protocol 1.13)** — weaker adaptive triggers in 10 steps (the game's own strength by default), the controller amp's pre-gain, games kept from changing the controller's volume, the mic as Auto / Built-in / Headset, the PC's audio on Auto / Speaker / Headset / Off, and a GPIO that shows the controller connection. The mute button's light follows the mic mute, and the PC's mute switches and mic level reach the controller. A fresh config polls at 500 Hz.
 - **4-slot persistent multi-controller pairing** — bond up to four DualSenses, switch between them from the OLED, slot 0 reconnects automatically on boot
 - **Lightbar color picker** with 4 user favorite slots + breathing / rainbow / fade effect presets
-- **Persistent settings menu** for the 8 firmware config fields (haptics gain, speaker volume, polling rate, etc.) with hold-to-confirm Reset and Wipe-all-slots actions
+- **Persistent settings menu** on the OLED: 25 settings in six groups (haptics and triggers, audio, connection, screen and lights, PC sleep), plus hold-to-confirm Reset to defaults and Wipe all slots
 - **OLED idle power ladder** — manual brightness cycle (KEY1 long-press), automatic deep-dim with a small breathing dot at 2 min idle, full display-off at 15 min idle. Wakes instantly on button, controller pair, or input. Real burn-in protection, not just a contrast tweak.
 - **Soft-reboot** without unplugging USB via DS5 `PS + Mute` hold (works headless) or **KEY0 + KEY1 held together for 1 s** on the OLED add-on (replaces the older KEY0 double-click gesture, which was easy to fire by accident while paging quickly)
 - **Clean controller speaker + mic** — core1's audio path (Opus, resampler, mem ops) runs from RAM, audio goes out in upstream's packed `0x39` reports, and the mic is decoded on core1 and paced by the host's USB clock. This removed the long-standing speaker crackle and the mic-on stutter (see [CHANGELOG.md](./CHANGELOG.md)). **Credit to [awalol](https://github.com/awalol/DS5Dongle)**: this is upstream's audio work, ported here.
@@ -236,7 +236,7 @@ There are four ways to configure the firmware:
 
 **Configurator app (recommended):** the [DS5 Dongle OLED Edition Configurator](#️-get-started-download-the-app) for Linux, Windows and macOS (the Games page lists Steam, Heroic and Lutris games on Linux and Steam, GOG Galaxy and Epic games on Windows, and its Proton setup is Linux-only). It finds the dongle by itself, applies changes live, and saves to the dongle's flash with one click. Needs firmware v0.8+.
 
-**On-device (OLED add-on present):** use the on-screen **Settings** menu (11th screen). D-pad ▲▼ moves selection, ▶◀ adjusts values, △ saves to flash.
+**On-device (OLED add-on present):** use the on-screen **Settings** menu (11th screen). D-pad ▲▼ moves the selection, ✕ opens a group and ○ goes back, ▶◀ adjusts values, △ saves to flash.
 
 **Terminal CLI (any OS, any browser):** install hidapi, then use `scripts/set_ds5.py`:
 
@@ -289,7 +289,7 @@ This was long believed impossible — earlier versions of this fork documented i
 
 - **On by default.** Pair the controller and the mic begins streaming within a second or two — no game audio required (the dongle keeps the stream alive on its own).
 - **Raise the capture volume on the host** — it defaults low. On Linux, find the card with `arecord -l`, then e.g. `amixer -c <DualSense card> sset 'Headset' 90%`. Verify capture with `scripts/mic_diag.sh capture`.
-- **Toggle it off to save controller battery** — OLED **Settings → BT Mic**, or the **Built-in microphone** switch in the [configurator app](#️-get-started-download-the-app). Always-on mic keeps the DS5's audio subsystem awake, which drains its battery noticeably faster, so disable it if you don't use voice.
+- **Toggle it off to save controller battery** — OLED **Settings → Audio → Built-in mic**, or the **Built-in microphone** switch in the [configurator app](#️-get-started-download-the-app). Always-on mic keeps the DS5's audio subsystem awake, which drains its battery noticeably faster, so disable it if you don't use voice.
 
 **Caveats:**
 
@@ -533,9 +533,9 @@ Two ways to reboot the dongle without unplugging USB — handy if pairing gets s
 Some features and design ideas in this fork are borrowed from other forks of upstream, with credit:
 
 - **[zurce/DS5Dongle-OLED](https://github.com/zurce/DS5Dongle-OLED)** — pixel-art icons in the OLED status header (visual approach), the "hold for factory reset" UX pattern used by the Settings screen's "Reset to defaults" item (hold △ for 2 s to confirm), and the multi-slot persistent BT pairing system on the new Slots screen (4 bonded controllers, D-pad to navigate, △ to switch slots, □ hold to wipe a slot, plus "Wipe all slots" in the Settings menu).
-- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — independent rediscovery of the upstream `3a31bd7` regression that broke speaker / HD haptic output (commit `c7a8d3c`); the fix in our `src/audio.cpp` restores the same SetStateData sub-report. Also the source of the Audio Auto Haptics DSP (1-pole LP + envelope follower, see Settings → Auto Haptics) and the "don't sync USB-side UAC1 volume to the persistent config" fix.
+- **[loteran/DS5Dongle](https://github.com/loteran/DS5Dongle)** — independent rediscovery of the upstream `3a31bd7` regression that broke speaker / HD haptic output (commit `c7a8d3c`); the fix in our `src/audio.cpp` restores the same SetStateData sub-report. Also the source of the Audio Auto Haptics DSP (1-pole LP + envelope follower, see Settings → Haptics/trigger) and the "don't sync USB-side UAC1 volume to the persistent config" fix.
 - **[SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge)** — a sibling Pico DualSense bridge. The button-remapping apply logic and digital-control set in `src/remap.{h,cpp}` are ported from it. Its audio architecture (on-device Opus encoding vs an optional host-encoding companion app) was also the reference for diagnosing our speaker-cadence ("warble") work. Thanks for the groundwork.
-- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — base for our forked web config app at [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web). The fork adapts upstream's 13-byte Config_body layout to our 19-byte one and adds UI for our additions (multi-slot pairing, Auto Haptics).
+- **[awalol/ds5dongle-config-web](https://github.com/awalol/ds5dongle-config-web)** — the base of our configurator, [MarcelineVPQ/DS5Dongle-OLED-Config-Web](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web) (a web app at first, the desktop app since 0.8.0). The fork adapted upstream's 13-byte Config_body layout to ours (19 bytes then, 51 now) and added UI for our additions (multi-slot pairing, Auto Haptics).
 - **[PS5 Button Icons and Controls](https://zacksly.itch.io/ps5-button-icons-and-controls)** by **Zacksly**: the DualSense controller outline and button glyphs on the configurator's Button assignments page (desktop app and web tool), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) (recoloured to `currentColor` and trimmed to fit the themes).
 
 ## Roadmap
