@@ -6,6 +6,7 @@
 #include <cstring>
 #include "bt.h"
 #include "rssi_poll.h"
+#include "ctrl_send.h"
 #include "core0_ram.h"
 #include "voice.h"
 #include "audio.h"
@@ -79,6 +80,15 @@ static bool check_dse = false;
 // lifetime: OK — cleared on disconnect (feature_data.clear()); ≤ ~10 report ids × ≤ 64 B meanwhile
 unordered_map<uint8_t, vector<uint8_t> > feature_data;
 queue_t send_fifo;
+
+// Every frame for the HID control channel (src/ctrl_send.h): a GET 0x43 <id>
+// is 2 bytes; the longest is a SET 0x53 <id> + a host's 64-byte feature
+// report. 8 frames hold the largest burst (init_feature's 4 GETs, an Edge
+// unlock's 2 SETs, a test command, the PC's own SETs).
+static constexpr size_t kCtrlFrameMax = 2 + 64;
+// lifetime: OK — static, no heap; cleared when the control channel closes or the link drops
+static CtrlSendQueue<8, kCtrlFrameMax> ctrl_queue;
+static void control_send(const uint8_t *data, uint16_t len);
 
 // Sized to the interrupt MTU like upstream: the 0x39 audio report is 547 bytes
 // (+1 for the 0xA2 header), which overflowed the old 512-byte element.
@@ -289,9 +299,39 @@ void bt_send_packet(uint8_t *data, uint16_t len) {
 }
 
 void bt_send_control(uint8_t *data, uint16_t len) {
-    if (hid_control_cid != 0) {
-        // error: NOT-WORTH — nothing; one write on an open control channel (the Edge unlock handshake), fails only if the link just dropped, and everything restarts on reconnect
-        l2cap_send(hid_control_cid, data, len);
+    control_send(data, len);
+}
+
+// One frame on the control channel now. Busy = the controller still holds
+// every ACL buffer: ctrl_queue keeps the frame for the next CAN_SEND_NOW.
+static CtrlSendResult control_l2cap_send(const uint8_t *data, uint16_t len) {
+    // error: LOGGED-OK — Busy keeps the frame queued; any other status is printed below and the frame dropped
+    const uint8_t status = l2cap_send(hid_control_cid, data, len);
+    if (status == ERROR_CODE_SUCCESS) return CtrlSendResult::Sent;
+    if (status == BTSTACK_ACL_BUFFERS_FULL) return CtrlSendResult::Busy;
+    printf("[L2CAP] Control send error 0x%02X, frame 0x%02X 0x%02X dropped\n", status, data[0], len > 1 ? data[1] : 0);
+    // error: LOGGED-OK — printf above; the channel is closing (its CHANNEL_CLOSED clears the queue) or the frame is longer than the controller's MTU, so it can never go out; the caller's deadline ends the request (ctrl tests NO_ANSWER, the colorway read gives up)
+    return CtrlSendResult::Failed;
+}
+
+// Sends a control-channel frame, in order: straight away when nothing waits
+// and the stack has a free ACL buffer, else after the frames queued before it
+// (src/ctrl_send.h; upstream awalol d4af34e, "feature report get busy when
+// init"). Never waits.
+static void control_send(const uint8_t *data, uint16_t len) {
+    // error: NOT-WORTH — nothing; no control channel: no controller to ask (the app and OLED show none)
+    if (hid_control_cid == 0) return;
+    switch (ctrl_queue.submit(data, len, control_l2cap_send)) {
+        case CtrlSubmit::Sent:
+            break;
+        case CtrlSubmit::Queued:
+            // error: NOT-WORTH — nothing; asking for a CAN_SEND_NOW on an open channel only fails if the channel just closed, and its CHANNEL_CLOSED clears the queue
+            l2cap_request_can_send_now_event(hid_control_cid);
+            break;
+        case CtrlSubmit::Dropped:
+            // error: LOGGED-OK — printf; the queue holds 8 frames, more than any burst the firmware sends, so only a send error (logged above) or an oversized frame gets here; the caller's deadline ends the request
+            printf("[L2CAP] Control frame 0x%02X 0x%02X (%u bytes) dropped\n", data[0], len > 1 ? data[1] : 0, len);
+            break;
     }
 }
 
@@ -704,6 +744,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             // queue goes from empty to one). Upstream a1492fd/697ade0.
             // loop: NOT-WORTH — drains send_fifo (≤ 10 entries) on disconnect
             while (queue_try_remove(&send_fifo, nullptr)) {}
+            ctrl_queue.clear();  // the same for the control channel's frames
             page_scan_fast(true);
             // The controller's last input mustn't linger (a held button or
             // stick showing on the OLED / first report). Upstream 8c8b527.
@@ -896,6 +937,7 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
             const uint16_t local_cid = l2cap_event_channel_closed_get_local_cid(packet);
             if (local_cid == hid_control_cid) {
                 hid_control_cid = 0;
+                ctrl_queue.clear();  // queued GETs / SETs belong to this channel
                 printf("[L2CAP] HID Control closed cid=0x%04X\n", local_cid);
             } else if (local_cid == hid_interrupt_cid) {
                 hid_interrupt_cid = 0;
@@ -912,6 +954,15 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
 
         case L2CAP_EVENT_CAN_SEND_NOW: {
             // printf("[L2CAP] L2CAP_EVENT_CAN_SEND_NOW\n");
+            // The control channel's: send what control_send() queued, in order.
+            if (hid_control_cid != 0 && l2cap_event_can_send_now_get_local_cid(packet) == hid_control_cid) {
+                // error: LOGGED-OK — control_l2cap_send() prints each frame a send error drops
+                if (ctrl_queue.drain(control_l2cap_send)) {
+                    // error: NOT-WORTH — nothing; asking for a CAN_SEND_NOW on an open channel only fails if the channel just closed, and its CHANNEL_CLOSED clears the queue
+                    l2cap_request_can_send_now_event(hid_control_cid);
+                }
+                break;
+            }
 
             static send_element send_packet{}; // 680 B: keep it off core0's small stack
             if (queue_try_remove(&send_fifo, &send_packet)) {
@@ -988,9 +1039,8 @@ void bt_request_feature(uint8_t reportId) {
         dse_is_profile_report(reportId)
     ) {
         if (hid_control_cid != 0) {
-            uint8_t get_feature[] = {0x43, reportId};
-            // error: LOGGED-OK — nothing here; every caller polls for the answer with a deadline: ctrl tests end NO_ANSWER (shown by the app), the colorway read gives up (no color), the 0x09/0x20/0x05 host GETs answer from the cache
-            l2cap_send(hid_control_cid, get_feature, sizeof(get_feature));
+            const uint8_t get_feature[] = {0x43, reportId};
+            control_send(get_feature, sizeof(get_feature));
 #if ENABLE_VERBOSE
             printf("[L2CAP] Requesting Get Feature Report 0x%02X\n", reportId);
 #endif
@@ -1034,8 +1084,7 @@ void set_feature_data(uint8_t reportId, uint8_t *data, uint16_t len) {
         get_feature[1] = reportId;
         memcpy(get_feature + 2, data, len);
         fill_feature_report_checksum(get_feature + 1, len + 1);
-        // error: LOGGED-OK — nothing here; every caller polls for the answer with a deadline: ctrl tests end NO_ANSWER (shown by the app), the colorway read gives up (no color), the 0x09/0x20/0x05 host GETs answer from the cache
-        l2cap_send(hid_control_cid, get_feature, len + 2);
+        control_send(get_feature, len + 2);
 #if ENABLE_VERBOSE
         printf("[L2CAP] Requesting Set Feature Report 0x%02X\n", reportId);
         printf_hexdump(get_feature, len + 2);

@@ -39,6 +39,7 @@ add_executable(host_tests
         test_voice_cue.cpp
         test_slots.cpp
         test_scan_policy.cpp
+        test_ctrl_send.cpp
         test_mic_level.cpp
         test_pair_prompt.cpp
         test_oled_toast.cpp
