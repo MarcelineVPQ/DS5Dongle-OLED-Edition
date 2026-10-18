@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Documentation
+
+- **The READMEs (all 7 languages) are up to date again.** macOS is tested: the macOS smoke test installs and runs the universal app on a real Apple Silicon Mac on every release tag (they said "community-tested"; the development-build release note said it hadn't been tried on a Mac). The OLED Settings section shows the grouped screen from 0.9.5-dev.19 with its real labels. The Proton section points at GE-Proton11-7.2-DualSense, which honours `PROTON_PREFER_SDL` for XInput-only games. Also: current test counts, Sony's names in the English text (light bar, directional buttons, touch pad), and no more mentions of the retired browser tool's tabs.
+
 ## [0.9.5-dev.19-oled-edition] - 2026-10-17
 
 ### Added
