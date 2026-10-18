@@ -83,6 +83,8 @@ fi
 
 echo "== App checks"
 (cd "$APP_DIR" && npm run check)
+echo "== Doc gates on both repos: CHANGELOG, file references, one version, no secret project's name (the app's tools/doc_gates.mjs)"
+(cd "$APP_DIR" && node tools/doc_gates.mjs --check --firmware "$FW_DIR" && node tools/doc_gates.mjs --check --repo "$FW_DIR")
 echo "== Firmware checks: submodule gitlinks, the 7 READMEs, host unit tests"
 "$FW_DIR/tools/check_gitlinks.sh" "$FW_DIR"
 python3 "$FW_DIR/tools/check_readmes.py" "$FW_DIR"

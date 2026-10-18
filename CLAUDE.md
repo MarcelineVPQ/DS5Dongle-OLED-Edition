@@ -150,6 +150,8 @@ The release tag is the **only** place the version is written. Everything else fl
 
 **READMEs in 7 languages:** `README.md` is the reference; `README.CN.md`, `README.DE.md`, `README.ES.md`, `README.FR.md`, `README.JA.md` and `README.PT-BR.md` mirror it, one per language the app ships, with one identical language bar on line 3. Every README.md change (including the Development-channel note's version at each development build) goes to all 7 in the same commit, with the app's glossary (`../DS5Dongle-OLED-Config-Web/docs/GLOSSARY.md`) and locale labels for each language. `python3 tools/check_readmes.py` fails on a missing file, a differing language bar, heading structure or dev version, or a broken link or anchor; it runs in `build.yml`, `release.yml` and `tools/release.sh`.
 
+**Doc gates (both repos):** the app's `tools/doc_gates.mjs` checks this repo too (`node tools/doc_gates.mjs --check --repo ../DS5Dongle`, from the app repo; `tools/release.sh` runs it): every feat / fix / perf commit since the last tag that touches `src/`, `lib/` or `CMakeLists.txt` changes `CHANGELOG.md` in the same commit (or a later `docs(changelog)` commit names its short hash, or its message says "No user-facing change: why"), the READMEs, CLAUDE.md and QUALITY.md name only files that exist, both CHANGELOGs' newest sections are one release, and no tracked file, commit message or branch name holds a secret project's name (hashed list in the app repo).
+
 Other releases here (`proton-*`) are never touched by the workflow: it only runs on `v*-oled-edition` tag pushes.
 
 There is **no other place** to edit the version. If you find a hardcoded version string in source (`"v0.6.0"`, `"v0.5.4"`, etc.), it's a bug — replace it with the macro / JSON lookup.
