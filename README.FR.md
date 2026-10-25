@@ -354,6 +354,19 @@ Options de compilation utiles :
 - `-DENABLE_SERIAL=ON` : envoie printf vers l'USB CDC pour le débogage (OFF par défaut ; libère l'UART pour les versions de production).
 - `-DPICO_W_BUILD=ON` : compile pour le Pico W d'origine (sans audio, horloge plus basse). Par défaut, la cible est le Pico 2 W.
 
+### Waveshare RP2350B-Plus-W
+
+La [Waveshare RP2350B-Plus-W](https://www.waveshare.com/wiki/RP2350B-Plus-W) utilise un RP2350B, le module radio RM2 (la même puce CYW43 que le Pico 2 W), 16 Mio de flash QSPI et un connecteur USB-C. Active son profil avec `-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON`. Cette option est désactivée par défaut ; le Pico 2 W reste la cible par défaut. Utilise un nouveau dossier de compilation et les versions des outils indiquées ci-dessus :
+
+```bash
+cmake -S . -B build/waveshare -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_SDK_PATH="$PICO_SDK_PATH" -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+      -DENABLE_COMPANION_VENDOR=ON
+cmake --build build/waveshare --target ds5-bridge
+```
+
+Le fichier produit est `build/waveshare/ds5-bridge-oled.uf2`. `ENABLE_COMPANION_VENDOR=ON` inclut l’interface du configurateur de bureau. Ne combine pas l’option Waveshare avec `PICO_W_BUILD=ON`. Le [guide de la carte](boards/README.md) décrit le câblage OLED et les mises à jour manuelles du firmware Waveshare.
+
 ## Diagnostic et outils de débogage
 
 Deux façons d'analyser les problèmes du pont : sur l'appareil via l'écran Diagnostics de l'OLED, et côté hôte via `scripts/mic_diag.sh` (Linux). Le côté hôte est plus rapide : pas de changement d'écran, pas de cycle de flash, et il tourne pendant que la manette est utilisée.

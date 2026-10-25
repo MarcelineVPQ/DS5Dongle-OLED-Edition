@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Added
+
+- **Waveshare RP2350B-Plus-W as a build target** (PR #27, exceptioncpp; board definition from upstream awalol/DS5Dongle). RP2350B, the RM2 wireless module (CYW43439) and 16 MiB flash; the board reports itself as "RP2350B-Plus-W" (board type 3 in `boards.json`). Build it with `tools/build_board.sh waveshare_rp2350b_plus_w <version>` or `-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON`; CI builds and checks it on every push. It is not in releases or the update feeds yet, so the app doesn't offer it: install the UF2 by hand (see `boards/README.md`). The Pico 2 W stays the default.
+
 ## [0.9.5-dev.21-oled-edition] - 2026-11-01
 
 ### Added

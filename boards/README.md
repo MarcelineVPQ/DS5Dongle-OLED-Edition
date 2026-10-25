@@ -1,8 +1,8 @@
 # Waveshare RP2350B-Plus-W
 
-This port builds the OLED Edition for the Waveshare RP2350B-Plus-W. Its
-firmware base is `v0.9.5-dev.20-oled-edition` (commit `3a85382`); the fork's
-next commit only updates the app's release manifests.
+Enable this optional board target with
+`-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON` (default OFF).
+The default build continues to target Raspberry Pi Pico 2 W.
 
 The board header is copied from awalol/DS5Dongle at commit
 `daa35cca841c8a70a627d1ce9a65b9d3f3209265`:
@@ -15,8 +15,6 @@ has a 16-byte limit, so the full CMake board identifier cannot be used there.
 
 Use the pins in `tools/toolchain.env`: Pico SDK 2.3.0, TinyUSB
 `2d56dc533e45e4e91b15e93fdab5e22e964f328d`, ARM GNU 15.2.Rel1.
-The newer SDK/TinyUSB pins currently used by awalol are not required by
-this OLED release.
 
 From a fresh build directory:
 
@@ -25,8 +23,7 @@ cmake -S . -B build/waveshare -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DPICO_SDK_PATH="$PICO_SDK_PATH" \
   -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
-  -DENABLE_COMPANION_VENDOR=ON \
-  -DVERSION=v0.9.5-dev.20-oled-edition+waveshare
+  -DENABLE_COMPANION_VENDOR=ON
 cmake --build build/waveshare --target ds5-bridge
 tools/check_ram_residency.sh build/waveshare/ds5-bridge-oled.elf
 tools/check_xip_setup.sh build/waveshare/ds5-bridge-oled.elf 2 11
