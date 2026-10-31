@@ -77,6 +77,7 @@ static void send_state_report(const uint8_t *ss) {
     pkt[2] = 0x10;
     memcpy(pkt + 3, ss, sizeof(SetStateData));
     state_stamp_host_rumble(pkt + 3);
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops it, the next state change sends the whole state again
     bt_write(pkt, sizeof(pkt));
 }
 

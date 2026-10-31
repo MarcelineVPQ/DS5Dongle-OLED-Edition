@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Fixed
 
 - **A too-short feature-report write from the PC no longer reboots the board.** A SET_FEATURE `0x80` (or the DualSense Edge's `0x60`–`0x62`) with fewer than 4 bytes has no room for its checksum; the length wrapped, which overwrote the stack and read far past the end of memory, and the watchdog rebooted the board (the controller dropped and USB re-enumerated). Such a write is now dropped (host-tested).
+- **Audio lost on the way to the controller now shows up in the diagnostics instead of being counted as sent.** When the Bluetooth output queue was full, a speaker/haptics report was dropped, but the "BT audio reports out" counter (`0xF5`), the app's Bluetooth rate and the OLED `BT32 out` rate still counted it. Only reports that go out are counted now; dropped ones are counted in a new `0xFD` field (bytes 50–53; hosts asking for the old 50 bytes get what they did before), on a new OLED Diagnostics row `BT drop`, and in `scripts/mic_diag.sh bt-trace`. The one-time report that turns the controller's mic on or off is no longer lost when the queue is full: it waits for room and is sent again.
 
 ## [0.9.5-dev.20-oled-edition] — Release Candidate 2 — 2026-10-18
 

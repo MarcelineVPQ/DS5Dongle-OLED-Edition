@@ -473,8 +473,8 @@ static bool host_out02_forward(const uint8_t *buffer, uint16_t bufsize) {
     // all of them at "the game's own" the report goes out as the
     // game sent it (upstream #228's fix).
     state_stamp_config(outputData + 3, true);
-    bt_write(outputData, sizeof(outputData));
-    return true;
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); false when the output queue is full, so g_host_out02_to_bt counts only reports that went out
+    return bt_write(outputData, sizeof(outputData));
 }
 
 // A host output report 0x02 (buffer[0] = 0x02, bufsize >= 2): counted for

@@ -767,9 +767,13 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         //   [44..47] uint32  frames the level control dropped since boot
         //   [48]     uint8   frames queued at the last frame boundary (x 10 ms)
         //   [49]     uint8   the highest level this mic session
-        // Hosts asking for 44 bytes get exactly what they did before.
-        constexpr uint16_t want = 50;
-        // loop: NOT-WORTH — ≤ 50 bytes zeroed, per 0xFD diagnostic GET
+        // Section 4: Bluetooth output queue (added after 0.9.5-dev.20).
+        //   [50..53] uint32  output reports dropped since boot because the
+        //                    queue was full (speaker/haptics 0x39, mic 0x32,
+        //                    state 0x31); not in "BT audio reports out" (0xF5)
+        // Hosts asking for 44 or 50 bytes get exactly what they did before.
+        constexpr uint16_t want = 54;
+        // loop: NOT-WORTH — ≤ 54 bytes zeroed, per 0xFD diagnostic GET
         for (uint16_t i = 0; i < want && i < reqlen; i++) buffer[i] = 0;
 
         const uint32_t bt31    = g_bt_31_packets;
@@ -800,6 +804,8 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         if ((44 + 4) <= reqlen) memcpy(buffer + 44, &mic_drops, 4);
         if (48 < reqlen) buffer[48] = audio_mic_level();
         if (49 < reqlen) buffer[49] = audio_mic_level_max();
+        const uint32_t bt_drops = bt_send_drops();
+        if ((50 + 4) <= reqlen) memcpy(buffer + 50, &bt_drops, 4);
         return (reqlen < want) ? reqlen : want;
     }
     if (report_id == 0xfe) {

@@ -55,6 +55,7 @@ bool g_fake_bt_connected = false;
 int g_fake_slot = 0;
 bool bt_is_connected() { return g_fake_bt_connected; }
 uint32_t bt_hci_err_count() { return 0; }
+uint32_t bt_send_drops() { return 0x05060708; }
 bool g_fake_rssi_valid = true;
 int8_t g_fake_rssi = -8;
 bool bt_get_signal_strength(int8_t *rssi) { *rssi = g_fake_rssi; return g_fake_rssi_valid; }

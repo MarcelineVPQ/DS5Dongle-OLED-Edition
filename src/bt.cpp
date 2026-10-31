@@ -195,6 +195,10 @@ void bt_get_addr(uint8_t out[6]) { memcpy(out, current_device_addr, 6); }
 
 uint32_t bt_hci_err_count() { return 0; }  // stub for OLED Diagnostics
 
+static volatile uint32_t g_bt_send_drops = 0;
+uint32_t bt_send_drops() { return g_bt_send_drops; }
+bool bt_send_full() { return queue_is_full(&send_fifo); }
+
 int bt_get_slot() { return g_current_slot; }
 
 // Make `slot` the current one and save it (current_slot in the config);
@@ -994,15 +998,17 @@ void bt_send_state() {
     state_set(report32 + 4,sizeof(SetStateData));
     state_stamp_host_rumble(report32 + 4);
     state_stamp_config(report32 + 4, false);  // trigger reduction, speaker pre-gain, mic choice (1.13), mic level (1.16), echo cancellation (1.17)
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops it and the next state write (the app re-sends on change) replaces it
     bt_write(report32, sizeof(report32));
 }
 
-void CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
+bool CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
     // error: NOT-WORTH — nothing; no controller connected: the PC's output report has nowhere to go (the app and OLED already show no controller)
-    if (hid_interrupt_cid == 0) return;
+    if (hid_interrupt_cid == 0) return false;
     if (len + 1u > sizeof(send_element::data)) {
         printf("[L2CAP bt_write] Error: %u-byte report exceeds send buffer\n", len);
-        return;
+        // error: LOGGED-OK — printf; no caller builds a report this long (they are 78 to 334 bytes), so only a code change gets here
+        return false;
     }
     static send_element packet{};
     // No memset (upstream 4929996): l2cap_send sends only packet.len bytes,
@@ -1012,15 +1018,18 @@ void CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
     memcpy(packet.data + 1, data, len);
     fill_output_report_checksum(packet.data + 1, len);
 
-    // error: LOGGED-OK — printf; the output FIFO is full, this report is dropped and the next state write (games send every frame, the app re-sends on change) replaces it
+    // error: LOGGED-OK — counter bt_send_drops (0xFD [50..53], OLED Diagnostics "BT drop"); the output FIFO is full and this report is lost: false, so callers don't count it as sent (the mic's 0x32 is sent again)
     if (!queue_try_add(&send_fifo, &packet)) {
+        // error: LOGGED-OK — the counter is how a full output FIFO surfaces (0xFD, OLED Diagnostics)
+        g_bt_send_drops++;
         printf("[L2CAP bt_write] Error: Failed to add packet to send FIFO\n");
-        return;
+        return false;
     }
     if (queue_get_level(&send_fifo) == 1) {
         // error: NOT-WORTH — nothing; asking for a CAN_SEND_NOW on an open channel only fails if the channel just closed, and DISCONNECTION clears the FIFO
         l2cap_request_can_send_now_event(hid_interrupt_cid);
     }
+    return true;
 }
 
 // Sends the GET for a feature report unless the cache can answer: 0x81 (test

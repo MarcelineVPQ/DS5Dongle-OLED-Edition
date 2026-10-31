@@ -474,6 +474,7 @@ void send_rumble(uint8_t amplitude) {
     pkt[3] = 0x03;
     pkt[5] = amplitude;
     pkt[6] = amplitude;
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops this OLED test/lightbar write, the next one (KEY press, ~10 Hz preview) sends it again
     bt_write(pkt, sizeof(pkt));
 }
 
@@ -576,6 +577,7 @@ void send_trigger_effect(int preset) {
     for (int i = 0; i < 9; i++) pkt[25 + i] = p[i];
 
     state_stamp_host_rumble(pkt + 3);
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops this OLED test/lightbar write, the next one (KEY press, ~10 Hz preview) sends it again
     bt_write(pkt, sizeof(pkt));
 }
 
@@ -942,7 +944,7 @@ void sample_diag_rates() {
 
 // Row list ordered by relevance: always-useful at top, parked-mic-investigation
 // data at bottom. To add a row, bump kNumDiagRows and add a case.
-constexpr int kNumDiagRows = 14;
+constexpr int kNumDiagRows = 15;
 __attribute__((noinline))
 void format_diag_row(int idx, char* line, size_t n) {
     // Each row fits 19 glyphs; counters that can outgrow that go compact (k/M/G, src/diag_rows.h).
@@ -993,6 +995,11 @@ void format_diag_row(int idx, char* line, size_t n) {
             break;
         case 13:
             diag_rows::pushes(line, n, audio_raw_push(), audio_hap_push());
+            break;
+        case 14:
+            // Output reports lost to a full Bluetooth queue (speaker/haptics,
+            // mic control, state); "BT32 out" counts only those sent.
+            diag_rows::count(line, n, "BT drop: ", bt_send_drops());
             break;
         default:
             line[0] = '\0';
@@ -1311,6 +1318,7 @@ void send_lightbar_color(uint8_t r, uint8_t g, uint8_t b) {
     pkt[48] = g;   // lightbar_green
     pkt[49] = b;   // lightbar_blue
     state_stamp_host_rumble(pkt + 3); // ~10 Hz: must not cancel the game's rumble
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops this OLED test/lightbar write, the next one (KEY press, ~10 Hz preview) sends it again
     bt_write(pkt, sizeof(pkt));
 }
 

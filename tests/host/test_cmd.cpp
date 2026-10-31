@@ -571,7 +571,7 @@ TEST(cmd_extra_remap_failed_save_is_failed_not_invalid) {
 TEST(cmd_fd_mic_level_section) {
     fresh();
     uint8_t r[63]{};
-    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 50);
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 54);
     uint32_t drops = 0;
     std::memcpy(&drops, r + 44, 4);
     CHECK_EQ(drops, 0x01020304u);  // fakes.cpp
@@ -579,6 +579,19 @@ TEST(cmd_fd_mic_level_section) {
     CHECK_EQ(r[49], 6);
     uint8_t old[44]{};
     CHECK_EQ(pico_cmd_get(0xFD, old, 44), 44);
+}
+
+// 0xFD section 4: output reports the full Bluetooth queue dropped (they used
+// to be counted as sent). Hosts asking for 50 bytes get what they did before.
+TEST(cmd_fd_bt_send_drops_section) {
+    fresh();
+    uint8_t r[63]{};
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 54);
+    uint32_t drops = 0;
+    std::memcpy(&drops, r + 50, 4);
+    CHECK_EQ(drops, 0x05060708u);  // fakes.cpp
+    uint8_t old[50]{};
+    CHECK_EQ(pico_cmd_get(0xFD, old, 50), 50);
 }
 
 // Cache pass batch 5: the measured clock (frequency_count_khz busy-waits a few

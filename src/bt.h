@@ -24,7 +24,14 @@ void bt_register_data_callback(bt_data_callback_t callback);
 void bt_send_packet(uint8_t *data, uint16_t len);
 void bt_send_control(uint8_t *data, uint16_t len);
 void bt_send_state();
-void bt_write(const uint8_t *data, uint16_t len);
+// Queues an output report for the controller. False when it isn't sent: no
+// controller, or the output queue is full (counted in bt_send_drops()).
+bool bt_write(const uint8_t *data, uint16_t len);
+// Output reports dropped because the output queue was full (0xFD [50..53],
+// OLED Diagnostics "BT drop").
+uint32_t bt_send_drops();
+// The output queue is full: a bt_write now would be dropped.
+bool bt_send_full();
 // The link's RSSI in dB from the Golden Receive Power Range (0 = in the range,
 // negative = weaker; not dBm), cached: refresh <= 10 Hz, one request in flight.
 // Returns whether a reading exists (false: no link, none yet, or the last

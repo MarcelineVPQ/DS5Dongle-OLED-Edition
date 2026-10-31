@@ -222,7 +222,7 @@ void CORE0_RAM_FUNC(mic_add_queue)(const uint8_t *data) {
 // upstream's update_mic_status). Sent on every change of audio_mic_wanted()
 // and on each new BT link; the setting is sticky on the controller, so the
 // old ~4 Hz keepalive isn't needed.
-static void update_mic_status(bool enable) {
+static bool update_mic_status(bool enable) {
     uint8_t pkt[142]{};
     pkt[0] = 0x32;
     pkt[1] = reportSeqCounter << 4;
@@ -230,7 +230,8 @@ static void update_mic_status(bool enable) {
     pkt[2] = 0x11 | 0 << 6 | 1 << 7;
     pkt[3] = 1;
     pkt[4] = enable ? 0b00000011 : 0b00000010;
-    bt_write(pkt, sizeof(pkt));
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); false = not sent, mic_status_task sends it again
+    return bt_write(pkt, sizeof(pkt));
 }
 
 static volatile bool mic_status_dirty = true;
@@ -241,12 +242,17 @@ static void mic_status_task() {
     static bool sent = false;
     const bool want = audio_mic_wanted();
     if (!bt_is_connected()) return;
+    if (!mic_status_dirty && want == sent) return;
+    // Sent once per change, so it must not be lost: with the output queue
+    // full it waits for room, and a report that still didn't go out is sent
+    // again on the next pass.
+    // error: NOT-WORTH — not a failure: the output queue is full, the 0x32 waits for the next pass
+    if (bt_send_full()) return;
     if (mic_status_dirty) bt_send_state(); // new link: re-apply state now the DS5 is ready
-    if (mic_status_dirty || want != sent) {
-        update_mic_status(want);
-        sent = want;
-        mic_status_dirty = false;
-    }
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); not sent: mic_status_dirty / sent stay as they were, so the next pass sends it again
+    if (!update_mic_status(want)) return;
+    sent = want;
+    mic_status_dirty = false;
 }
 
 // Mic out: feed decoded PCM to the USB IN FIFO in 1 ms slices whenever it has
@@ -373,8 +379,8 @@ static void CORE0_RAM_FUNC(audio_bt_task)() {
             pkt[140] = speaker_block_tag();
             pkt[141] = SPEAKER_OPUS_SIZE;
         }
-        bt_write(pkt, sizeof(pkt));
-        g_bt_packets++;
+        // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
+        if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
         return;
     }
     // Speaker Audio Data (2 frames)
@@ -392,8 +398,8 @@ static void CORE0_RAM_FUNC(audio_bt_task)() {
     voice_take_frames(pkt + 142, pkt + 142 + SPEAKER_OPUS_SIZE, SPEAKER_OPUS_SIZE);
 #endif
 
-    bt_write(pkt, sizeof(pkt));
-    g_bt_packets++;
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
 }
 
 // A report carrying only the narrator: silent haptics, her two frames. For
@@ -405,8 +411,8 @@ void audio_send_voice_report() {
     pkt[140] = speaker_block_tag();
     pkt[141] = SPEAKER_OPUS_SIZE;
     if (!voice_take_frames(pkt + 142, pkt + 142 + SPEAKER_OPUS_SIZE, SPEAKER_OPUS_SIZE)) return;
-    bt_write(pkt, sizeof(pkt));
-    g_bt_packets++;
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
 #endif
 }
 
@@ -462,8 +468,8 @@ static void CORE0_RAM_FUNC(grip_test_task)() {
         pkt[141] = SPEAKER_OPUS_SIZE;
     }
 #endif
-    bt_write(pkt, sizeof(pkt));
-    g_bt_packets++;
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
     s_grip_clock.sent(now);
     s_grip_tail = !tail && !s_grip.active();
 }
