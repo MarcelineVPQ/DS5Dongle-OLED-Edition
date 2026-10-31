@@ -353,6 +353,11 @@ static void mic_drain() {
 // (upstream audio_bt_task). Both streams come from the same USB audio at the
 // same rate, so they stay paired; this halves the BT packet rate vs one 0x36
 // per frame.
+// The PC opened the speaker stream (USB alt setting != 0): audio_loop drops
+// the previous stream's leftovers. Set and read on core0 (tud_task, audio_loop).
+static bool s_spk_stream_opened = false;
+void audio_speaker_stream_opened() { s_spk_stream_opened = true; }
+
 // When the host last sent audio through us: while it streams, the narrator's
 // frames ride in its reports; otherwise voice_task() sends them on its own.
 static uint64_t s_host_audio_us = 0;
@@ -534,6 +539,23 @@ void CORE0_RAM_FUNC(audio_loop)() {
     static HapticDecimator decimator;
     static int8_t haptic_buf[SAMPLE_SIZE];
     static int haptic_buf_pos = 0;
+    // A new stream: drop what the last one left (up to 511 speaker frames and
+    // a partial haptic frame here, two blocks each way in the queues), so the
+    // next sound doesn't start with a fragment of the last one.
+    if (s_spk_stream_opened) {
+        s_spk_stream_opened = false;
+        audio_buf_pos = 0;
+        haptic_buf_pos = 0;
+        decimator = HapticDecimator{};
+        // loop: HOT-PATH-OK — N ≤ 2 (queue depth), once per stream open
+        while (queue_try_remove(&haptics_fifo, nullptr)) {}
+#if !DISABLE_SPEAKER_PROC
+        // loop: HOT-PATH-OK — N ≤ 2 (queue depth), once per stream open
+        while (queue_try_remove(&audio_fifo, nullptr)) {}
+        // loop: HOT-PATH-OK — N ≤ 2 (queue depth), once per stream open
+        while (queue_try_remove(&audio_spk_fifo, nullptr)) {}
+#endif
+    }
 
     const float audio_gain = mute[0] ? 0.0f : powf(10.0f, get_config().speaker_volume / 20.0f);
     const float haptics_gain = get_config().haptics_gain;             // left grip

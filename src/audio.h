@@ -50,6 +50,7 @@ void mic_add_queue(const uint8_t *data);
 
 // Host opened/closed the mic IN interface (tud_audio_set_itf_cb / unmount).
 void audio_set_mic_active(bool active);
+void audio_speaker_stream_opened();  // the PC opened the speaker stream: drop the last one's leftovers
 // True while the host is recording AND BT Mic is enabled — gates the DS5
 // mic-enable bit and the mic decode path.
 bool audio_mic_wanted();
