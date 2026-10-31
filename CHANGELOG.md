@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Added
+
+- Optional Waveshare RP2350B-Plus-W board target (`WAVESHARE_RP2350B_PLUS_W_BUILD=ON`, default OFF): RP2350B, RM2/CYW43 and 16 MiB flash. Includes normal/debug CI builds with the configurator interface, a short board identity that fits the protocol, and OLED wiring/build documentation.
+
 ## [0.9.5-dev.20-oled-edition] — Release Candidate 2 — 2026-10-18
 
 **Release Candidate 2 for 0.9.5.**

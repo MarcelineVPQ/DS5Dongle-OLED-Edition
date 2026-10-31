@@ -24,12 +24,25 @@ if (EXISTS ${picoVscode})
 endif ()
 # ====================================================================================
 
+option(PICO_W_BUILD "Build for Raspberry Pi Pico W, audio is missing" OFF)
+option(WAVESHARE_RP2350B_PLUS_W_BUILD "Build for Waveshare RP2350B-Plus-W (RP2350B, RM2, 16 MiB flash)" OFF)
+if (PICO_W_BUILD AND WAVESHARE_RP2350B_PLUS_W_BUILD)
+        message(FATAL_ERROR "PICO_W_BUILD and WAVESHARE_RP2350B_PLUS_W_BUILD are mutually exclusive")
+endif ()
+
 if (PICO_W_BUILD)
         set(PICO_BOARD pico_w CACHE STRING "Board type")
         set(PICO_RP2350 OFF CACHE BOOL "Not using RP2350")
+elseif (WAVESHARE_RP2350B_PLUS_W_BUILD)
+        set(PICO_BOARD waveshare_rp2350b_plus_w CACHE STRING "Board type")
+        list(APPEND PICO_BOARD_HEADER_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/boards/headers")
+        if (NOT PICO_BOARD STREQUAL "waveshare_rp2350b_plus_w")
+                message(FATAL_ERROR "Waveshare build has cached PICO_BOARD=${PICO_BOARD}; use a fresh build directory")
+        endif ()
 else ()
         set(PICO_BOARD pico2_w CACHE STRING "Board type")
 endif ()
+message(STATUS "DS5 board: ${PICO_BOARD}")
 #set(PICO_CYW43_SUPPORTED 1)
 #set(PICO_CYW43_ARCH_THREADSAFE_BACKGROUND 1)
 
@@ -57,7 +70,6 @@ if (DISABLE_SPEAKER_PROC)
 else ()
         set(DISABLE_SPEAKER_PROC_VALUE 0)
 endif ()
-option(PICO_W_BUILD "Build for Rasberry Pi Pico W, audio is missing" OFF)
 # Pico 2 W clock. The default is upstream awalol v0.7.0's (a023371): the
 # RP2350's rated 150 MHz at the boot-default core voltage, CYW43 PIO clock
 # divider 2; main() leaves clock and voltage as the bootrom/SDK set them.
@@ -309,6 +321,9 @@ if (PICO_BOARD STREQUAL "pico_w")
         set(DS5_BOARD_NAME "Pico W")
 elseif (PICO_BOARD STREQUAL "pico2_w")
         set(DS5_BOARD_NAME "Pico 2 W")
+elseif (PICO_BOARD STREQUAL "waveshare_rp2350b_plus_w")
+        # The configurator identity field holds at most 16 ASCII bytes.
+        set(DS5_BOARD_NAME "RP2350B-Plus-W")
 else ()
         set(DS5_BOARD_NAME "${PICO_BOARD}")
 endif ()

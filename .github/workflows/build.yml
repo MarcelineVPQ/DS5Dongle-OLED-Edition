@@ -122,6 +122,42 @@ jobs:
       - name: Host unit tests (ASan + UBSan)
         run: tests/host/run.sh build/host-tests
 
+
+      - name: Build Waveshare release and debug firmware
+        run: |
+          base="$(python3 -c 'import pathlib,re; print("v"+re.search(r"^## \[(\d[^]]+-oled-edition)\]", pathlib.Path("CHANGELOG.md").read_text(), re.M)[1])')"
+          mkdir -p artifacts/waveshare
+          for variant in release debug; do
+            serial=OFF
+            if [ "$variant" = debug ]; then serial=ON; fi
+            dir="build/waveshare-$variant"
+            cmake -S . -B "$dir" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DPICO_SDK_PATH="$PICO_SDK_PATH" \
+              -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+              -DENABLE_COMPANION_VENDOR=ON \
+              -DENABLE_SERIAL="$serial" \
+              -DENABLE_VERBOSE="$serial" \
+              -DVERSION="$base+waveshare.${GITHUB_SHA::7}"
+            grep -qx 'PICO_BOARD:STRING=waveshare_rp2350b_plus_w' "$dir/CMakeCache.txt"
+            cmake --build "$dir" --target ds5-bridge
+            tools/check_ram_residency.sh "$dir/ds5-bridge-oled.elf"
+            tools/check_xip_setup.sh "$dir/ds5-bridge-oled.elf" 2 11
+            python3 tools/check_flash_reserved.py "$dir/ds5-bridge-oled.elf" "$dir/ds5-bridge-oled.uf2"
+            suffix=""
+            if [ "$variant" = debug ]; then suffix="-debug"; fi
+            cp "$dir/ds5-bridge-oled.uf2" "artifacts/waveshare/ds5-bridge-oled-waveshare$suffix.uf2"
+          done
+          (cd artifacts/waveshare && sha256sum *.uf2 > SHA256SUMS.txt)
+
+      - name: Upload Waveshare UF2 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DS5-OLED-Waveshare-RP2350B-Plus-W
+          path: artifacts/waveshare/*
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Build standard firmware
         run: |
           cmake -S . -B build/standard -G Ninja \

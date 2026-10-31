@@ -354,6 +354,19 @@ scripts/set_ds5.py --help                     # 完整参数列表
 - `-DENABLE_SERIAL=ON` —— 把 printf 输出到 USB CDC 用于调试（默认 OFF；正式构建不占用 UART）。
 - `-DPICO_W_BUILD=ON` —— 为初代 Pico W 编译（去掉音频、降低时钟）。默认目标是 Pico 2 W。
 
+### Waveshare RP2350B-Plus-W
+
+[Waveshare RP2350B-Plus-W](https://www.waveshare.com/wiki/RP2350B-Plus-W) 配备 RP2350B、RM2 无线模块（与 Pico 2 W 相同的 CYW43 芯片）、16 MiB QSPI 闪存和 USB-C。使用 `-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON` 启用此开发板配置；该选项默认关闭，默认目标仍为 Pico 2 W。请使用新的构建目录和上文固定版本的工具链：
+
+```bash
+cmake -S . -B build/waveshare -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_SDK_PATH="$PICO_SDK_PATH" -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+      -DENABLE_COMPANION_VENDOR=ON
+cmake --build build/waveshare --target ds5-bridge
+```
+
+输出文件为 `build/waveshare/ds5-bridge-oled.uf2`。`ENABLE_COMPANION_VENDOR=ON` 启用桌面配置器接口。Waveshare 选项不能与 `PICO_W_BUILD=ON` 同时启用。OLED 接线和 Waveshare 固件手动更新说明见[开发板指南](boards/README.md)。
+
 ## 诊断与调试工具
 
 排查桥接问题有两种方式 —— 设备端通过 OLED Diagnostics 屏幕，主机端通过 `scripts/mic_diag.sh`（Linux）。主机端更快：无需切换屏幕、无需刷写，可在控制器正在使用时运行。

@@ -354,6 +354,19 @@ Pico デバイスは、コントローラーが接続された後にのみシス
 - `-DENABLE_SERIAL=ON` — デバッグ用に printf を USB CDC に出力します（デフォルト OFF。製品ビルドでは UART を解放します）。
 - `-DPICO_W_BUILD=ON` — 初代 Pico W 向けにビルドします（オーディオなし、クロックを下げます）。デフォルトは Pico 2 W 向けです。
 
+### Waveshare RP2350B-Plus-W
+
+[Waveshare RP2350B-Plus-W](https://www.waveshare.com/wiki/RP2350B-Plus-W) は、RP2350B、RM2 無線モジュール（Pico 2 W と同じ CYW43 チップ）、16 MiB QSPI フラッシュ、USB-C を搭載しています。`-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON` でこの基板の設定を有効にします。このオプションはデフォルトで OFF のため、通常のビルド対象は引き続き Pico 2 W です。新しいビルドディレクトリと、上記で指定されたバージョンのツールチェーンを使ってください：
+
+```bash
+cmake -S . -B build/waveshare -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_SDK_PATH="$PICO_SDK_PATH" -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+      -DENABLE_COMPANION_VENDOR=ON
+cmake --build build/waveshare --target ds5-bridge
+```
+
+出力は `build/waveshare/ds5-bridge-oled.uf2` です。`ENABLE_COMPANION_VENDOR=ON` はデスクトップ設定アプリ用のインターフェースを有効にします。Waveshare オプションと `PICO_W_BUILD=ON` は同時に指定できません。OLED の配線と Waveshare ファームウェアの手動更新については[基板ガイド](boards/README.md)を参照してください。
+
 ## 診断とデバッグツール
 
 ブリッジの問題を切り分ける方法は 2 つあります — 本体側は OLED の Diagnostics 画面、ホスト側は `scripts/mic_diag.sh`（Linux）です。ホスト側のほうが速く、画面の切り替えも書き込みのやり直しも不要で、コントローラーを使っている最中に実行できます。

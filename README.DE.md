@@ -354,6 +354,19 @@ Wissenswerte Build-Flags:
 - `-DENABLE_SERIAL=ON` — printf zum Debuggen über USB CDC ausgeben (Standard OFF; Produktions-Builds geben den UART frei).
 - `-DPICO_W_BUILD=ON` — für den ursprünglichen Pico W bauen (ohne Audio, niedrigerer Takt). Standardziel ist der Pico 2 W.
 
+### Waveshare RP2350B-Plus-W
+
+Das [Waveshare RP2350B-Plus-W](https://www.waveshare.com/wiki/RP2350B-Plus-W) hat einen RP2350B, das RM2-Funkmodul (denselben CYW43-Chip wie das Pico 2 W), 16 MiB QSPI-Flash und USB-C. Sein Boardprofil wird mit `-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON` aktiviert. Die Option ist standardmäßig OFF; das Standardziel bleibt Pico 2 W. Verwende ein neues Build-Verzeichnis und die oben festgelegte Toolchain:
+
+```bash
+cmake -S . -B build/waveshare -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_SDK_PATH="$PICO_SDK_PATH" -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
+      -DENABLE_COMPANION_VENDOR=ON
+cmake --build build/waveshare --target ds5-bridge
+```
+
+Die Ausgabedatei ist `build/waveshare/ds5-bridge-oled.uf2`. `ENABLE_COMPANION_VENDOR=ON` aktiviert die Schnittstelle der Desktop-Konfigurationsapp. Die Waveshare-Option darf nicht zusammen mit `PICO_W_BUILD=ON` verwendet werden. OLED-Verdrahtung und manuelle Waveshare-Firmwareupdates stehen in der [Board-Anleitung](boards/README.md).
+
 ## Diagnose- & Debug-Werkzeuge
 
 Zwei Wege, Probleme der Bridge einzugrenzen — am Gerät über den OLED-Bildschirm Diagnose und am Host über `scripts/mic_diag.sh` (Linux). Der Weg über den Host ist schneller: kein Umschalten der Bildschirme, kein Flash-Zyklus, läuft, während der Controller in Benutzung ist.
