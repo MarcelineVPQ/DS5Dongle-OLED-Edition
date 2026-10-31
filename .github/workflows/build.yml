@@ -122,6 +122,11 @@ jobs:
       - name: Host unit tests (ASan + UBSan)
         run: tests/host/run.sh build/host-tests
 
+      # The feeds are built and signed on the developer's PC
+      # (tools/publish_feed.sh); CI only tests the selection and signing code.
+      - name: Update-feed tests
+        run: node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs
+
       - name: Build standard firmware
         run: |
           cmake -S . -B build/standard -G Ninja \

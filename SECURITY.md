@@ -3,7 +3,7 @@
 ## Getting DS5 Dongle OLED Edition safely
 
 - Download the firmware and the configurator app only from this repository's [releases](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases). Each release lists the SHA-256 of every file in `SHA256SUMS.txt`.
-- The app's update feed (`latest.json`, `latest-dev.json`) is signed with Ed25519 (`latest.json.sig`, `latest-dev.json.sig`); the app refuses a feed whose signature doesn't check out.
+- The app's update feed (`latest.json`, `latest-dev.json`) is signed with Ed25519 (`latest.json.sig`, `latest-dev.json.sig`); the app refuses a feed whose signature doesn't check out. The feeds are signed only on the maintainer's own computer, never in GitHub Actions: the signing key is not on GitHub, so a release published there by someone else is never offered to installed apps.
 - The app installs the firmware bundled with its own release, or a release from this repository.
 
 ## Supported versions

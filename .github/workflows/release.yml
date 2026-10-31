@@ -371,10 +371,3 @@ jobs:
           gh release create "$tag" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition}${label:+ — $label} — OLED Edition" --notes-file notes.md
           gh release upload "$tag" "${files[@]}" dist/SHA256SUMS.txt
           if [ "$dev" = true ]; then gh release edit "$tag" --draft=false; else gh release edit "$tag" --draft=false --latest; fi
-
-  manifest:
-    name: Refresh latest.json
-    needs: publish
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/manifest.yml
-    secrets: inherit

@@ -3,7 +3,9 @@
 # one tag (vX.Y.Z-oled-edition) on both repos. The tag push starts
 # .github/workflows/release.yml here, which builds the firmware, builds the
 # app for every OS with that firmware bundled, publishes one release with
-# everything attached, and refreshes latest.json.
+# everything attached. The update feeds (latest.json, latest-dev.json) are
+# signed only on this PC: once the release is published, run
+# tools/publish_feed.sh.
 #
 #   tools/release.sh 0.8.0 [--app ../DS5Dongle-OLED-Config-Web]
 #   tools/release.sh 0.9.1-dev.1      a development build: a GitHub pre-release,
@@ -132,3 +134,4 @@ git -C "$FW_DIR" tag -a "$TAG" -m "DS5 Dongle OLED Edition $TAG"
 git -C "$FW_DIR" push origin master "$TAG"
 
 echo "Pushed. Watch: gh run watch -R MarcelineVPQ/DS5Dongle-OLED-Edition"
+echo "When the release is published, sign and publish the update feeds: tools/publish_feed.sh"

@@ -14,6 +14,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - **Audio lost on the way to the controller now shows up in the diagnostics instead of being counted as sent.** When the Bluetooth output queue was full, a speaker/haptics report was dropped, but the "BT audio reports out" counter (`0xF5`), the app's Bluetooth rate and the OLED `BT32 out` rate still counted it. Only reports that go out are counted now; dropped ones are counted in a new `0xFD` field (bytes 50–53; hosts asking for the old 50 bytes get what they did before), on a new OLED Diagnostics row `BT drop`, and in `scripts/mic_diag.sh bt-trace`. The one-time report that turns the controller's mic on or off is no longer lost when the queue is full: it waits for room and is sent again.
 - **The narrator on the controller speaks at her real speed and pitch.** Her lines (connected, slot, battery low; all 7 languages) were encoded with 10 ms of audio per frame, but the controller plays a frame in 10.67 ms (the rate the PC's own audio is already resampled for), so every line played 6.25 % slow and about 1.1 semitones low. The lines are now resampled for the controller's rate; the narrator data is also about 38 KB smaller.
 
+### Security
+
+- **Update feeds are signed only on the maintainer's computer, never on GitHub.** The app's update feeds (`latest.json`, `latest-dev.json`) used to be signed by a GitHub Actions workflow with a key stored on GitHub, daily and after each release, so anyone who got hold of the GitHub account could publish a release and have it signed for every installed app. The key is no longer on GitHub: the feeds are built, signed and checked on the maintainer's computer (`tools/publish_feed.sh`) after each release and each Proton build.
+
 ## [0.9.5-dev.20-oled-edition] — Release Candidate 2 — 2026-10-18
 
 **Release Candidate 2 for 0.9.5.**
