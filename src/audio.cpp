@@ -524,8 +524,11 @@ void CORE0_RAM_FUNC(audio_loop)() {
             g_usb_out_overruns = g_usb_out_overruns + 1;
     }
 
-    int16_t raw[192];
-    uint32_t bytes_read = tud_audio_read(raw, sizeof(raw)); // 每次读入 384 bytes
+    // Up to 4 USB packets (4 ms) per pass, so one slow main-loop pass doesn't
+    // leave the 16-packet FIFO to fill and overwrite; normally there is one.
+    // Static: 1.5 KB is too much for core0's stack.
+    static int16_t raw[192 * 4];
+    uint32_t bytes_read = tud_audio_read(raw, sizeof(raw)); // 每次读入 384 bytes (one packet), up to 4
     int frames = bytes_read / (INPUT_CHANNELS * sizeof(int16_t));
     if (frames == 0) {
         return;
@@ -586,7 +589,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
     SpeakerMix spk_mix = SpeakerMix::Stereo;
     if (spk_ready) {
         bool l = false, r = false;
-        // loop: HOT-PATH-OK — N = frames of one USB audio read (raw buffer); speaker mono detect
+        // loop: HOT-PATH-OK — N = frames of one USB audio read (≤ 192, normally 48); speaker mono detect
         for (int i = 0; i < frames; i++) {
             l |= raw[i * INPUT_CHANNELS] != 0;
             r |= raw[i * INPUT_CHANNELS + 1] != 0;
@@ -595,7 +598,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
     }
 #endif
 
-    // loop: HOT-PATH-OK — N = frames of one USB audio read; peaks + split, the audio path itself
+    // loop: HOT-PATH-OK — N = frames of one USB audio read (≤ 192, normally 48); peaks + split, the audio path itself
     for (int i = 0; i < frames; i++) {
         // VU peak tracking
         {
