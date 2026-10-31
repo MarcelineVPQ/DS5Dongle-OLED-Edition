@@ -230,15 +230,14 @@ bool bt_send_full() { return queue_is_full(&send_fifo); }
 
 int bt_get_slot() { return g_current_slot; }
 
-// Make `slot` the current one and save it (current_slot in the config);
-// the link is left alone. false = not saved (the dongle boots in the old slot).
+// Make `slot` the current one and save it (current_slot in the config, on
+// its own: other unsaved edits stay unsaved; it used to save them all, review
+// fw-usb-bt N5); the link is left alone. false = not saved (the dongle boots
+// in the old slot).
 static bool make_slot_current(int slot) {
     g_current_slot = slot;
-    Config_body cfg = get_config();
-    cfg.current_slot = (uint8_t)slot;
-    set_config(cfg);
     // error: SHOWN — returned to bt_set_slot / bt_forget_slot (0xF6 CMD_RESULT_FAILED, the OLED's "Save FAIL" / "Wipe FAIL"); the connect path marks its own call
-    return config_save();
+    return config_save_current_slot((uint8_t) slot);
 }
 
 bool bt_set_slot(int slot) {

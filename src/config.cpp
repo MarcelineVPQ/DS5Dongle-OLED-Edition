@@ -339,6 +339,20 @@ bool config_save_narrator(uint8_t value) {
     return write_config(page);
 }
 
+bool config_save_current_slot(uint8_t slot) {
+    config.body.current_slot = slot;
+    config_valid();
+    // Flash's copy with only this byte changed; nothing valid saved yet = RAM.
+    Config page = saved_page_or_ram();
+    page.magic = CONFIG_MAGIC;
+    page.version = CONFIG_VERSION;
+    page.size = sizeof(Config_body);
+    page.body.current_slot = config.body.current_slot;
+    if (page.power_flags & ~POWER_FLAGS_MASK) page.power_flags = POWER_FLAGS_DEFAULT;
+    // error: SHOWN — passed up; the callers report it (0xF1 CMD_RESULT_FAILED to the app, the OLED's "Save FAIL")
+    return write_config(page);
+}
+
 uint8_t config_power_flags() { return config.power_flags; }
 
 void config_set_power_flags(uint8_t flags) {

@@ -162,6 +162,9 @@ bool config_unsaved();  // RAM settings differ from flash
 // Set the narrator byte in RAM and in flash, leaving every other saved
 // setting as it is in flash (unsaved edits stay unsaved).
 bool config_save_narrator(uint8_t value);
+// Set the current slot in RAM and in flash, like config_save_narrator (other
+// unsaved edits stay unsaved). False = the flash write failed.
+bool config_save_current_slot(uint8_t slot);
 uint8_t config_power_flags();
 // Set the POWER_* bits in RAM and in flash, like config_save_narrator (other
 // unsaved edits stay unsaved). False = invalid bits or the flash write failed.
