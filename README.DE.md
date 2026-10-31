@@ -343,7 +343,7 @@ So baust du das Projekt aus dem Quellcode:
 3. Konfiguriere und baue mit CMake + Ninja (oder Make):
    ```bash
    cd /path/to/DS5Dongle
-   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH="$PICO_SDK_PATH"
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH="$PICO_SDK_PATH" -DENABLE_COMPANION_VENDOR=ON
    cmake --build build --target ds5-bridge
    ```
 4. Die UF2 landet unter `build/ds5-bridge-oled.uf2`. Flashe wie gewohnt mit BOOTSEL.

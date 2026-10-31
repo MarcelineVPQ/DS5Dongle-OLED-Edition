@@ -343,7 +343,7 @@ scripts/set_ds5.py --help                     # 完整参数列表
 3. 用 CMake + Ninja（或 Make）配置并编译：
    ```bash
    cd /path/to/DS5Dongle
-   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH="$PICO_SDK_PATH"
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH="$PICO_SDK_PATH" -DENABLE_COMPANION_VENDOR=ON
    cmake --build build --target ds5-bridge
    ```
 4. UF2 会生成在 `build/ds5-bridge-oled.uf2`。照常用 BOOTSEL 刷写。
