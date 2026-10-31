@@ -28,6 +28,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          # HEAD~1 too: gate G1 compares the feeds' issued_at with the previous commit.
+          fetch-depth: 2
 
       - name: Load toolchain pins
         run: grep -E '^[A-Z_]+=' tools/toolchain.env >> "$GITHUB_ENV"
@@ -125,7 +127,16 @@ jobs:
       # The feeds are built and signed on the developer's PC
       # (tools/publish_feed.sh); CI only tests the selection and signing code.
       - name: Update-feed tests
-        run: node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs
+        run: node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs
+
+      # Gate G1: the committed feeds verify against the app's public keys
+      # (TRUSTED_KEYS on the public app repo's master; no secret), each feed's
+      # channel matches its file, issued_at never goes back. Fails a hand edit.
+      - name: The update feeds are signed (gate G1)
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/MarcelineVPQ/DS5Dongle-OLED-Config-Web/master/electron/main/feedSignature.ts \
+            -o "$RUNNER_TEMP/feedSignature.ts"
+          node tools/verify_feeds.mjs --base HEAD~1 --trusted "$RUNNER_TEMP/feedSignature.ts"
 
       - name: Build standard firmware
         run: |

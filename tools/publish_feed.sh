@@ -37,7 +37,7 @@ cd "$FW_DIR"
 git pull --ff-only origin master
 
 echo "== Feed selection and signing tests"
-node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs
+node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs
 
 echo "== Build the feeds from the published releases"
 # Exit 2 = no release for that channel yet: nothing to write.
@@ -54,6 +54,8 @@ echo "$out"
 pub="$(sed -n 's/.*(key \(.*\))$/\1/p' <<<"$out" | head -n 1)"
 [ -n "$pub" ] && grep -qF "\"$pub\"" "$TRUSTED" \
   || die "the key isn't in the app's TRUSTED_KEYS ($TRUSTED): installed apps would refuse this feed"
+# Gate G1 (what CI and the pre-commit hook check): signature, channel, issued_at.
+node tools/verify_feeds.mjs --trusted "$TRUSTED"
 
 files=(latest.json latest.json.sig latest-dev.json latest-dev.json.sig)
 if [ -z "$(git status --porcelain -- "${files[@]}")" ]; then
