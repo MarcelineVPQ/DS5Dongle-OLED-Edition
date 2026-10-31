@@ -1,5 +1,8 @@
 {
+  "schema": 2,
   "channel": "stable",
+  "issued_at": "2026-10-31T20:09:23Z",
+  "newest_stable": "0.9.4",
   "app": {
     "version": "0.9.4",
     "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.4-oled-edition",
@@ -31,6 +34,27 @@
       "sha256": "2fbdf6cf4054aa0a2ec15c1b462b9e759cdb72daa330d3ae8124f5404c1aacdf"
     }
   },
+  "firmwares": [
+    {
+      "version": "v0.9.4-oled-edition",
+      "board": "pico2_w",
+      "chip": "rp2350a",
+      "flash_min": 4194304,
+      "personas": [
+        "ds5"
+      ],
+      "displays": [
+        "none",
+        "pico_oled_1_3"
+      ],
+      "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.4-oled-edition",
+      "uf2": {
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.4-oled-edition/ds5-bridge-oled-v0.9.4-oled-edition.uf2",
+        "size": 2745856,
+        "sha256": "2fbdf6cf4054aa0a2ec15c1b462b9e759cdb72daa330d3ae8124f5404c1aacdf"
+      }
+    }
+  ],
   "proton": {
     "name": "GE-Proton11-7.2-DualSense",
     "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/proton-GE-Proton11-7.2-DualSense",
