@@ -689,3 +689,26 @@ TEST(cmd_diag_uptime_survives_the_32_bit_wrap) {
     CHECK_EQ(up, 3u * 3600);
     g_fake_time_us = saved;
 }
+
+// Review fw-usb-bt N7: on the game-facing HID interface (release builds) the
+// functions that unpair controllers or erase settings are refused; the
+// vendor interface (the app) still runs them; other functions pass.
+TEST(cmd_hid_path_refuses_unpair_and_reset) {
+    fresh();
+    const uint8_t cmds[][2] = {{0x05, 1}, {0x06, 0}, {0x09, 0}};
+    for (const auto &c : cmds) {
+        pico_cmd_set_hid(PICO_CMD_SET, c, sizeof(c));
+        CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+        settle();
+        CHECK_EQ(last_result(), CMD_RESULT_INVALID);  // nothing was deferred
+        pico_cmd_set(PICO_CMD_SET, c, sizeof(c));     // the vendor interface
+        CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+        settle();
+        CHECK_EQ(last_result(), CMD_RESULT_OK);
+    }
+    const int reboots = g_fake_reboots;
+    const uint8_t reboot[] = {0x07};
+    pico_cmd_set_hid(PICO_CMD_SET, reboot, sizeof(reboot));
+    settle();
+    CHECK_EQ(g_fake_reboots, reboots + 1);
+}

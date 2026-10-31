@@ -870,6 +870,22 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     return 0;
 }
 
+void pico_cmd_set_hid(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
+#if !ENABLE_SERIAL
+    const bool destructive = bufsize > 0 && (buffer[0] == 0x05 || buffer[0] == 0x06 || buffer[0] == 0x09);
+    // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte (and a printf): unpairing / erasing is refused on the game-facing HID interface (review fw-usb-bt N7); the app sends these over the vendor interface
+    if (report_id == PICO_CMD_SET && destructive && !s_pending) {
+        printf("[CMD] 0x%02X refused on the HID interface\n", buffer[0]);
+        s_cmd_seq++;
+        s_last_func = buffer[0];
+        // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: refused on this interface (above)
+        s_last_result = CMD_RESULT_INVALID;
+        return;
+    }
+#endif
+    pico_cmd_set(report_id, buffer, bufsize);
+}
+
 // Whether a 0x0D / 0x10 / 0x13 / 0x14 SET saves to flash (0x13 / 0x14 with
 // their temporary byte at 1 stay in RAM; a malformed one is deferred too and
 // answers INVALID from cmd_task()).

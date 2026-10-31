@@ -529,7 +529,7 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
 
     if (is_pico_cmd(report_id)) {
         printf("[HID] Receive 0xf6 setting config, funcid:0x%02X\n", buffer[0]);
-        pico_cmd_set(report_id, buffer, bufsize);
+        pico_cmd_set_hid(report_id, buffer, bufsize);
         return;
     }
 
