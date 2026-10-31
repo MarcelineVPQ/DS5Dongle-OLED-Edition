@@ -1,10 +1,24 @@
 #!/usr/bin/env bash
-# Gate G1 before the commit, not after: raw.githubusercontent serves master to
-# installed apps the moment it is pushed. Runs tools/verify_feeds.mjs on the
-# staged feeds, only when a feed file is staged.
+# Gates before the commit, not after the push (build -> commit -> push on master:
+# a CI failure is already public).
+#  - Gate G1: raw.githubusercontent serves master to installed apps the moment
+#    it is pushed. Runs tools/verify_feeds.mjs on the staged feeds, only when
+#    a feed file is staged.
+#  - The loop / error / lifetime verdicts (CLAUDE.md "Loop pass" ...), when
+#    src/ is staged, and the CI pins (tools/check_ci_pins.py), when CI or
+#    tool files are: standard-library Python, a second or two.
+# Checks the working tree (staged and unstaged edits alike).
 # Install once per clone: git config core.hooksPath tools/hooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 if [ -n "$(git diff --cached --name-only -- latest.json latest.json.sig latest-dev.json latest-dev.json.sig)" ]; then
   node tools/verify_feeds.mjs --staged
+fi
+if [ -n "$(git diff --cached --name-only -- src)" ]; then
+  python3 tools/list_loops.py --check
+  python3 tools/list_errors.py --check
+  python3 tools/list_lifetimes.py --check
+fi
+if [ -n "$(git diff --cached --name-only -- .github tools)" ]; then
+  python3 tools/check_ci_pins.py
 fi

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Conventional Commits (CLAUDE.md "Git / branch model"): the subject is
+# "type(scope)!: summary" with one of the types below. Installed with the
+# pre-commit hook: git config core.hooksPath tools/hooks
+set -euo pipefail
+subject="$(head -n 1 "$1")"
+types='feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert'
+if ! [[ "$subject" =~ ^($types)(\([^\)]+\))?!?:\ .+ || "$subject" =~ ^(fixup|squash|amend)!\  ]]; then
+  echo "commit-msg: the subject isn't a Conventional Commit: $subject" >&2
+  echo "  write it as <type>(<scope>): <summary>, type one of: ${types//|/ }" >&2
+  exit 1
+fi
