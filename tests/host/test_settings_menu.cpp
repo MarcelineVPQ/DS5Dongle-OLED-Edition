@@ -369,3 +369,29 @@ TEST(settings_menu_save_takes_every_items_field_in_the_new_order) {
     CHECK_EQ(c.narrator_voice, 4);
     CHECK(power != POWER_FLAGS_DEFAULT);  // the power flags changed on the copy only
 }
+
+// b4f7529 (left and right grip strengths set separately, review standards
+// N9): "Vibration L" moves haptics_gain only and "Vibration R"
+// haptics_gain_right only, each in 0.5 steps within 1.0..6.0.
+TEST(settings_menu_grip_strengths_move_one_grip_each) {
+    int left = -1, right = -1;
+    // loop: NOT-WORTH — host test, every settings item
+    for (int i = 0; i < kNumItems; i++) {
+        if (kItems[i].off == offsetof(Config_body, haptics_gain)) left = i;
+        if (kItems[i].off == offsetof(Config_body, haptics_gain_right)) right = i;
+    }
+    CHECK(left >= 0 && right >= 0 && left != right);
+    Config_body b = defaults();
+    b.haptics_gain = 2.0f;
+    b.haptics_gain_right = 3.0f;
+    uint8_t power = 0;
+    adjust(kItems[left], b, power, +1);
+    CHECK(b.haptics_gain > 2.49f && b.haptics_gain < 2.51f);
+    CHECK(b.haptics_gain_right > 2.99f && b.haptics_gain_right < 3.01f);
+    adjust(kItems[right], b, power, -1);
+    CHECK(b.haptics_gain > 2.49f && b.haptics_gain < 2.51f);
+    CHECK(b.haptics_gain_right > 2.49f && b.haptics_gain_right < 2.51f);
+    b.haptics_gain_right = 6.0f;
+    adjust(kItems[right], b, power, +1);  // the top stays the top
+    CHECK(b.haptics_gain_right > 5.99f && b.haptics_gain_right < 6.01f);
+}
