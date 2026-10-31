@@ -32,18 +32,8 @@ env:
   # What to build from: the tag (both repos), or master for a dry run.
   SRC_REF: ${{ github.event_name == 'push' && github.ref_name || 'master' }}
   DRY_RUN: ${{ github.event_name != 'push' }}
-  PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
   APP_REPO: MarcelineVPQ/DS5Dongle-OLED-Config-Web
   NPM: npx -y npm@11.6.2
-  # PICO_SDK_REF, TINYUSB_REF and ARM's own toolchain (ARM_TOOLCHAIN_VERSION /
-  # _URL; not Ubuntu's gcc-arm-none-eabi, as upstream awalol 425061f) are pinned
-  # in tools/toolchain.env, loaded by the first step after checkout.
-  ARM_TOOLCHAIN_PATH: ${{ github.workspace }}/arm-toolchain
-  APT_PACKAGES: >-
-    cmake
-    python3
-    build-essential
-    ninja-build
 
 permissions:
   contents: write
@@ -56,12 +46,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ids: ${{ steps.rows.outputs.ids }}
+      # The exact Node every job sets up (tools/toolchain.env NODE_VERSION).
+      node: ${{ steps.rows.outputs.node }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ env.SRC_REF }}
       - id: rows
-        run: echo "ids=$(node -p 'JSON.stringify(require("./boards.json").boards.filter((b) => b.release).map((b) => b.id))')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "ids=$(node -p 'JSON.stringify(require("./boards.json").boards.filter((b) => b.release).map((b) => b.id))')" >> "$GITHUB_OUTPUT"
+          echo "node=$(sed -n 's/^NODE_VERSION=//p' tools/toolchain.env)" >> "$GITHUB_OUTPUT"
 
   firmware:
     name: Build firmware (${{ matrix.board }})
@@ -72,100 +66,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ env.SRC_REF }}
           submodules: recursive
+          # Full history: the doc gates' CHANGELOG check reads the commits since the last tag.
+          fetch-depth: 0
 
-      - name: Load toolchain pins
-        run: grep -E '^[A-Z_]+=' tools/toolchain.env >> "$GITHUB_ENV"
-
-      - name: Prepare build dependency cache
-        id: apt-cache
-        run: |
-          mkdir -p "$RUNNER_TEMP/apt-cache/partial"
-          . /etc/os-release
-          package_hash="$(printf '%s' "$APT_PACKAGES" | sha256sum | cut -d ' ' -f 1)"
-          echo "dir=$RUNNER_TEMP/apt-cache" >> "$GITHUB_OUTPUT"
-          echo "os=${ID}-${VERSION_ID}" >> "$GITHUB_OUTPUT"
-          echo "package-hash=$package_hash" >> "$GITHUB_OUTPUT"
-
-      - name: Cache build dependencies
-        uses: actions/cache@v4
+      # The toolchain (pinned, checked) and every gate: the same definition
+      # build.yml runs, against the app repo at the same tag.
+      - name: Toolchain and gates
+        uses: ./.github/actions/firmware-checks
         with:
-          path: ${{ steps.apt-cache.outputs.dir }}
-          key: ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-${{ steps.apt-cache.outputs.package-hash }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install --download-only -y $APT_PACKAGES
-          sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install -y $APT_PACKAGES
-          sudo chmod -R a+rX "${{ steps.apt-cache.outputs.dir }}"
-
-      - name: Cache ARM toolchain
-        id: cache-arm-toolchain
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ARM_TOOLCHAIN_PATH }}
-          key: ${{ runner.os }}-${{ runner.arch }}-arm-toolchain-${{ env.ARM_TOOLCHAIN_VERSION }}
-
-      - name: Download ARM toolchain
-        if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p "$ARM_TOOLCHAIN_PATH"
-          curl -fsSL "$ARM_TOOLCHAIN_URL" | tar -xJ -C "$ARM_TOOLCHAIN_PATH" --strip-components=1
-
-      - name: Add ARM toolchain to PATH
-        run: |
-          echo "$ARM_TOOLCHAIN_PATH/bin" >> "$GITHUB_PATH"
-          "$ARM_TOOLCHAIN_PATH/bin/arm-none-eabi-gcc" --version
-
-      - name: Cache Pico SDK
-        id: cache-pico-sdk
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PICO_SDK_PATH }}
-          key: ${{ runner.os }}-${{ runner.arch }}-pico-sdk-${{ env.PICO_SDK_REF }}-tinyusb-${{ env.TINYUSB_REF }}
-
-      - name: Download Pico SDK
-        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch "$PICO_SDK_REF" https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
-          git -C "$PICO_SDK_PATH" submodule update --init --recursive
-
-      - name: Switch TinyUSB to the pinned commit
-        run: |
-          tusb="$PICO_SDK_PATH/lib/tinyusb"
-          if git -C "$tusb" cat-file -e "$TINYUSB_REF^{commit}" 2>/dev/null; then
-            git -C "$tusb" checkout --detach "$TINYUSB_REF"
-          else
-            git -C "$tusb" fetch --depth 1 origin "$TINYUSB_REF"
-            git -C "$tusb" checkout --detach FETCH_HEAD
-          fi
-          git -C "$tusb" log -1 --format='TinyUSB %H %s'
-
-      - name: lib/* stay submodule gitlinks
-        run: tools/check_gitlinks.sh
-
-      - name: The 7 READMEs match README.md (CLAUDE.md "Releases")
-        run: python3 tools/check_readmes.py
-
-      - name: The community files are present (CLAUDE.md "Community files")
-        run: python3 tools/check_community.py
-
-      - name: Every loop has a verdict (CLAUDE.md "Loop pass")
-        run: python3 tools/list_loops.py --check
-
-      - name: Every failure path has a verdict (CLAUDE.md "Error pass")
-        run: python3 tools/list_errors.py --check
-      - name: Every acquisition has a verdict (CLAUDE.md "Lifetime pass")
-        run: python3 tools/list_lifetimes.py --check
-
-      - name: Host unit tests (ASan + UBSan)
-        run: tests/host/run.sh build/host-tests
+          app-ref: ${{ env.SRC_REF }}
 
       # The board's image under its boards.json asset name, the image checks,
       # its firmware-image-<board>.json and gate G2 (tools/build_board.sh).
@@ -187,11 +100,11 @@ jobs:
       # working bridge: a developer diagnostic, never a release download.
       # Boards with release: false (the Pico W) stay CI artifacts (build.yml).
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: firmware-release-${{ matrix.board }}
           path: artifacts/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: matrix.board == 'pico2_w'
         with:
           name: firmware-bundle
@@ -199,7 +112,7 @@ jobs:
 
   app:
     name: Build app (${{ matrix.os }})
-    needs: firmware
+    needs: [boards, firmware]
     strategy:
       fail-fast: false
       matrix:
@@ -213,18 +126,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout the app at the same tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ env.APP_REPO }}
           ref: ${{ env.SRC_REF }}
       - name: Bundle this release's firmware
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: firmware-bundle
           path: resources/firmware
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "22"
+          node-version: ${{ needs.boards.outputs.node }}
       - run: ${{ env.NPM }} ci
         shell: bash
       - name: Version check (app version must match the tag)
@@ -246,7 +159,7 @@ jobs:
         env:
           # Fail rather than ship the "no firmware changelog in this build" note.
           DS5_REQUIRE_FIRMWARE_CHANGELOG: "1"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: app-${{ matrix.os }}
           path: |
@@ -258,7 +171,7 @@ jobs:
   publish:
     # On a dry run only the checks below run (nothing is published).
     name: Publish the release
-    needs: [firmware, app]
+    needs: [boards, firmware, app]
     runs-on: ubuntu-latest
     # Build provenance: each file gets a signed attestation that it was built
     # by this workflow from this tag (gh attestation verify FILE -R this repo).
@@ -267,16 +180,19 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ env.SRC_REF }}
       - name: App changelog
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ env.APP_REPO }}
           ref: ${{ env.SRC_REF }}
           path: app
-      - uses: actions/download-artifact@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ needs.boards.outputs.node }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
           merge-multiple: true
@@ -304,7 +220,7 @@ jobs:
       # per file that this workflow built it from this tag.
       - name: Attest build provenance
         if: env.DRY_RUN != 'true'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: |
             dist/*.AppImage
@@ -396,6 +312,6 @@ jobs:
               echo "**This is a development build**: newer than the stable release, with the same automated tests on every change; stable releases also get the full release checks on real hardware and Windows, plus time in everyday use. The app offers it only on App settings -> Updates -> Development; **Back to stable** there returns to the latest stable app and firmware."
             } >> notes.md
           fi
-          gh release create "$tag" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition}${label:+ — $label} — OLED Edition" --notes-file notes.md
-          gh release upload "$tag" "${files[@]}" dist/firmware-images.json dist/SHA256SUMS.txt
-          if [ "$dev" = true ]; then gh release edit "$tag" --draft=false; else gh release edit "$tag" --draft=false --latest; fi
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition}${label:+ — $label} — OLED Edition" --notes-file notes.md
+          gh release upload "$tag" -R "$GITHUB_REPOSITORY" "${files[@]}" dist/firmware-images.json dist/SHA256SUMS.txt
+          if [ "$dev" = true ]; then gh release edit "$tag" -R "$GITHUB_REPOSITORY" --draft=false; else gh release edit "$tag" -R "$GITHUB_REPOSITORY" --draft=false --latest; fi

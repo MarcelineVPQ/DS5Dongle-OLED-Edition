@@ -1,0 +1,178 @@
+name: Firmware toolchain and gates
+description: >-
+  The one definition of the firmware jobs' setup and gates, used by build.yml
+  and release.yml (a gate added here runs in both). Sets up the pinned Node,
+  ARM toolchain (SHA-256 checked), Pico SDK and TinyUSB (commits checked) from
+  tools/toolchain.env, then runs every repo gate, the host tests, the
+  update-feed/image tests and the app repo's doc gates and cross-repo
+  identical-files check. Expects the firmware checked out with full history
+  (fetch-depth: 0: the CHANGELOG gate reads the commits since the last tag)
+  and submodules.
+
+inputs:
+  app-ref:
+    description: The app repo's ref whose doc gates and files to check against (master, or the release tag).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # PICO_SDK_REF / _COMMIT, TINYUSB_REF, ARM's own toolchain (ARM_TOOLCHAIN_
+    # VERSION / _URL / _SHA256; not Ubuntu's gcc-arm-none-eabi, as upstream
+    # awalol 425061f) and NODE_VERSION.
+    - name: Load toolchain pins
+      shell: bash
+      run: |
+        grep -E '^[A-Z][A-Z0-9_]*=' tools/toolchain.env >> "$GITHUB_ENV"
+        echo "PICO_SDK_PATH=$GITHUB_WORKSPACE/pico-sdk" >> "$GITHUB_ENV"
+        echo "ARM_TOOLCHAIN_PATH=$GITHUB_WORKSPACE/arm-toolchain" >> "$GITHUB_ENV"
+
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Prepare build dependency cache
+      id: apt-cache
+      shell: bash
+      env:
+        APT_PACKAGES: cmake python3 build-essential ninja-build
+      run: |
+        mkdir -p "$RUNNER_TEMP/apt-cache/partial"
+        . /etc/os-release
+        package_hash="$(printf '%s' "$APT_PACKAGES" | sha256sum | cut -d ' ' -f 1)"
+        echo "APT_PACKAGES=$APT_PACKAGES" >> "$GITHUB_ENV"
+        echo "dir=$RUNNER_TEMP/apt-cache" >> "$GITHUB_OUTPUT"
+        echo "os=${ID}-${VERSION_ID}" >> "$GITHUB_OUTPUT"
+        echo "package-hash=$package_hash" >> "$GITHUB_OUTPUT"
+
+    - name: Cache build dependencies
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.apt-cache.outputs.dir }}
+        key: ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-${{ steps.apt-cache.outputs.package-hash }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-cache.outputs.os }}-
+
+    - name: Install build dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install --download-only -y $APT_PACKAGES
+        sudo apt-get -o Dir::Cache::archives="${{ steps.apt-cache.outputs.dir }}" install -y $APT_PACKAGES
+        sudo chmod -R a+rX "${{ steps.apt-cache.outputs.dir }}"
+
+    # Keyed by the tarball's SHA-256, so a cached toolchain is one that passed the check.
+    - name: Cache ARM toolchain
+      id: cache-arm-toolchain
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ env.ARM_TOOLCHAIN_PATH }}
+        key: ${{ runner.os }}-${{ runner.arch }}-arm-toolchain-${{ env.ARM_TOOLCHAIN_VERSION }}-${{ env.ARM_TOOLCHAIN_SHA256 }}
+
+    - name: Download ARM toolchain (SHA-256 checked)
+      if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        tarball="$RUNNER_TEMP/arm-toolchain.tar.xz"
+        curl -fsSL "$ARM_TOOLCHAIN_URL" -o "$tarball"
+        echo "$ARM_TOOLCHAIN_SHA256  $tarball" | sha256sum -c -
+        mkdir -p "$ARM_TOOLCHAIN_PATH"
+        tar -xJf "$tarball" -C "$ARM_TOOLCHAIN_PATH" --strip-components=1
+        rm "$tarball"
+
+    - name: Add ARM toolchain to PATH
+      shell: bash
+      run: |
+        echo "$ARM_TOOLCHAIN_PATH/bin" >> "$GITHUB_PATH"
+        "$ARM_TOOLCHAIN_PATH/bin/arm-none-eabi-gcc" --version
+
+    - name: Cache Pico SDK
+      id: cache-pico-sdk
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ env.PICO_SDK_PATH }}
+        key: ${{ runner.os }}-${{ runner.arch }}-pico-sdk-${{ env.PICO_SDK_COMMIT }}-tinyusb-${{ env.TINYUSB_REF }}
+
+    - name: Download Pico SDK
+      if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --depth 1 --branch "$PICO_SDK_REF" https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
+        git -C "$PICO_SDK_PATH" submodule update --init --recursive
+
+    # A moved tag fails here instead of silently changing the SDK.
+    - name: Pico SDK is the pinned commit
+      shell: bash
+      run: |
+        have="$(git -C "$PICO_SDK_PATH" rev-parse HEAD)"
+        [ "$have" = "$PICO_SDK_COMMIT" ] || { echo "Pico SDK $PICO_SDK_REF is $have, tools/toolchain.env pins $PICO_SDK_COMMIT"; exit 1; }
+
+    - name: Switch TinyUSB to the pinned commit
+      shell: bash
+      run: |
+        tusb="$PICO_SDK_PATH/lib/tinyusb"
+        if git -C "$tusb" cat-file -e "$TINYUSB_REF^{commit}" 2>/dev/null; then
+          git -C "$tusb" checkout --detach "$TINYUSB_REF"
+        else
+          git -C "$tusb" fetch --depth 1 origin "$TINYUSB_REF"
+          git -C "$tusb" checkout --detach FETCH_HEAD
+        fi
+        [ "$(git -C "$tusb" rev-parse HEAD)" = "$TINYUSB_REF" ] || { echo "TinyUSB is not at $TINYUSB_REF"; exit 1; }
+        git -C "$tusb" log -1 --format='TinyUSB %H %s'
+
+    - name: lib/* stay submodule gitlinks
+      shell: bash
+      run: tools/check_gitlinks.sh
+
+    - name: The 7 READMEs match README.md (CLAUDE.md "Releases")
+      shell: bash
+      run: python3 tools/check_readmes.py
+
+    - name: The community files are present (CLAUDE.md "Community files")
+      shell: bash
+      run: python3 tools/check_community.py
+
+    - name: Actions, Node and toolchain pinned exactly; gh names its repo (CLAUDE.md "Build")
+      shell: bash
+      run: python3 tools/check_ci_pins.py
+
+    - name: Every loop has a verdict (CLAUDE.md "Loop pass")
+      shell: bash
+      run: python3 tools/list_loops.py --check
+
+    - name: Every failure path has a verdict (CLAUDE.md "Error pass")
+      shell: bash
+      run: python3 tools/list_errors.py --check
+
+    - name: Every acquisition has a verdict (CLAUDE.md "Lifetime pass")
+      shell: bash
+      run: python3 tools/list_lifetimes.py --check
+
+    - name: Host unit tests (ASan + UBSan)
+      shell: bash
+      run: tests/host/run.sh build/host-tests
+
+    # The feeds are built and signed on the developer's PC
+    # (tools/publish_feed.sh); CI only tests the selection and signing code,
+    # and gate G2's UF2 reader (tools/uf2_info.mjs) on a fixture.
+    - name: Update-feed and image tests
+      shell: bash
+      run: node --test tools/*.test.mjs
+
+    # The public app repo holds the doc gates and the identical-files gate
+    # (tools/release.sh runs the same two). A full checkout, not sparse: the
+    # identical-files gate hashes every tracked file of both repos.
+    - name: Check out the app repo for its gates
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      with:
+        repository: MarcelineVPQ/DS5Dongle-OLED-Config-Web
+        ref: ${{ inputs.app-ref }}
+        path: _app
+        persist-credentials: false
+
+    - name: Doc gates and identical files (the app's tools/doc_gates.mjs, check_identical_files.mjs)
+      shell: bash
+      run: |
+        cd _app
+        node tools/doc_gates.mjs --check --repo "$GITHUB_WORKSPACE"
+        node tools/check_identical_files.mjs "$GITHUB_WORKSPACE"
