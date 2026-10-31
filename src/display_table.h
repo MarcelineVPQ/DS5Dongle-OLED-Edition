@@ -27,7 +27,7 @@ constexpr bool is_supported(uint8_t id) { return id < 8 && (kSupported & (1u << 
 // The saved choice as the firmware uses it. 0xFF (a config page saved by
 // firmware before 1.21) and an id this image has no driver for take the
 // Pico-OLED-1.3, which every earlier image drove (owner's decision, §9.5).
-constexpr uint8_t resolve(uint8_t saved) { return is_supported(saved) ? saved : kPicoOled13; }
+constexpr uint8_t resolve(uint8_t saved) { return is_supported(saved) ? saved : static_cast<uint8_t>(kPicoOled13); }
 
 // Whether the OLED code talks to a panel at all.
 constexpr bool has_panel(uint8_t id) { return id == kPicoOled13; }

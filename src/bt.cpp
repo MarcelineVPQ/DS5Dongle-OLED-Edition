@@ -1021,7 +1021,7 @@ bool CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
     // error: LOGGED-OK — counter bt_send_drops (0xFD [50..53], OLED Diagnostics "BT drop"); the output FIFO is full and this report is lost: false, so callers don't count it as sent (the mic's 0x32 is sent again)
     if (!queue_try_add(&send_fifo, &packet)) {
         // error: LOGGED-OK — the counter is how a full output FIFO surfaces (0xFD, OLED Diagnostics)
-        g_bt_send_drops++;
+        g_bt_send_drops = g_bt_send_drops + 1;  // not ++: C++20 deprecates it on a volatile (-Wvolatile)
         printf("[L2CAP bt_write] Error: Failed to add packet to send FIFO\n");
         // error: LOGGED-OK — counted above (0xFD, OLED Diagnostics); false tells the caller it wasn't sent
         return false;
