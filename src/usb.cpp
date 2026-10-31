@@ -16,6 +16,7 @@ uint8_t mute[2]; // 0: SPEAKER(0x02) 1: MIC(0x05)
 // PC sets it (upstream a7824d9 starts it at 48 too).
 float volume[2] = {-100.0f,48.0f}; // 0: SPEAKER(0x02) 1: MIC(0x05)
 static volatile uint64_t s_host_spk_set_us = 0;
+static bool s_spk_vol_from_host = false;  // the host has set the speaker volume (GET_CUR echoes it)
 uint64_t usb_host_speaker_set_us() { return s_host_spk_set_us; }
 
 #define UAC1_ENTITY_SPK_FEATURE_UNIT    0x02
@@ -97,6 +98,7 @@ static bool audio10_set_req_entity(tusb_control_request_t const *p_request, uint
                         // scaled to 127 (amp_volume.h).
                         if (entityID == UAC1_ENTITY_SPK_FEATURE_UNIT) {
                             s_host_spk_set_us = time_us_64();
+                            s_spk_vol_from_host = true;
                             state_set_volume(headphone_amp_from_db(volume[index]), speaker_amp_from_db(volume[index]));
                         }
                         // The PC's mic volume, 0..48 dB (our range below), as
@@ -148,9 +150,13 @@ static bool audio10_get_req_entity(uint8_t rhport, tusb_control_request_t const 
                 switch (p_request->bRequest) {
                     case AUDIO10_CS_REQ_GET_CUR:
                         TU_LOG2("    Get Volume of entity: %u\r\n", entityID); {
-                            if (entityID == UAC1_ENTITY_SPK_FEATURE_UNIT) {
+                            if (entityID == UAC1_ENTITY_SPK_FEATURE_UNIT && !s_spk_vol_from_host) {
+                                // Until the host sets one: the saved speaker volume.
                                 // UAC1's advertised range tops out at 0 dB; a boost
                                 // (speaker_volume > 0) reports as 0 to the host.
+                                // After a SET_CUR, the host reads back what it set
+                                // (it used to read the saved gain, so its slider
+                                // could jump; review fw-usb-bt N1).
                                 volume[index] = std::min(get_config().speaker_volume, 0.0f);
                             }
                             int16_t vol = volume[index] * 256; // convert to 1/256 dB units
