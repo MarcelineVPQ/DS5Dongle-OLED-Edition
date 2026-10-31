@@ -23,7 +23,7 @@ python3 tools/check_community.py        # the community files are present
 python3 tools/list_loops.py --check     # every loop has a verdict
 python3 tools/list_errors.py --check    # every failure path has a verdict
 python3 tools/list_lifetimes.py --check # every acquisition has a verdict
-node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs  # update-feed selection and signing
+node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs tools/uf2_info.test.mjs  # update-feed selection and signing, the UF2 check (gate G2)
 ```
 
 - **A fix comes with a check:** a host test in `tests/host/` that fails without it when the logic is pure, otherwise a description of the hardware check in the pull request (board, controller, operating system, what you did and what you saw, e.g. the OLED Diagnostics counters or `scripts/audio_diag.py`).

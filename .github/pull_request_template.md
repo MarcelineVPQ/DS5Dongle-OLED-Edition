@@ -9,7 +9,7 @@
 - [ ] `tests/host/run.sh build/host-tests` passes, and a fix to pure logic comes with a host test that fails without it
 - [ ] `tools/check_gitlinks.sh`, `python3 tools/check_readmes.py` and `python3 tools/check_community.py` pass
 - [ ] `python3 tools/list_loops.py --check`, `python3 tools/list_errors.py --check` and `python3 tools/list_lifetimes.py --check` pass
-- [ ] Update-feed code changed: `node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs` passes
+- [ ] Update-feed, `boards.json` or UF2-check code changed: `node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs tools/uf2_info.test.mjs` passes
 - [ ] The firmware builds (`tools/dev_firmware.sh`, plus `--picow` if it touches the Pico W)
 - [ ] User-facing change: an entry under `[Unreleased]` in `CHANGELOG.md`; a README change is in all 7 languages
 - [ ] Protocol or `Config_body` change: `PICO_PROTO_*` bumped and a matching pull request in DS5Dongle-OLED-Config-Web

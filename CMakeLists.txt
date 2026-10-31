@@ -306,18 +306,9 @@ target_compile_definitions(wdl_resampler PRIVATE
         WDL_RESAMPLE_TYPE=float
 )
 # The board's name as hosts show it (identity [30..45], protocol 1.7), and
-# its board type id for 0xEA [3..4] (protocol 1.21, src/fw_identity.h: 1
-# pico2_w, 2 pico_w, 0 not in the table) and the UF2's binary info.
-if (PICO_BOARD STREQUAL "pico_w")
-        set(DS5_BOARD_NAME "Pico W")
-        set(DS5_BOARD_TYPE_ID 2)
-elseif (PICO_BOARD STREQUAL "pico2_w")
-        set(DS5_BOARD_NAME "Pico 2 W")
-        set(DS5_BOARD_TYPE_ID 1)
-else ()
-        set(DS5_BOARD_NAME "${PICO_BOARD}")
-        set(DS5_BOARD_TYPE_ID 0)
-endif ()
+# its board type id for 0xEA [3..4] (protocol 1.21, src/fw_identity.h) and the
+# UF2's binary info: from boards.json (cmake/ds5_board.cmake).
+include(cmake/ds5_board.cmake)
 
 target_compile_definitions(ds5-bridge PRIVATE
         DS5_BOARD_NAME="${DS5_BOARD_NAME}"

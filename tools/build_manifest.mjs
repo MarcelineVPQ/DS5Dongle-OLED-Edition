@@ -11,7 +11,8 @@
 // and updated_at), so an unchanged file is never downloaded again, and
 // GitHub's own sha256 digest, when listed, must agree (manifest_lib
 // assetHasher). Writes feed schema 2 (manifest_lib buildFeed): issued_at
-// (now, UTC), newest_stable, firmwares[] beside the legacy firmware key.
+// (now, UTC), newest_stable, firmwares[] beside the legacy firmware key
+// (from the release's firmware-images.json and boards.json when it has one).
 //
 //   node tools/build_manifest.mjs [--out latest.json] [--check] [--channel stable|dev] [--no-cache]
 //
@@ -22,7 +23,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { allPages, assetHasher, buildFeed, isoSeconds, keepIssuedAt, selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
+import { allPages, assetHasher, buildFeed, imageFields, isoSeconds, keepIssuedAt, pick, releaseImages, selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
 
 const REPO = "MarcelineVPQ/DS5Dongle-OLED-Edition";
 
@@ -82,6 +83,21 @@ const appNotes = (body) => {
 const notes = appNotes(unified.release.body ?? "");
 parts.app = { version: unified.version, notes_url: unified.release.html_url, ...(notes ? { notes } : {}), platforms };
 if (unified.uf2) parts.firmware = { version: unified.release.tag_name, notes_url: unified.release.html_url, uf2: await measure(unified.uf2) };
+// Releases from step 7 on list every board image in firmware-images.json
+// (release.yml, after gate G2); each file's hash must match its entry. Older
+// releases: firmwares[] is the Pico 2 W image alone (buildFeed).
+const imagesAsset = pick(unified.release, /^firmware-images\.json$/);
+if (imagesAsset) {
+  const r = await fetch(imagesAsset.browser_download_url, { redirect: "follow" });
+  if (!r.ok) throw new Error(`firmware-images.json: download returned ${r.status}`);
+  const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
+  parts.firmwares = [];
+  for (const { entry, row, asset } of releaseImages(await r.json(), unified.release, boards)) {
+    const uf2 = await measure(asset);
+    if (uf2.sha256 !== entry.sha256) throw new Error(`${asset.name}: firmware-images.json says ${entry.sha256}, the file hashes to ${uf2.sha256}`);
+    parts.firmwares.push({ version: entry.version, ...imageFields(row), notes_url: unified.release.html_url, uf2 });
+  }
+}
 
 const proton = selectProton(all);
 if (proton) {

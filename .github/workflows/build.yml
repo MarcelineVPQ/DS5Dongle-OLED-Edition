@@ -125,9 +125,10 @@ jobs:
         run: tests/host/run.sh build/host-tests
 
       # The feeds are built and signed on the developer's PC
-      # (tools/publish_feed.sh); CI only tests the selection and signing code.
-      - name: Update-feed tests
-        run: node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs
+      # (tools/publish_feed.sh); CI only tests the selection and signing code,
+      # and gate G2's UF2 reader (tools/uf2_info.mjs) on a fixture.
+      - name: Update-feed and image tests
+        run: node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs tools/uf2_info.test.mjs
 
       # Gate G1: the committed feeds verify against the app's public keys
       # (TRUSTED_KEYS on the public app repo's master; no secret), each feed's
@@ -138,18 +139,13 @@ jobs:
             -o "$RUNNER_TEMP/feedSignature.ts"
           node tools/verify_feeds.mjs --base HEAD~1 --trusted "$RUNNER_TEMP/feedSignature.ts"
 
-      - name: Build standard firmware
+      # One image per boards.json row (release or not), each checked by gate
+      # G2 (tools/uf2_info.mjs) against its row: tools/build_board.sh.
+      - name: Build every board's firmware (boards.json)
         run: |
-          cmake -S . -B build/standard -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
-            -DVERSION="$FIRMWARE_VERSION"
-          cmake --build build/standard --target ds5-bridge
-          tools/check_ram_residency.sh build/standard/ds5-bridge-oled.elf
-          tools/check_xip_setup.sh build/standard/ds5-bridge-oled.elf 2 11
-          python3 tools/check_flash_reserved.py build/standard/ds5-bridge-oled.elf build/standard/ds5-bridge-oled.uf2
-          mkdir -p artifacts
-          cp build/standard/ds5-bridge-oled.uf2 artifacts/ds5-bridge-oled.uf2
+          for board in $(node -p 'require("./boards.json").boards.map((b) => b.id).join(" ")'); do
+            tools/build_board.sh "$board" "$FIRMWARE_VERSION"
+          done
 
       - name: Build Debug firmware
         run: |
@@ -184,36 +180,20 @@ jobs:
           tools/check_xip_setup.sh build/oc320/ds5-bridge-oled.elf 4 13
           python3 tools/check_flash_reserved.py build/oc320/ds5-bridge-oled.elf build/oc320/ds5-bridge-oled.uf2
 
-      - name: Build Pico W firmware
-        run: |
-          cmake -S . -B build/picow -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
-            -DPICO_W_BUILD=ON \
-            -DVERSION="$FIRMWARE_VERSION"
-          cmake --build build/picow --target ds5-bridge
-          tools/check_ram_residency.sh build/picow/ds5-bridge-oled.elf
-          tools/check_xip_setup.sh build/picow/ds5-bridge-oled.elf
-          python3 tools/check_flash_reserved.py build/picow/ds5-bridge-oled.elf build/picow/ds5-bridge-oled.uf2
-          cp build/picow/ds5-bridge-oled.uf2 artifacts/ds5-bridge-oled-picow.uf2
-
-      - name: Upload standard UF2 artifact
+      # Every board's UF2 (named as in a release, {tag} = the commit) and its
+      # firmware-image-<board>.json, in one zip.
+      - name: Upload the boards' UF2 artifacts
         uses: actions/upload-artifact@v7
         with:
-          path: artifacts/ds5-bridge-oled.uf2
-          archive: false
+          name: ds5-bridge-oled-${{ env.FIRMWARE_VERSION }}-boards
+          path: |
+            artifacts/ds5-bridge-oled-${{ env.FIRMWARE_VERSION }}*.uf2
+            artifacts/firmware-image-*.json
           if-no-files-found: error
 
       - name: Upload Debug UF2 artifact
         uses: actions/upload-artifact@v7
         with:
           path: artifacts/ds5-bridge-oled-debug.uf2
-          archive: false
-          if-no-files-found: error
-
-      - name: Upload PicoW UF2 artifact
-        uses: actions/upload-artifact@v7
-        with:
-          path: artifacts/ds5-bridge-oled-picow.uf2
           archive: false
           if-no-files-found: error

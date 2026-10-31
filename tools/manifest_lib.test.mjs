@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
-import { allPages, assetHasher, buildFeed, isoSeconds, keepIssuedAt, PICO2_W_IMAGE, selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
+import { readFileSync } from "node:fs";
+import { allPages, assetHasher, buildFeed, imageFields, isoSeconds, keepIssuedAt, PICO2_W_IMAGE, releaseImages, selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
 
 const asset = (name) => ({ name, size: 1, browser_download_url: `https://github.com/x/releases/download/t/${name}` });
 const rel = (tag_name, names, extra = {}) => ({ tag_name, html_url: `https://github.com/x/releases/tag/${tag_name}`, draft: false, prerelease: false, assets: names.map(asset), ...extra });
@@ -205,4 +206,30 @@ test("hash cache: the same file in both feeds downloads once; --no-cache downloa
   // A short download is still refused.
   const short = fakeFetch({ [tar.browser_download_url]: "proton" });
   await assert.rejects(assetHasher({ fetch: short.fetch, noCache: true })(tar), /size 6 != 12/);
+});
+
+const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
+
+test("boards.json's pico2_w row describes the image every release so far published", () => {
+  assert.deepEqual(imageFields(boards.find((b) => b.id === "pico2_w")), PICO2_W_IMAGE);
+});
+
+test("firmware-images.json: each entry is a release board, this version and a file of the release", () => {
+  const r = rel("v0.9.6-oled-edition", ["ds5-bridge-oled-v0.9.6-oled-edition.uf2", "firmware-images.json"]);
+  const entry = { board: "pico2_w", version: "v0.9.6-oled-edition", file: "ds5-bridge-oled-v0.9.6-oled-edition.uf2", sha256: "2f".repeat(32) };
+  const [img] = releaseImages([entry], r, boards);
+  assert.equal(img.row.id, "pico2_w");
+  assert.equal(img.asset.name, entry.file);
+  assert.throws(() => releaseImages([{ ...entry, board: "pico_w" }], r, boards), /not a release board/);
+  assert.throws(() => releaseImages([{ ...entry, board: "nope" }], r, boards), /not a release board/);
+  assert.throws(() => releaseImages([{ ...entry, version: "v0.9.5-oled-edition" }], r, boards), /says pico2_w is v0\.9\.5/);
+  assert.throws(() => releaseImages([{ ...entry, file: "other.uf2" }], r, boards), /doesn't have/);
+  assert.throws(() => releaseImages({}, r, boards), /not a list/);
+});
+
+test("firmwares[] from firmware-images.json is byte-identical to the Pico 2 W fallback for the same file", () => {
+  const listed = [{ version: firmware.version, ...imageFields(boards.find((b) => b.id === "pico2_w")), notes_url: firmware.notes_url, uf2 }];
+  const a = buildFeed({ channel: "stable", issuedAt: "2026-11-02T18:04:11Z", newestStable: "0.9.4", app, firmware });
+  const b = buildFeed({ channel: "stable", issuedAt: "2026-11-02T18:04:11Z", newestStable: "0.9.4", app, firmware, firmwares: listed });
+  assert.equal(JSON.stringify(b), JSON.stringify(a));
 });

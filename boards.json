@@ -1,0 +1,31 @@
+{
+  "$comment": "The one table of boards (DESIGN_FIRMWARE_IDENTITY section 5). CMakeLists.txt reads name and type_id; build.yml builds every row, release.yml one image per release row (asset: {tag} = the release tag); tools/uf2_info.mjs (gate G2) checks each image against its row; tools/build_manifest.mjs puts release rows in the feed's firmwares[]. type_id is 0xEA [3..4] (src/fw_identity.h). Waveshare RP2350B-Plus-W joins as a release:false row with PR #27, which adds its build flag.",
+  "boards": [
+    {
+      "id": "pico2_w",
+      "name": "Pico 2 W",
+      "type_id": 1,
+      "pico_board": "pico2_w",
+      "chip": "rp2350a",
+      "flash_bytes": 4194304,
+      "cmake_flags": [],
+      "personas": ["ds5"],
+      "displays": ["none", "pico_oled_1_3"],
+      "asset": "ds5-bridge-oled-{tag}.uf2",
+      "release": true
+    },
+    {
+      "id": "pico_w",
+      "name": "Pico W",
+      "type_id": 2,
+      "pico_board": "pico_w",
+      "chip": "rp2040",
+      "flash_bytes": 2097152,
+      "cmake_flags": ["-DPICO_W_BUILD=ON"],
+      "personas": ["ds5"],
+      "displays": ["none", "pico_oled_1_3"],
+      "asset": "ds5-bridge-oled-{tag}-pico_w.uf2",
+      "release": false
+    }
+  ]
+}

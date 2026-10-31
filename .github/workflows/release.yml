@@ -49,8 +49,26 @@ permissions:
   contents: write
 
 jobs:
+  # The boards a release ships: boards.json rows with release: true, one
+  # firmware image each (design DESIGN_FIRMWARE_IDENTITY §5).
+  boards:
+    name: Release boards (boards.json)
+    runs-on: ubuntu-latest
+    outputs:
+      ids: ${{ steps.rows.outputs.ids }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SRC_REF }}
+      - id: rows
+        run: echo "ids=$(node -p 'JSON.stringify(require("./boards.json").boards.filter((b) => b.release).map((b) => b.id))')" >> "$GITHUB_OUTPUT"
+
   firmware:
-    name: Build firmware
+    name: Build firmware (${{ matrix.board }})
+    needs: boards
+    strategy:
+      matrix:
+        board: ${{ fromJSON(needs.boards.outputs.ids) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout tag
@@ -149,36 +167,32 @@ jobs:
       - name: Host unit tests (ASan + UBSan)
         run: tests/host/run.sh build/host-tests
 
+      # The board's image under its boards.json asset name, the image checks,
+      # its firmware-image-<board>.json and gate G2 (tools/build_board.sh).
       - name: Build release firmware (with the configurator interface)
+        run: tools/build_board.sh "${{ matrix.board }}" "$TAG" -DENABLE_COMPANION_VENDOR=ON
+
+      # What the app bundles: the Pico 2 W image plus its version and hash.
+      - name: Bundle for the app
+        if: matrix.board == 'pico2_w'
         run: |
-          cmake -S . -B build/standard -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_SDK_PATH="$PICO_SDK_PATH" \
-            -DENABLE_COMPANION_VENDOR=ON \
-            -DVERSION="$TAG"
-          cmake --build build/standard --target ds5-bridge
-          tools/check_ram_residency.sh build/standard/ds5-bridge-oled.elf
-          tools/check_xip_setup.sh build/standard/ds5-bridge-oled.elf 2 11
-          python3 tools/check_flash_reserved.py build/standard/ds5-bridge-oled.elf build/standard/ds5-bridge-oled.uf2
-          mkdir -p artifacts
-          cp build/standard/ds5-bridge-oled.uf2 "artifacts/ds5-bridge-oled-$TAG.uf2"
-          # What the app bundles: the same UF2 plus its version and hash.
           mkdir -p bundle
-          cp build/standard/ds5-bridge-oled.uf2 bundle/ds5-bridge-oled.uf2
+          cp build/pico2_w/ds5-bridge-oled.uf2 bundle/ds5-bridge-oled.uf2
           printf '{"version":"%s","file":"ds5-bridge-oled.uf2","sha256":"%s"}\n' "$TAG" "$(sha256sum bundle/ds5-bridge-oled.uf2 | cut -d' ' -f1)" > bundle/firmware.json
           # The app builds this release's firmware CHANGELOG.md into About →
           # Firmware changes (its firmwareChangelog.config.ts), so that tab needs no network.
           cp CHANGELOG.md bundle/CHANGELOG.md
 
       # The debug build (ENABLE_SERIAL=ON) comes up as a serial console, not a
-      # working bridge: a developer diagnostic, never a release download. The
-      # Pico W build stays a CI artifact (build.yml).
+      # working bridge: a developer diagnostic, never a release download.
+      # Boards with release: false (the Pico W) stay CI artifacts (build.yml).
 
       - uses: actions/upload-artifact@v4
         with:
-          name: firmware-release
+          name: firmware-release-${{ matrix.board }}
           path: artifacts/
       - uses: actions/upload-artifact@v4
+        if: matrix.board == 'pico2_w'
         with:
           name: firmware-bundle
           path: bundle/
@@ -266,13 +280,26 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # One list of every board image (each build job wrote its own row after
+      # gate G2), for tools/build_manifest.mjs; then G2 again on each UF2
+      # against the merged list.
+      - name: firmware-images.json
+        run: |
+          set -euo pipefail
+          node -e 'const fs = require("fs"); const rows = fs.readdirSync("dist").filter((f) => /^firmware-image-.+\.json$/.test(f)).sort().flatMap((f) => JSON.parse(fs.readFileSync("dist/" + f, "utf8")));
+            fs.writeFileSync("dist/firmware-images.json", JSON.stringify(rows, null, 2) + "\n");'
+          cat dist/firmware-images.json
+          node -p 'require("./dist/firmware-images.json").map((e) => e.board + " " + e.file).join("\n")' | while read -r board file; do
+            node tools/uf2_info.mjs "dist/$file" --board "$board" --version "$TAG" --images dist/firmware-images.json </dev/null || exit 1
+          done
       - name: Checksums
         run: |
           set -euo pipefail
           shopt -s nullglob
           files=(dist/*.AppImage dist/*-win-x64*.exe dist/*-mac-universal.zip dist/ds5-bridge-oled-*.uf2)
-          [ "${#files[@]}" -eq 4 ] || { echo "expected 4 files, got: ${files[*]}"; exit 1; }
-          ( cd dist && sha256sum "${files[@]##*/}" > SHA256SUMS.txt && cat SHA256SUMS.txt )
+          want=$((3 + $(node -p 'require("./boards.json").boards.filter((b) => b.release).length')))
+          [ "${#files[@]}" -eq "$want" ] || { echo "expected $want files (3 apps + one UF2 per release board), got: ${files[*]}"; exit 1; }
+          ( cd dist && sha256sum "${files[@]##*/}" firmware-images.json > SHA256SUMS.txt && cat SHA256SUMS.txt )
       # Build provenance, before the release is visible: a signed attestation
       # per file that this workflow built it from this tag.
       - name: Attest build provenance
@@ -284,6 +311,7 @@ jobs:
             dist/*-win-x64*.exe
             dist/*-mac-universal.zip
             dist/ds5-bridge-oled-*.uf2
+            dist/firmware-images.json
             dist/SHA256SUMS.txt
       - name: Notes, draft release, publish when complete
         if: env.DRY_RUN != 'true'
@@ -369,5 +397,5 @@ jobs:
             } >> notes.md
           fi
           gh release create "$tag" --draft --verify-tag $([ "$dev" = true ] && echo --prerelease) --title "${tag%-oled-edition}${label:+ — $label} — OLED Edition" --notes-file notes.md
-          gh release upload "$tag" "${files[@]}" dist/SHA256SUMS.txt
+          gh release upload "$tag" "${files[@]}" dist/firmware-images.json dist/SHA256SUMS.txt
           if [ "$dev" = true ]; then gh release edit "$tag" --draft=false; else gh release edit "$tag" --draft=false --latest; fi

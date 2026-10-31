@@ -80,8 +80,9 @@ export async function allPages(getPage, perPage) {
 
 // What the only image published so far is built for (design
 // DESIGN_FIRMWARE_IDENTITY §2): every release UF2 is the Pico 2 W (RP2350A,
-// 4 MB) DualSense image, OLED add-on optional. Other boards join with
-// boards.json (step 7); personas switch at run time in this one image.
+// 4 MB) DualSense image, OLED add-on optional. Releases from step 7 on list
+// their images in firmware-images.json (boards.json rows, releaseImages);
+// this stays for the releases made before. Personas switch at run time.
 export const PICO2_W_IMAGE = {
   board: "pico2_w",
   chip: "rp2350a",
@@ -97,7 +98,9 @@ export const isoSeconds = (date) => date.toISOString().replace(/\.\d{3}Z$/, "Z")
 // before (unknown keys are dropped); `firmware` stays the Pico 2 W image.
 // New apps read `firmwares[]`, check `channel` and `issued_at`, and go "Back
 // to stable" only to `newest_stable`.
-export function buildFeed({ channel, issuedAt, newestStable, app, firmware, proton }) {
+// `firmwares` (from the release's firmware-images.json, releaseImages below)
+// replaces the Pico 2 W-only list of releases made before it existed.
+export function buildFeed({ channel, issuedAt, newestStable, app, firmware, firmwares, proton }) {
   if (!newestStable) throw new Error("no stable release: newest_stable is required in both feeds");
   const { version, notes_url, uf2 } = firmware ?? {};
   return {
@@ -107,9 +110,29 @@ export function buildFeed({ channel, issuedAt, newestStable, app, firmware, prot
     newest_stable: newestStable,
     app,
     ...(firmware ? { firmware } : {}),
-    firmwares: firmware ? [{ version, ...PICO2_W_IMAGE, notes_url, uf2 }] : [],
+    firmwares: firmwares ?? (firmware ? [{ version, ...PICO2_W_IMAGE, notes_url, uf2 }] : []),
     ...(proton ? { proton } : {}),
   };
+}
+
+// A boards.json row as the feed describes the image (the PICO2_W_IMAGE fields).
+export const imageFields = (row) => ({ board: row.id, chip: row.chip, flash_min: row.flash_bytes, personas: row.personas, displays: row.displays });
+
+// The images a release lists in its firmware-images.json (release.yml writes
+// it after gate G2: [{ board, version, file, sha256 }]), each with its
+// boards.json row and its release asset. Throws when an entry names a board
+// that isn't a release row, another version, or a file the release lacks.
+export function releaseImages(listing, release, boards) {
+  if (!Array.isArray(listing)) throw new Error(`${release.tag_name}: firmware-images.json is not a list`);
+  // loop: NOT-WORTH — one entry per release board
+  return listing.map((entry) => {
+    const row = boards.find((b) => b.id === entry.board);
+    if (!row?.release) throw new Error(`${release.tag_name}: firmware-images.json lists ${entry.board}, not a release board in boards.json`);
+    if (entry.version !== release.tag_name) throw new Error(`${release.tag_name}: firmware-images.json says ${entry.board} is ${entry.version}`);
+    const asset = release.assets.find((a) => a.name === entry.file);
+    if (!asset) throw new Error(`${release.tag_name}: firmware-images.json names ${entry.file}, which the release doesn't have`);
+    return { entry, row, asset };
+  });
 }
 
 // Keep the previous feed's issued_at when nothing else changed, so an
