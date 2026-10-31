@@ -19,7 +19,7 @@ toolchain_setup() {
   local root k v
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   while IFS='=' read -r k v; do
-    [[ "$k" =~ ^[A-Z_]+$ ]] && printf -v "PIN_$k" '%s' "$v"
+    [[ "$k" =~ ^[A-Z][A-Z0-9_]*$ ]] && printf -v "PIN_$k" '%s' "$v"
   done < "$root/toolchain.env"
 
   : "${PICO_SDK_PATH:=$HOME/pico-sdk}"
@@ -41,6 +41,8 @@ toolchain_setup() {
   sdk="$(sed -nE 's/^ *set\(PICO_SDK_VERSION_(MAJOR|MINOR|REVISION) ([0-9]+)\).*/\2/p' \
     "$PICO_SDK_PATH/pico_sdk_version.cmake" | paste -sd.)"
   [ "$sdk" = "$PIN_PICO_SDK_REF" ] || warn+=("Pico SDK is ${sdk:-unknown}, CI uses $PIN_PICO_SDK_REF")
+  sdk="$(git -C "$PICO_SDK_PATH" rev-parse HEAD 2>/dev/null || true)"
+  [ "$sdk" = "$PIN_PICO_SDK_COMMIT" ] || warn+=("Pico SDK is at commit ${sdk:-unknown}, CI uses $PIN_PICO_SDK_COMMIT")
   tusb="$(git -C "$PICO_SDK_PATH/lib/tinyusb" rev-parse HEAD 2>/dev/null || true)"
   [ "$tusb" = "$PIN_TINYUSB_REF" ] || warn+=("TinyUSB is at ${tusb:-unknown}, CI uses $PIN_TINYUSB_REF")
   gcc="$("$TOOLCHAIN_CC" --version | head -n 1)"
