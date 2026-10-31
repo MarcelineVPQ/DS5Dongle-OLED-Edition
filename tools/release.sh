@@ -98,6 +98,7 @@ echo "== Firmware checks: submodule gitlinks, the 7 READMEs, the community files
 python3 "$FW_DIR/tools/check_readmes.py" "$FW_DIR"
 python3 "$FW_DIR/tools/check_community.py" "$FW_DIR"
 (cd "$APP_DIR" && node tools/check_identical_files.mjs "$FW_DIR")
+python3 "$FW_DIR/tools/check_protocol_lockstep.py" "$APP_DIR"
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 "$FW_DIR/tests/host/run.sh" "$BUILD_DIR/host-tests"

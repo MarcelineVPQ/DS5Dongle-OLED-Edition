@@ -12,7 +12,7 @@
 - [ ] Update-feed, `boards.json` or UF2-check code changed: `node --test tools/*.test.mjs` passes
 - [ ] The firmware builds (`tools/dev_firmware.sh`, plus `--picow` if it touches the Pico W)
 - [ ] User-facing change: an entry under `[Unreleased]` in `CHANGELOG.md`; a README change is in all 7 languages
-- [ ] Protocol or `Config_body` change: `PICO_PROTO_*` bumped and a matching pull request in DS5Dongle-OLED-Config-Web
+- [ ] Protocol or `Config_body` change: `PICO_PROTO_*` bumped, a matching pull request in DS5Dongle-OLED-Config-Web, and `python3 tools/check_protocol_lockstep.py <app checkout>` passes
 
 ## Hardware tested on
 

@@ -176,3 +176,7 @@ runs:
         cd _app
         node tools/doc_gates.mjs --check --repo "$GITHUB_WORKSPACE"
         node tools/check_identical_files.mjs "$GITHUB_WORKSPACE"
+
+    - name: The firmware and the app agree on the protocol (config body layout, protocol version)
+      shell: bash
+      run: python3 tools/check_protocol_lockstep.py _app
