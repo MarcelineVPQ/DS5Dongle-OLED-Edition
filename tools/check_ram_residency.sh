@@ -17,6 +17,7 @@
 #      builds only: the Pico W (RP2040) keeps core0 in flash (src/core0_ram.h).
 #      Inline per-frame helpers (src/haptics_decimate.h, src/grip_wave.h) are
 #      checked only if the compiler kept an out-of-line copy.
+#   4. Core1's RAM code calls nothing new in flash (tools/check_core1_calls.py).
 #   Run by .github/workflows/build.yml and release.yml after each build.
 #   tools/check_ram_residency.sh path/to/ds5-bridge.elf
 set -euo pipefail
@@ -113,6 +114,9 @@ for sym in $CORE0_OPTIONAL; do
     bad=1
   fi
 done
+# 4. What core1's RAM code calls: no new call into flash (tools/check_core1_calls.py,
+#    which walks the calls from core1_entry; its allow-list names each known one).
+OBJDUMP="${OBJDUMP:-arm-none-eabi-objdump}" python3 "$(dirname "$0")/check_core1_calls.py" "$ELF" || bad=1
 if [ "$bad" = 0 ]; then
   if [ -n "$CORE0" ]; then
     echo "check_ram_residency: core1's audio path and core0's BT/USB hot path are RAM-resident"
