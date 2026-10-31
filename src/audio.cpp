@@ -380,7 +380,7 @@ static void CORE0_RAM_FUNC(audio_bt_task)() {
             pkt[141] = SPEAKER_OPUS_SIZE;
         }
         // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
-        if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
+        if (bt_write(pkt, sizeof(pkt))) g_bt_packets = g_bt_packets + 1;
         return;
     }
     // Speaker Audio Data (2 frames)
@@ -399,7 +399,7 @@ static void CORE0_RAM_FUNC(audio_bt_task)() {
 #endif
 
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
-    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets = g_bt_packets + 1;
 }
 
 // A report carrying only the narrator: silent haptics, her two frames. For
@@ -412,7 +412,7 @@ void audio_send_voice_report() {
     pkt[141] = SPEAKER_OPUS_SIZE;
     if (!voice_take_frames(pkt + 142, pkt + 142 + SPEAKER_OPUS_SIZE, SPEAKER_OPUS_SIZE)) return;
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
-    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets = g_bt_packets + 1;
 #endif
 }
 
@@ -469,7 +469,7 @@ static void CORE0_RAM_FUNC(grip_test_task)() {
     }
 #endif
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
-    if (bt_write(pkt, sizeof(pkt))) g_bt_packets++;
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets = g_bt_packets + 1;
     s_grip_clock.sent(now);
     s_grip_tail = !tail && !s_grip.active();
 }
@@ -576,9 +576,9 @@ void CORE0_RAM_FUNC(audio_loop)() {
                 if (queue_is_full(&audio_fifo)) {
                     queue_try_remove(&audio_fifo,NULL);
                     // error: LOGGED-OK — counter g_drop_raw (0xFB/0xF5, the app's audio counters); realtime audio drops the oldest block, nothing for the user to do
-                    g_drop_raw++;
+                    g_drop_raw = g_drop_raw + 1;
                 }
-                g_raw_push++;
+                g_raw_push = g_raw_push + 1;
                 // error: LOGGED-OK — printf + g_drop_raw; the FIFO was just made room for, so this can't fail in practice
                 if (!queue_try_add(&audio_fifo, &element)) {
                     printf("[Audio] Warning: audio_fifo add failed\n");
@@ -637,9 +637,9 @@ void CORE0_RAM_FUNC(audio_loop)() {
         if (queue_is_full(&haptics_fifo)) {
             queue_try_remove(&haptics_fifo, NULL);
             // error: LOGGED-OK — counter g_drop_hap (0xFB/0xF5); realtime haptics drop the oldest block
-            g_drop_hap++;
+            g_drop_hap = g_drop_hap + 1;
         }
-        g_hap_push++;
+        g_hap_push = g_hap_push + 1;
         // error: LOGGED-OK — counter g_drop_hap; room was made on the line above, so the add can't fail
         queue_try_add(&haptics_fifo, &element);
         haptic_buf_pos = 0;
@@ -692,12 +692,12 @@ static void __not_in_flash_func(speaker_proc)() {
     // error: LOGGED-OK — the block is skipped (a 10 ms gap); an encode error needs a broken encoder, which core1 flags at start (g_c1_flags 0x02, shown in the app's Dongle dashboard)
     const int encoded = opus_encode_float(encoder, out_buf, 480, spk.data, SPEAKER_OPUS_SIZE);
     if (encoded <= 0) return;
-    g_c1_enc++;
+    g_c1_enc = g_c1_enc + 1;
     if (encoded < SPEAKER_OPUS_SIZE) memset(spk.data + encoded, 0, SPEAKER_OPUS_SIZE - encoded);
     if (queue_is_full(&audio_spk_fifo)) {
         queue_try_remove(&audio_spk_fifo, NULL);
         // error: LOGGED-OK — counter g_drop_enc (0xF5); realtime speaker drops the oldest packet
-        g_drop_enc++;
+        g_drop_enc = g_drop_enc + 1;
     }
     // error: LOGGED-OK — counted on the line above; room was just made, so the add can't fail
     queue_try_add(&audio_spk_fifo, &spk);
@@ -730,7 +730,7 @@ static bool __not_in_flash_func(mic_proc)() {
             mic_push_decoded(dec);
             g_mic_last_real_us = now;
             g_mic_session = true;
-            g_mic_frames++;
+            g_mic_frames = g_mic_frames + 1;
             last_out_us = now;
         }
         return true;
@@ -745,7 +745,7 @@ static bool __not_in_flash_func(mic_proc)() {
     const int n = opus_decode(mic_decoder, nullptr, 0, dec.mono, MIC_FRAMES, 0); // PLC
     if (n > 0) {
         mic_push_decoded(dec);
-        g_mic_plc_frames++;
+        g_mic_plc_frames = g_mic_plc_frames + 1;
     }
     last_out_us += mic_session::kFrameUs;
     return true;
@@ -815,7 +815,7 @@ void __not_in_flash_func(core1_entry)() {
     // loop: HOT-PATH-OK — core1 service loop: bounded work per item, sleep_us(10) when idle
     while (true) {
         g_c1_stage = 9;  // running: stage 9 and c1_loops moving
-        g_c1_loops++;
+        g_c1_loops = g_c1_loops + 1;
         bool work = false;
 #if !DISABLE_SPEAKER_PROC
         if (g_spk_ready && !queue_is_empty(&audio_fifo)) {
