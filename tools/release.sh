@@ -54,6 +54,11 @@ DEV=false
 toolchain_setup || die "no usable Pico SDK / ARM toolchain"
 [ -f "$APP_DIR/package.json" ] || die "app repo not found at $APP_DIR (use --app PATH)"
 
+# Each repo's origin must be the GitHub repo it publishes to: the tags and
+# master go to origin, and release.yml runs on MarcelineVPQ/DS5Dongle-OLED-Edition.
+origin_is() { [[ "$(git -C "$1" remote get-url origin)" =~ [:/]$2(\.git)?$ ]] || die "$1: origin is not $2 ($(git -C "$1" remote get-url origin))"; }
+origin_is "$FW_DIR" MarcelineVPQ/DS5Dongle-OLED-Edition
+origin_is "$APP_DIR" MarcelineVPQ/DS5Dongle-OLED-Config-Web
 for dir in "$FW_DIR" "$APP_DIR"; do
   [ "$(git -C "$dir" branch --show-current)" = master ] || die "$dir is not on master"
   [ -z "$(git -C "$dir" status --porcelain --untracked-files=no)" ] || die "$dir has uncommitted changes"

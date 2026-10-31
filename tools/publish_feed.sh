@@ -39,6 +39,8 @@ TRUSTED="$APP_DIR/electron/main/feedSignature.ts"
 [ -f "$TRUSTED" ] || die "app repo not found at $APP_DIR (use --app PATH): needed to check the key is one the app trusts"
 cd "$FW_DIR"
 [ "$(git branch --show-current)" = master ] || die "$FW_DIR is not on master"
+# The feeds are pushed to origin, which installed apps read through raw.githubusercontent.
+[[ "$(git remote get-url origin)" =~ [:/]MarcelineVPQ/DS5Dongle-OLED-Edition(\.git)?$ ]] || die "origin is not MarcelineVPQ/DS5Dongle-OLED-Edition"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || die "$FW_DIR has uncommitted changes"
 git pull --ff-only origin master
 
