@@ -152,15 +152,21 @@ export function keepIssuedAt(feed, previousText) {
 // Size + sha256 of release files, without downloading one twice. `entries` is
 // the hash cache (feed-hash-cache.json, keyed by GitHub asset id): a file
 // whose id, name, size and updated_at all match its entry is not downloaded
-// again. In one run each asset is downloaded at most once. noCache ignores the
-// stored entries (re-downloads and replaces them). When GitHub lists a
-// `digest` ("sha256:…") it must equal the cached or computed sha256, or this
-// throws: neither side is trusted silently. save(entries) runs after each new
-// hash, so an interrupted publish keeps what it already hashed.
+// again. In one run each asset is downloaded at most once. When GitHub lists a
+// `digest` ("sha256:…") and no gate needs the bytes, that is the sha256 (the
+// size is the API's): nothing is downloaded (the app installers are hundreds
+// of MB, the Proton build ~565 MB), and the entry records
+// `source: "github-digest"` (else "downloaded"). A downloaded file's sha256
+// must equal its digest, and a cached one's too, or this throws: neither side
+// is trusted silently. noCache ignores the stored entries and the digests
+// (downloads and hashes every file, replacing the entries). save(entries)
+// runs after each new hash, so an interrupted publish keeps what it already
+// hashed.
 // measure(asset, gate): gate = { key, check(bytes, sha256) } runs on the
-// downloaded bytes and throws to refuse the file (gate G2 on a UF2); the
-// entry records `gate: key`, and a cached entry without that key is
-// downloaded and checked again.
+// downloaded bytes and throws to refuse the file (gate G2 on a UF2): a gated
+// file is always downloaded, never taken from its digest; the entry records
+// `gate: key`, and a cached entry without that key is downloaded and checked
+// again.
 export function assetHasher({ fetch, entries = {}, noCache = false, save = () => {} }) {
   const inRun = new Map();
   const confirm = (asset, sha256, where) => {
@@ -173,6 +179,12 @@ export function assetHasher({ fetch, entries = {}, noCache = false, save = () =>
     if (!noCache && hit && hit.name === asset.name && hit.size === asset.size && hit.updated_at === asset.updated_at && (!gate || hit.gate === gate.key)) {
       confirm(asset, hit.sha256, "the hash cache");
       return { url: asset.browser_download_url, size: hit.size, sha256: hit.sha256 };
+    }
+    const digest = /^sha256:([0-9a-f]{64})$/.exec(asset.digest ?? "")?.[1];
+    if (digest && !gate && !noCache) {
+      entries[asset.id] = { name: asset.name, size: asset.size, updated_at: asset.updated_at, sha256: digest, source: "github-digest" };
+      save(entries);
+      return { url: asset.browser_download_url, size: asset.size, sha256: digest };
     }
     const r = await fetch(asset.browser_download_url, { redirect: "follow" });
     if (!r.ok || !r.body) throw new Error(`${asset.name}: download returned ${r.status}`);
@@ -188,7 +200,7 @@ export function assetHasher({ fetch, entries = {}, noCache = false, save = () =>
     const sha256 = h.digest("hex");
     confirm(asset, sha256, "the download");
     if (gate) gate.check(Buffer.concat(chunks), sha256);
-    entries[asset.id] = { name: asset.name, size, updated_at: asset.updated_at, sha256, ...(gate ? { gate: gate.key } : {}) };
+    entries[asset.id] = { name: asset.name, size, updated_at: asset.updated_at, sha256, source: "downloaded", ...(gate ? { gate: gate.key } : {}) };
     save(entries);
     return { url: asset.browser_download_url, size, sha256 };
   }

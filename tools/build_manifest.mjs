@@ -5,18 +5,19 @@
 //     the Pico 2 W firmware UF2 it was built with
 //   - the newest proton-* release: the GE-Proton DualSense build the app's
 //     Games page installs (its SHA256SUMS.txt must list the tarball)
-// Every file is downloaded and hashed here, so the feed can never point at a
-// file that doesn't exist or doesn't match; the hashes are kept in
+// Every file's sha256 comes from GitHub's own `digest` when the API lists one
+// (no download); the firmware images (gate G2 reads their bytes) and files
+// without a digest are downloaded and hashed, and must agree with the digest
+// when there is one. The hashes are kept in
 // ~/.cache/ds5-release/feed-hash-cache.json (per GitHub asset id, name, size
-// and updated_at), so an unchanged file is never downloaded again, and
-// GitHub's own sha256 digest, when listed, must agree (manifest_lib
-// assetHasher). Writes feed schema 2 (manifest_lib buildFeed): issued_at
+// and updated_at, with their source), so an unchanged file is never looked up
+// again (manifest_lib assetHasher). Writes feed schema 2 (manifest_lib buildFeed): issued_at
 // (now, UTC), newest_stable, firmwares[] beside the legacy firmware key
 // (from the release's firmware-images.json and boards.json when it has one).
 //
 //   node tools/build_manifest.mjs [--out latest.json] [--check] [--channel stable|dev] [--no-cache]
 //
-// --no-cache downloads and hashes every file again (and refreshes the cache).
+// --no-cache downloads and hashes every file again, digests or not (and refreshes the cache).
 //
 // Exit 2: no unified release yet (nothing to write). --check exits 1 if the
 // result differs from the existing file. Uses GITHUB_TOKEN when set.
@@ -46,8 +47,8 @@ const releases = () =>
     return r.json();
   }, 100);
 
-// Download and hash an asset, streamed (the Proton build is ~565 MB), unless
-// the hash cache already has it.
+// An asset's size + sha256: from the hash cache, else GitHub's digest, else
+// downloaded and hashed, streamed (manifest_lib assetHasher).
 const CACHE = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "ds5-release", "feed-hash-cache.json");
 const measure = assetHasher({
   fetch,
@@ -113,11 +114,13 @@ if (unified.uf2) parts.firmware = { version: unified.release.tag_name, notes_url
 const proton = selectProton(all);
 if (proton) {
   if (!proton.sums) throw new Error(`${proton.release.tag_name}: no SHA256SUMS.txt in the release`);
+  // The tarball's sha256 (from its digest when GitHub lists one: no ~565 MB
+  // download) against the release's own SHA256SUMS.txt.
   const measured = await measure(proton.tarball);
   const r = await fetch(proton.sums.browser_download_url, { redirect: "follow" });
   if (!r.ok) throw new Error(`SHA256SUMS.txt: download returned ${r.status}`);
   const listed = sumFor(await r.text(), proton.tarball.name);
-  if (listed !== measured.sha256) throw new Error(`${proton.tarball.name}: SHA256SUMS.txt says ${listed ?? "nothing"}, download hashes to ${measured.sha256}`);
+  if (listed !== measured.sha256) throw new Error(`${proton.tarball.name}: SHA256SUMS.txt says ${listed ?? "nothing"}, the file's sha256 is ${measured.sha256}`);
   parts.proton = { name: proton.tarball.name.replace(/\.tar\.gz$/, ""), notes_url: proton.release.html_url, tarball: measured };
 }
 

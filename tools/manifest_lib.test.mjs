@@ -162,7 +162,7 @@ test("hash cache: a cached file with the same id, name, size and updated_at is n
   const first = fakeFetch(files);
   assert.deepEqual(await assetHasher({ fetch: first.fetch, entries })(tar), { url: tar.browser_download_url, size: 12, sha256: sha("proton bytes") });
   assert.equal(first.calls.length, 1);
-  assert.deepEqual(entries[7], { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: sha("proton bytes") });
+  assert.deepEqual(entries[7], { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: sha("proton bytes"), source: "downloaded" });
   const again = fakeFetch(files);
   assert.deepEqual(await assetHasher({ fetch: again.fetch, entries })(tar), { url: tar.browser_download_url, size: 12, sha256: sha("proton bytes") });
   assert.equal(again.calls.length, 0);
@@ -184,8 +184,8 @@ test("hash cache: GitHub's digest must match the cache and the download", async 
   const good = { ...tar, digest: `sha256:${sha("proton bytes")}` };
   const bad = { ...tar, digest: `sha256:${"1".repeat(64)}` };
   const f = fakeFetch(files);
-  assert.equal((await assetHasher({ fetch: f.fetch })(good)).sha256, sha("proton bytes"));
-  await assert.rejects(assetHasher({ fetch: f.fetch })(bad), /digest says 1{64}, the download says/);
+  assert.equal((await assetHasher({ fetch: f.fetch, noCache: true })(good)).sha256, sha("proton bytes"));
+  await assert.rejects(assetHasher({ fetch: f.fetch, noCache: true })(bad), /digest says 1{64}, the download says/);
   const entries = { 7: { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: "2".repeat(64) } };
   await assert.rejects(assetHasher({ fetch: f.fetch, entries })(good), /the hash cache says 2{64}/);
   assert.equal(f.calls.length, 2);
@@ -227,6 +227,48 @@ test("hash cache with a gate (G2): checked on download, the pass cached per key,
   await assert.rejects(assetHasher({ fetch: h.fetch, entries })(tar, gate("k2", false)), /G2 refused/);
   assert.equal(h.calls.length, 1);
   assert.equal(entries[7].gate, "k1");
+});
+
+test("digest: a file GitHub lists a sha256 digest for is not downloaded; its entry says so", async () => {
+  const withDigest = { ...tar, digest: `sha256:${sha("proton bytes")}` };
+  const f = fakeFetch(files);
+  const entries = {};
+  assert.deepEqual(await assetHasher({ fetch: f.fetch, entries })(withDigest), { url: tar.browser_download_url, size: 12, sha256: sha("proton bytes") });
+  assert.equal(f.calls.length, 0);
+  assert.deepEqual(entries[7], { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: sha("proton bytes"), source: "github-digest" });
+  // Without a digest (or one that isn't sha256): downloaded and hashed as before.
+  const g = fakeFetch(files);
+  assert.equal((await assetHasher({ fetch: g.fetch })(tar)).sha256, sha("proton bytes"));
+  assert.equal((await assetHasher({ fetch: g.fetch })({ ...tar, id: 8, digest: "md5:abc" })).sha256, sha("proton bytes"));
+  assert.equal(g.calls.length, 2);
+  // A later real download of the same file that disagrees with the digest is a hard error.
+  const lying = { ...tar, digest: `sha256:${"3".repeat(64)}` };
+  const e = {};
+  await assetHasher({ fetch: g.fetch, entries: e })(lying);
+  await assert.rejects(assetHasher({ fetch: g.fetch, entries: e })(lying, { key: "k", check: () => {} }), /digest says 3{64}, the download says/);
+});
+
+test("digest: a firmware image with a digest is still downloaded and gate-checked (G2)", async () => {
+  const uf2 = file(9, "ds5-bridge-oled-v0.9.6-oled-edition.uf2", "uf2 bytes", { digest: `sha256:${sha("uf2 bytes")}` });
+  const f = fakeFetch({ [uf2.browser_download_url]: "uf2 bytes" });
+  const seen = [];
+  const entries = {};
+  const got = await assetHasher({ fetch: f.fetch, entries })(uf2, { key: "g2", check: (bytes, sha256) => seen.push([bytes.toString(), sha256]) });
+  assert.equal(got.sha256, sha("uf2 bytes"));
+  assert.equal(f.calls.length, 1);
+  assert.deepEqual(seen, [["uf2 bytes", sha("uf2 bytes")]]);
+  assert.equal(entries[9].source, "downloaded");
+  assert.equal(entries[9].gate, "g2");
+});
+
+test("digest: the Proton tarball is checked against SHA256SUMS.txt without downloading it", async () => {
+  const withDigest = { ...tar, digest: `sha256:${sha("proton bytes")}` };
+  const f = fakeFetch(files);
+  const measured = await assetHasher({ fetch: f.fetch })(withDigest);
+  assert.equal(f.calls.length, 0);
+  const sums = `${sha("proton bytes")}  ${tar.name}\n`;
+  assert.equal(sumFor(sums, tar.name), measured.sha256);
+  assert.notEqual(sumFor(`${"4".repeat(64)}  ${tar.name}\n`, tar.name), measured.sha256);
 });
 
 const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
