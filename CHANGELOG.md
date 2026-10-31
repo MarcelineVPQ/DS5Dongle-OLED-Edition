@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Fixed
+
+- **A too-short feature-report write from the PC no longer reboots the board.** A SET_FEATURE `0x80` (or the DualSense Edge's `0x60`–`0x62`) with fewer than 4 bytes has no room for its checksum; the length wrapped, which overwrote the stack and read far past the end of memory, and the watchdog rebooted the board (the controller dropped and USB re-enumerated). Such a write is now dropped (host-tested).
+
 ## [0.9.5-dev.20-oled-edition] — Release Candidate 2 — 2026-10-18
 
 **Release Candidate 2 for 0.9.5.**

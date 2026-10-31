@@ -143,3 +143,13 @@ TEST(ctrl_send_clear_forgets_the_old_link) {
     CHECK_EQ(link.sent.size(), 1u);
     CHECK_EQ(link.sent[0][1], 0x09);
 }
+
+// A host SET_FEATURE 0x80 / 0x60-0x62 with 0-3 bytes has no room for the
+// CRC; set_feature_data must drop it (its CRC length would wrap).
+TEST(set_feature_len_rejects_short_and_oversized_payloads) {
+    for (size_t len = 0; len < 4; len++) CHECK(!set_feature_len_ok(len, 66));  // loop: NOT-WORTH — test, 4 cases
+    CHECK(set_feature_len_ok(4, 66));
+    CHECK(set_feature_len_ok(63, 66));  // the longest a host can send (64-byte report minus its id)
+    CHECK(set_feature_len_ok(64, 66));
+    CHECK(!set_feature_len_ok(65, 66));
+}

@@ -1078,6 +1078,11 @@ std::vector<uint8_t> bt_peek_feature(uint8_t reportId) {
 }
 
 void set_feature_data(uint8_t reportId, uint8_t *data, uint16_t len) {
+    // error: LOGGED-OK — printf; a host SET this short (or long) is malformed and is dropped instead of corrupting the stack (src/ctrl_send.h)
+    if (!set_feature_len_ok(len, kCtrlFrameMax)) {
+        printf("[L2CAP] Set Feature 0x%02X with %u bytes dropped\n", reportId, len);
+        return;
+    }
     if (hid_control_cid != 0) {
         uint8_t get_feature[len + 2];
         get_feature[0] = 0x53;

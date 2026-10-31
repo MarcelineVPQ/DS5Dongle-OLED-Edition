@@ -36,6 +36,15 @@ enum class CtrlSubmit : uint8_t {
     Dropped,  // queue full, frame too long or the send failed: lost (logged)
 };
 
+// A SET feature frame is 0x53 <id> <payload>, and the payload's last 4 bytes
+// are the CRC slot set_feature_data fills. A payload under 4 bytes has no room
+// for the CRC (its length would wrap: a stack write and a ~4 GB CRC read), and
+// one longer than a frame can't be sent. A host can send either (a short
+// SET_FEATURE 0x80 / 0x60-0x62), so set_feature_data checks this first.
+constexpr bool set_feature_len_ok(size_t len, size_t frame_max) {
+    return len >= 4 && len + 2 <= frame_max;
+}
+
 template <size_t Depth, size_t MaxLen>
 class CtrlSendQueue {
 public:
