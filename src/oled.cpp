@@ -13,6 +13,7 @@
 #include "signal_screen.h"
 #include "oled_toast.h"
 #include "identify_screen.h"
+#include "display_table.h"
 #include "settings_merge.h"
 #include "settings_menu.h"
 #include "diag_rows.h"
@@ -185,7 +186,16 @@ uint8_t triggers_last_face = 0;
 uint8_t lb_last_buttons = 0;
 constexpr int kNumTrigPresets = 7;
 
+// The display this boot drives (display_table.h, Config::display_id, read
+// once in oled_init / oled_fault). With "none" nothing below touches SPI1 or
+// the OLED's pins: they're never set up. The screens still render into fb (so
+// the mirror and the identify timer behave the same) but nothing is sent.
+uint8_t g_display = display::kNone;
+bool g_panel = false;
+
 void cmd(uint8_t c) {
+    // error: NOT-WORTH — no panel driven (display "none"), by the user's choice
+    if (!g_panel) return;
     gpio_put(kPinDC, 0);
     gpio_put(kPinCS, 0);
     spi_write_blocking(spi1, &c, 1);
@@ -197,6 +207,8 @@ void cmd(uint8_t c) {
 // never change under a byte in flight.
 struct SpiSink {
     static void send(bool is_data, const uint8_t *p, int n) {
+        // error: NOT-WORTH — no panel driven (display "none"), by the user's choice
+        if (!g_panel) return;
         gpio_put(kPinDC, is_data ? 1 : 0);
         gpio_put(kPinCS, 0);
         spi_write_blocking(spi1, p, static_cast<size_t>(n));
@@ -592,7 +604,10 @@ void handle_buttons() {
     // KEY0 held 2 s = "pair now", only on the Status screen with no
     // controller (its text says so); everywhere else KEY0 is next screen.
     const bool pair_hold = current_screen == kScreenStatus && !bt_is_connected();
-    const uint8_t ev = oledkeys::step(g_keys, !gpio_get(kPinKey0) || v0, !gpio_get(kPinKey1) || v1, now, pair_hold);
+    // With display "none" the key pins aren't set up (display::is_key_down): only remote presses count.
+    const bool k0 = display::is_key_down(g_display, gpio_get(kPinKey0));
+    const bool k1 = display::is_key_down(g_display, gpio_get(kPinKey1));
+    const uint8_t ev = oledkeys::step(g_keys, k0 || v0, k1 || v1, now, pair_hold);
     // error: NOT-WORTH — nothing; no key event this pass (polling, not a failure)
     if (ev == 0) return;
     if (ev & oledkeys::kActivity) last_activity_us = time_us_64();
@@ -1815,7 +1830,13 @@ uint16_t oled_mirror(uint8_t *out, uint16_t cap) {
     return kOledMirrorBytes;
 }
 
-void oled_init() {
+// The saved display's driver: pins, reset and controller setup. False with
+// "none" (nothing is touched).
+static bool panel_start() {
+    g_display = display::resolve(config_display_id());
+    g_panel = display::has_panel(g_display);
+    // error: NOT-WORTH — display "none": the user's choice, nothing to start
+    if (!g_panel) return false;
     spi_init(spi1, 10 * 1000 * 1000);
     gpio_set_function(kPinCLK, GPIO_FUNC_SPI);
     gpio_set_function(kPinMOSI, GPIO_FUNC_SPI);
@@ -1830,8 +1851,25 @@ void oled_init() {
     hw_reset();
     sh1107_init();
     panel_in_sync = false;
+    return true;
+}
+
+uint8_t oled_display_active() { return g_display; }
+
+void oled_fault(const char *l1, const char *l2, const char *l3) {
+    // error: NOT-WORTH — display "none": nowhere to show it (the board stays stopped either way)
+    if (!panel_start()) return;
     fb_clear();
-    boot_splash();
+    draw_text(0, 16, l1);
+    draw_text(0, 28, l2);
+    draw_text(0, 40, l3);
+    flush_fb_raw();
+}
+
+void oled_init() {
+    fb_clear();
+    // error: NOT-WORTH — display "none" (the user's choice): no 1.5 s splash nobody would see
+    if (panel_start()) boot_splash();
 
     // Restore the persisted lightbar mode + favorites (config_load() already ran
     // in main() before this). Defaults to HOST passthrough on a fresh flash.

@@ -5,6 +5,15 @@
 
 void oled_init();
 void oled_loop();
+
+// The display driven since boot (display_table.h ids; protocol 1.21, 0xEA
+// [11]). With display::kNone nothing touches SPI1, the OLED's pins or keys.
+uint8_t oled_display_active();
+
+// A boot fault the board stops on (main.cpp: no wireless chip): three lines
+// of at most 21 characters on the saved display, nothing with "none". Needs
+// config_load() first; the panel is set up here (oled_init never ran).
+void oled_fault(const char *l1, const char *l2, const char *l3);
 void oled_send_trigger_preset(int preset); // 0..6, the Trigger Test presets
 
 // The app's remote KEY0 / KEY1 press (0xF6 0x18, protocol 1.18): queues a

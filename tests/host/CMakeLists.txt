@@ -50,6 +50,7 @@ add_executable(host_tests
         test_mic_session.cpp
         test_config_fixtures.cpp
         test_heap.cpp
+        test_fw_identity.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
         ${FW}/src/remap.cpp
@@ -69,6 +70,7 @@ target_compile_definitions(host_tests PRIVATE
         ENABLE_SERIAL=0
         ENABLE_VERBOSE=0
         DS5_BOARD_NAME="Host"
+        DS5_BOARD_TYPE_ID=1
         SYS_CLOCK_KHZ=150000
         FIRMWARE_VERSION="host-test"
         PICO_PROGRAM_VERSION_STRING="host-test"

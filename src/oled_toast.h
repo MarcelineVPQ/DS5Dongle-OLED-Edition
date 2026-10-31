@@ -26,6 +26,9 @@ static_assert(sizeof(kBrightness) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kLightbar) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kSlot) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kPair) - 1 <= kMaxChars, "toast too wide");
+// The flash is smaller than the image was built for (board_facts.h): shown at boot.
+constexpr char kFlashSmall[] = "Small flash: no save";
+static_assert(sizeof(kFlashSmall) - 1 <= kMaxChars, "toast too wide");
 
 struct Toast {
     const char *msg = nullptr;

@@ -8,7 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+### Added
+
+- **The board says exactly what it is, so an update can be matched to it** (protocol 1.21). A new read-only report, `0xEA` (identity [49] bit 2; layout in `src/fw_identity.h`), gives the board type, the controller persona this image runs and can switch to, the flash size the image was built for and the size measured at start-up, the chip and its package (RP2040, RP2350A or RP2350B), whether settings can be saved, and the display that runs, the displays this image drives and the one chosen for the next start. The UF2 also names its board, persona and displays in its binary info, for the release checks.
+- **The display is a setting: Waveshare Pico-OLED-1.3 or none** (0xF6 `0x1B`, identity [49] bit 3). With "none" the board leaves SPI1, the OLED's pins and its two keys alone (no splash, no screen updates, the keys can't press anything), so those pins are free; the identify request still blinks the LED. The choice is saved on its own, outside the settings the app writes, and used from the next start. A board updated from earlier firmware keeps driving the Pico-OLED-1.3, as before.
+
 ### Fixed
+
+- **A board with less flash than the firmware expects no longer writes its settings to the wrong place.** At start-up the board reads its flash chip's size (the chip's own SFDP table); when it is smaller than the image was built for, nothing is written to flash at all (settings, pairings, button layout, calibration): they work until the board restarts. The OLED says "Small flash: no save" at start-up and `0xEA` tells the app. A chip that doesn't report its size is treated as before.
+- **A Pico 2 (without the wireless chip) given the Pico 2 W firmware no longer restarts for ever.** After the third failed start of the wireless chip in a row it stops and the OLED says "No wireless chip found: this firmware is for the Pico 2 W". Unplugging it starts the count again.
 
 - **A too-short feature-report write from the PC no longer reboots the board.** A SET_FEATURE `0x80` (or the DualSense Edge's `0x60`–`0x62`) with fewer than 4 bytes has no room for its checksum; the length wrapped, which overwrote the stack and read far past the end of memory, and the watchdog rebooted the board (the controller dropped and USB re-enumerated). Such a write is now dropped (host-tested).
 - **Audio lost on the way to the controller now shows up in the diagnostics instead of being counted as sent.** When the Bluetooth output queue was full, a speaker/haptics report was dropped, but the "BT audio reports out" counter (`0xF5`), the app's Bluetooth rate and the OLED `BT32 out` rate still counted it. Only reports that go out are counted now; dropped ones are counted in a new `0xFD` field (bytes 50–53; hosts asking for the old 50 bytes get what they did before), on a new OLED Diagnostics row `BT drop`, and in `scripts/mic_diag.sh bt-trace`. The one-time report that turns the controller's mic on or off is no longer lost when the queue is full: it waits for room and is sent again.

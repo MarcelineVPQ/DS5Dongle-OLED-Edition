@@ -35,13 +35,13 @@ void settle() {  // let a deferred command run (reboot/BOOTSEL wait 50 ms)
 }
 }  // namespace
 
-TEST(cmd_identity_reports_protocol_1_20) {
+TEST(cmd_identity_reports_protocol_1_21) {
     fresh();
     uint8_t id[47]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 47);
     CHECK(std::memcmp(id, "DS5O", 4) == 0);
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 20);
+    CHECK_EQ(id[5], 21);
     CHECK_EQ(id[6], 51);
     CHECK(id[46] & 0x02);  // the 1.13 config fields
     CHECK(id[46] & 0x04);  // the 1.14 PC sleep options

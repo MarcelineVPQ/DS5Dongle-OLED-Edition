@@ -20,6 +20,9 @@
 #include "oled.h"
 #include "oled_vpad.h"
 #include "identify_screen.h"
+#include "board_facts.h"
+#include "display_table.h"
+#include "fw_identity.h"
 #include "pico/unique_id.h"
 #include "state_mgr.h"
 #include "hardware/clocks.h"
@@ -313,6 +316,10 @@ void cmd_task() {
             result = config_save_power_flags(s_pending_arg) ? CMD_RESULT_OK : CMD_RESULT_FAILED;
             s_host_gen++;
             break;
+        case 0x1B: // display choice (proto 1.21), saved on its own like the power flags; used from the next start
+            // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte, the app's command error (save failed)
+            result = config_save_display_id(s_pending_arg) ? CMD_RESULT_OK : CMD_RESULT_FAILED;
+            break;
         case 0x18: // remote KEY0 / KEY1 press (proto 1.18): bit0 key, bit1 long
             // error: SHOWN — CMD_RESULT_BUSY in the 0xF1 result byte: four presses already waiting; the app shows a command error
             result = oled_key_inject(s_pending_arg & 1, (s_pending_arg & 2) != 0) ? CMD_RESULT_OK : CMD_RESULT_BUSY;
@@ -398,7 +405,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     //   controller's VolumeMic 0..0x40 (what mic_level 0 follows)
     //   proto 1.20 (when reqlen >= 50): [49] feature bits 4, bit0 board id,
     //   bit1 identify screen (0xF6 0x1A); (when reqlen >= 58) [50..57] the
-    //   board's flash unique id, the same whatever controller is paired
+    //   board's flash unique id, the same whatever controller is paired;
+    //   bit2 (1.21) firmware identity (GET 0xEA, fw_identity.h); bit3 (1.21)
+    //   the display choice (0xF6 0x1B)
     //   proto 1.14 (when reqlen >= 48): [47] the PC sleep options' current
     //   bits (POWER_*: bit0 controller off when the PC sleeps, bit1 PS wakes
     //   the PC; 0 when [46] bit2 is clear)
@@ -438,6 +447,26 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         memcpy(buffer + 5, saved, sizeof(saved));
         memcpy(buffer + 5 + sizeof(saved), active, sizeof(active));
         return kLen;
+    }
+    // 0xEA (vendor interface only, proto 1.21): the firmware identity, layout
+    // in fw_identity.h (14 bytes).
+    if (report_id == PICO_CMD_FW_IDENTITY) {
+        const uint8_t active = oled_display_active();
+        const fwid::Facts f{
+            .board_type = DS5_BOARD_TYPE_ID,
+            .persona = fwid::kPersonaDs5,
+            .personas = 1u << fwid::kPersonaDs5,
+            .flash_built = board_flash_built(),
+            .flash_measured = board_flash_measured(),
+            .chip = board_chip(),
+            // The radio is always found here: without it the board stops at boot (radio_boot.h).
+            .flags = (uint8_t) (fwid::kFlagRadio | (board_saved_state_off() ? fwid::kFlagSavedStateOff : 0) |
+                                (display::has_panel(active) ? fwid::kFlagDisplay : 0)),
+            .display_active = active,
+            .displays = display::kSupported,
+            .display_saved = config_display_id(),
+        };
+        return fwid::write(f, buffer, reqlen);
     }
     if (report_id == PICO_CMD_REMAP_EXTRA) {
         // error: NOT-WORTH — no data (not a STALL: the HID path answers only the report id, the vendor interface a zero-length reply); a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
@@ -539,8 +568,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         buffer[48] = state_get_pc_mic_volume();
         if (reqlen < 50) return 49;
         // proto 1.20: [49] a fourth feature byte. bit0 the board id at
-        // [50..57]; bit1 the identify screen (0xF6 0x1A).
-        buffer[49] = 0x01 | 0x02;
+        // [50..57]; bit1 the identify screen (0xF6 0x1A); bit2 (1.21) the
+        // firmware identity (GET 0xEA); bit3 (1.21) the display choice (0xF6 0x1B).
+        buffer[49] = 0x01 | 0x02 | 0x04 | 0x08;
         if (reqlen < 50 + kBoardIdLen) return 50;
         // proto 1.20: [50..57] the board's flash unique id (the RP2350's /
         // RP2040's 64-bit id, pico_get_unique_board_id): stable whatever
@@ -850,7 +880,7 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
         s_last_result = CMD_RESULT_BUSY;
         return;
     }
-    const bool deferred = func == 0x02 || (func >= 0x04 && func <= 0x0B) || func == 0x17 || func == 0x18 || func == 0x19;
+    const bool deferred = func == 0x02 || (func >= 0x04 && func <= 0x0B) || func == 0x17 || func == 0x18 || func == 0x19 || func == 0x1B;
 
     //   0x01 update config in RAM          0x02 write config to flash (deferred)
     //   0x03 reconnect tinyusb device      0x04 [slot] switch slot (deferred)
@@ -884,6 +914,10 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     //        the board name and slot, flashing, at full brightness for
     //        tenths x 0.1 s (no byte: 3 s; 0 stops; max 10 s), and the LED
     //        blinks in step; then both go back to what they were
+    //   0x1B [display] the display the board drives (proto 1.21,
+    //        display_table.h: 0 none, 1 Waveshare Pico-OLED-1.3); saved
+    //        (deferred), used from the next start; INVALID for a display this
+    //        image has no driver for
     s_last_result = CMD_RESULT_OK;
     switch (func) {
         case 0x01:
@@ -943,6 +977,11 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
         case 0x17:
             // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
             if (bufsize < 2 || (arg & ~POWER_FLAGS_MASK)) s_last_result = CMD_RESULT_INVALID;
+            else defer(func, arg, 0);
+            break;
+        case 0x1B:
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            if (bufsize < 2 || !display::is_supported(arg)) s_last_result = CMD_RESULT_INVALID;
             else defer(func, arg, 0);
             break;
         case 0x18:

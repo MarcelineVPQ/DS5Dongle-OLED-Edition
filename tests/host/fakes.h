@@ -39,3 +39,7 @@ extern uint8_t g_fake_board_id[8];
 // oled_identify (0xF6 0x1A, proto 1.20): the last tenths asked, -1 = never.
 extern int g_fake_identify_tenths;
 extern int g_fake_identify_calls;
+// 0xEA (proto 1.21): oled_display_active() and board_facts.h's boot-time reads.
+extern uint8_t g_fake_display_active;
+extern uint8_t g_fake_flash_measured;  // size code, 0 unknown
+extern uint8_t g_fake_chip;

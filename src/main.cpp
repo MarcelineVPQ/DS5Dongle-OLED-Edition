@@ -32,6 +32,12 @@
 #include "dse.h"
 #include "fw_report.h"
 #include "usb_power.h"
+#include "board_facts.h"
+#include "display_table.h"
+#include "fw_identity.h"
+#include "radio_boot.h"
+#include "oled_toast.h"
+#include "pico/binary_info.h"
 
 // Pico SDK speciifically for waiting on conditions
 #include "pico/critical_section.h"
@@ -425,6 +431,16 @@ uint8_t g_last_out02_trig[47]{};  // most recent with an Allow*TriggerFFB bit
 extern "C" int __real_flash_safe_execute(void (*func)(void *), void *param, uint32_t enter_exit_timeout_ms);
 extern "C" int __wrap_flash_safe_execute(void (*func)(void *), void *param, uint32_t enter_exit_timeout_ms) {
     g_fse_calls++;
+    // The flash is smaller than this image was built for (board_facts.h):
+    // saved state would land outside the chip or on top of something else, so
+    // nothing is written (protocol 1.21, 0xEA [10] bit 1). Every flash write
+    // goes through here: ours (flash_sector_write) and BTstack's link keys,
+    // which ignore the result (their RAM copy keeps working until a restart).
+    if (board_saved_state_off()) {
+        // error: SHOWN — 0xEA [10] bit1 (the app says settings can't be saved on this board) and the boot notice on the OLED; each save also reports its own failure (CMD_RESULT_FAILED, "Save FAIL"); counted in g_fse_fail
+        g_fse_fail++;
+        return PICO_ERROR_NOT_PERMITTED;
+    }
     // Before core1 registers for lockout (boot: BTstack TLV init, *_load
     // repairs) the SDK refuses with PICO_ERROR_NOT_PERMITTED and the write is
     // silently lost. Core1 isn't running audio yet, so masking core0's IRQs is
@@ -550,6 +566,13 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
     }
 }
 
+// What this image is, in the UF2's binary info (fw_identity.h), for the
+// release gate that checks an image against its feed entry (step 7, G2). The
+// SDK already records PICO_BOARD; these are the feed's own names.
+bi_decl(bi_string(BINARY_INFO_MAKE_TAG(DS5_BI_TAG_C1, DS5_BI_TAG_C2), fwid::kBiBoard, DS5_BOARD_KEY));
+bi_decl(bi_string(BINARY_INFO_MAKE_TAG(DS5_BI_TAG_C1, DS5_BI_TAG_C2), fwid::kBiPersonas, "ds5"));
+bi_decl(bi_string(BINARY_INFO_MAKE_TAG(DS5_BI_TAG_C1, DS5_BI_TAG_C2), fwid::kBiDisplays, DS5_DISPLAYS_BI));
+
 #if PICO_RP2350 && SYS_CLOCK_KHZ == 150000 && SYS_CLK_KHZ != 150000
 #error "the Pico 2 W build assumes the SDK boots clk_sys at 150 MHz"
 #endif
@@ -570,6 +593,10 @@ int main() {
     sleep_ms(1000);
     set_sys_clock_khz(SYS_CLOCK_KHZ, true);
 #endif
+
+    // Flash size and chip package (0xEA), first: the saved-state lock must be
+    // known before anything writes flash (config migration, BTstack's bank).
+    board_facts_probe();
 
     board_init();
     tusb_rhport_init_t dev_init = {
@@ -599,15 +626,28 @@ int main() {
 
     // A failed radio start is retried by a reboot, not left hanging: main()
     // returning (as before) stopped the board for good, before the watchdog
-    // was armed, until it was unplugged.
-    // error: LOGGED-OK — printf, then a reboot to retry: nothing can run without the radio; a fault that persists shows as a board that never comes up
+    // was armed, until it was unplugged. The third failed start in a row
+    // (radio_boot.h; a power cycle starts the count again) stops instead and
+    // says why on the OLED: a board without the wireless chip (a Pico 2 given
+    // the Pico 2 W image) used to reboot for ever and show nothing.
+    // error: SHOWN — the OLED's "No wireless chip found" screen after the third failed start; until then a reboot retries (printf)
     if (cyw43_arch_init()) {
+        const uint32_t count = radio_boot::after_failure(watchdog_hw->scratch[radio_boot::kScratch]);
+        watchdog_hw->scratch[radio_boot::kScratch] = count;
+        if (radio_boot::should_stop(count)) {
+            printf("No wireless chip found, stopped\n");
+            config_load();  // the saved display choice; reads only, unless an old config needs moving
+            oled_fault("No wireless chip", "found: this firmware", "is for the " DS5_BOARD_NAME);
+            // loop: NOT-WORTH — stopped on purpose (no radio); the watchdog isn't armed, unplugging starts over
+            for (;;) tight_loop_contents();
+        }
         printf("Failed to initialize CYW43, rebooting\n");
         sleep_ms(500);
         watchdog_reboot(0, 0, 0);
         // loop: NOT-WORTH — boot failure: waits the few µs for the watchdog reset
         for (;;) tight_loop_contents();
     }
+    watchdog_hw->scratch[radio_boot::kScratch] = 0;  // the radio started: the count starts over
 #ifdef CYW43_WL_GPIO_SMPS_PIN
     // The Pico W's SMPS in PWM mode: no coil whine under light load (upstream 23a55da, #207).
     cyw43_arch_gpio_put(CYW43_WL_GPIO_SMPS_PIN, true);
@@ -649,6 +689,8 @@ int main() {
     audio_init();
     state_init();
     oled_init();
+    // error: SHOWN — the OLED notice here and 0xEA [10] bit1 for the app; settings work until the board restarts
+    if (board_saved_state_off()) oled_notice(oled_toast::kFlashSmall);
 
 #if !ENABLE_SERIAL
     watchdog_enable(1000, true);

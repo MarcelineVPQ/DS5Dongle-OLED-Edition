@@ -156,6 +156,17 @@ int g_fake_identify_tenths = -1;
 int g_fake_identify_calls = 0;
 void oled_identify(uint8_t tenths) { g_fake_identify_tenths = tenths; g_fake_identify_calls++; }
 bool oled_identify_active() { return g_fake_identify_tenths > 0; }
+// oled.cpp's display driven since boot, board_facts.cpp's boot-time reads (0xEA, proto 1.21).
+uint8_t g_fake_display_active = 1;
+uint8_t oled_display_active() { return g_fake_display_active; }
+#include "board_facts.h"
+#include "fw_identity.h"
+uint8_t g_fake_flash_measured = 0x0A;
+uint8_t g_fake_chip = 1;
+uint8_t board_flash_built() { return fwid::flash_code(PICO_FLASH_SIZE_BYTES); }
+uint8_t board_flash_measured() { return g_fake_flash_measured; }
+uint8_t board_chip() { return g_fake_chip; }
+bool board_saved_state_off() { return fwid::saved_state_off(board_flash_built(), g_fake_flash_measured); }
 #include "pico/unique_id.h"
 uint8_t g_fake_board_id[8] = {0xE6, 0x61, 0x38, 0x52, 0x83, 0x4A, 0x2B, 0x2C};
 void pico_get_unique_board_id(pico_unique_board_id_t *id) { std::memcpy(id->id, g_fake_board_id, 8); }

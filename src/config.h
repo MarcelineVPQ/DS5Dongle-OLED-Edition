@@ -143,6 +143,13 @@ struct __attribute__((packed)) Config {
     // POWER_* bits. Not in the CRC (older firmware wrote 0xFF here, which reads
     // as the default, as does anything outside POWER_FLAGS_MASK).
     uint8_t power_flags;
+    // The display the OLED code drives (protocol 1.21, src/display_table.h:
+    // 0 none, 1 Waveshare Pico-OLED-1.3). Kept here like power_flags, not in
+    // the body, so the body (the app's config layout) doesn't change: set and
+    // saved on its own (0xF6 0x1B), read in 0xEA [11..13], used from the next
+    // start. Not in the CRC; 0xFF from older firmware reads as the
+    // Pico-OLED-1.3, which every earlier image drove.
+    uint8_t display_id;
 };
 
 void config_default();
@@ -161,6 +168,11 @@ uint8_t config_power_flags();
 bool config_save_power_flags(uint8_t flags);
 // RAM only (the OLED Settings screen; its Triangle save writes them).
 void config_set_power_flags(uint8_t flags);
+// The saved display choice (display_table.h ids), resolved: never 0xFF.
+uint8_t config_display_id();
+// Save a display choice on its own, like config_save_power_flags. False = not
+// a display this image drives, or the flash write failed.
+bool config_save_display_id(uint8_t id);
 const Config_body& get_config();
 void set_config(const uint8_t *new_config, const uint16_t len);
 void config_valid();
