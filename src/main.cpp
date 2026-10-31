@@ -200,9 +200,9 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
     // bit 0 (and bit 1) is NOT a mic flag, just the report-type indicator;
     // every "mic-tagged" frame turned out to be standard input.
     if (channel == INTERRUPT && len > 1) {
-        if (data[1] == 0x31) g_bt_31_packets++;
+        if (data[1] == 0x31) g_bt_31_packets = g_bt_31_packets + 1;
         else {
-            g_bt_other_packets++;
+            g_bt_other_packets = g_bt_other_packets + 1;
             g_last_other_id = data[1];
             g_other_id_or = (uint8_t)(g_other_id_or | data[1]);
             // loop: HOT-PATH-OK — ≤ 8 bytes per non-0x31 BT frame (debug counters)
@@ -299,7 +299,9 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
     }
     const uint16_t n = get_report_impl(itf, report_id, report_type, buffer, reqlen);
     if (report_id < 0xF2) { // don't record our own diagnostic reads
-        const uint32_t i = g_get_count++ % 16;
+        const uint32_t count = g_get_count;  // one load and one store, as ++ did (-Wvolatile)
+        g_get_count = count + 1;
+        const uint32_t i = count % 16;
         g_get_ring[i][0] = report_id;
         g_get_ring[i][1] = n > 255 ? 255 : static_cast<uint8_t>(n);
     }
@@ -430,7 +432,7 @@ uint8_t g_last_out02_trig[47]{};  // most recent with an Allow*TriggerFFB bit
 
 extern "C" int __real_flash_safe_execute(void (*func)(void *), void *param, uint32_t enter_exit_timeout_ms);
 extern "C" int __wrap_flash_safe_execute(void (*func)(void *), void *param, uint32_t enter_exit_timeout_ms) {
-    g_fse_calls++;
+    g_fse_calls = g_fse_calls + 1;
     // The flash is smaller than this image was built for (board_facts.h):
     // saved state would land outside the chip or on top of something else, so
     // nothing is written (protocol 1.21, 0xEA [10] bit 1). Every flash write
@@ -438,7 +440,7 @@ extern "C" int __wrap_flash_safe_execute(void (*func)(void *), void *param, uint
     // which ignore the result (their RAM copy keeps working until a restart).
     if (board_saved_state_off()) {
         // error: SHOWN — 0xEA [10] bit1 (the app says settings can't be saved on this board) and the boot notice on the OLED; each save also reports its own failure (CMD_RESULT_FAILED, "Save FAIL"); counted in g_fse_fail
-        g_fse_fail++;
+        g_fse_fail = g_fse_fail + 1;
         return PICO_ERROR_NOT_PERMITTED;
     }
     // Before core1 registers for lockout (boot: BTstack TLV init, *_load
@@ -453,7 +455,7 @@ extern "C" int __wrap_flash_safe_execute(void (*func)(void *), void *param, uint
     }
     const int rc = __real_flash_safe_execute(func, param, enter_exit_timeout_ms);
     // error: LOGGED-OK — counter g_fse_fail (OLED Diag); the failed write itself is reported by its caller
-    if (rc != PICO_OK) g_fse_fail++;
+    if (rc != PICO_OK) g_fse_fail = g_fse_fail + 1;
     return rc;
 }
 
@@ -496,18 +498,18 @@ static bool host_out02_forward(const uint8_t *buffer, uint16_t bufsize) {
 // A host output report 0x02 (buffer[0] = 0x02, bufsize >= 2): counted for
 // the diagnostics and forwarded to the controller as a 0x31.
 static void host_out02(const uint8_t *buffer, uint16_t bufsize) {
-    g_host_out02_total++;
+    g_host_out02_total = g_host_out02_total + 1;
     // valid_flag0 lives at buffer[1] (right after the 0x02 report id).
     // Bits 2 & 3 are AllowRight/LeftTriggerFFB.
     if (bufsize > 1 && (buffer[1] & 0x0C)) {
-        g_host_out02_trig_allow++;
+        g_host_out02_trig_allow = g_host_out02_trig_allow + 1;
     }
     if ((size_t) bufsize - 1 >= sizeof(g_last_out02)) {
         memcpy(g_last_out02, buffer + 1, sizeof(g_last_out02));
         if (buffer[1] & 0x0C) memcpy(g_last_out02_trig, buffer + 1, sizeof(g_last_out02_trig));
     }
     // error: NOT-WORTH — nothing; a malformed/short host report isn't forwarded (counted only when forwarded, g_host_out02_to_bt); games send well-formed ones every frame
-    if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt++;
+    if (host_out02_forward(buffer, bufsize)) g_host_out02_to_bt = g_host_out02_to_bt + 1;
 }
 
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
@@ -521,7 +523,7 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
     if (usb_wake_keyboard()) return;  // the wake keyboard's LED report: nothing to do
 
     if (report_id != 0) {
-        g_setfeat_count++;
+        g_setfeat_count = g_setfeat_count + 1;
         g_setfeat_last = report_id | (bufsize ? buffer[0] : 0) << 8 | (uint32_t) bufsize << 16;
     }
 
