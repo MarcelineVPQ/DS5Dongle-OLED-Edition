@@ -47,7 +47,7 @@ export function selectRelease(releases, channel = "stable") {
     if (Object.keys(platforms).length === 0) continue;
     const uf2 = pick(r, new RegExp(`^ds5-bridge-oled-${r.tag_name.replace(/[.]/g, "\\.")}\\.uf2$`));
     const found = { release: r, version: m[1], platforms, uf2 };
-    if (channel === "stable") return found; // the API lists newest first
+    // By version, not list order: the list is paged and may be read in any order.
     if (!best || newer(found.version, best.version)) best = found;
   }
   return best;
@@ -63,4 +63,63 @@ export function selectProton(releases) {
 export function sumFor(sumsText, name) {
   const line = sumsText.split("\n").find((l) => l.trim().split(/\s+/)[1]?.replace(/^\*/, "") === name);
   return line ? line.trim().split(/\s+/)[0] : null;
+}
+
+// Every page of a paged list: getPage(n) (n from 1) returns one page's array;
+// a page shorter than perPage is the last.
+export async function allPages(getPage, perPage) {
+  const all = [];
+  for (let page = 1; ; page++) {
+    const items = await getPage(page);
+    all.push(...items);
+    if (items.length < perPage) return all;
+  }
+}
+
+// What the only image published so far is built for (design
+// DESIGN_FIRMWARE_IDENTITY §2): every release UF2 is the Pico 2 W (RP2350A,
+// 4 MB) DualSense image, OLED add-on optional. Other boards join with
+// boards.json (step 7); personas switch at run time in this one image.
+export const PICO2_W_IMAGE = {
+  board: "pico2_w",
+  chip: "rp2350a",
+  flash_min: 4 * 1024 * 1024,
+  personas: ["ds5"],
+  displays: ["none", "pico_oled_1_3"],
+};
+
+// ISO UTC to the second ("2026-11-02T18:04:11Z").
+export const isoSeconds = (date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+// The feed, schema 2. Installed apps read `app`, `firmware` and `proton` as
+// before (unknown keys are dropped); `firmware` stays the Pico 2 W image.
+// New apps read `firmwares[]`, check `channel` and `issued_at`, and go "Back
+// to stable" only to `newest_stable`.
+export function buildFeed({ channel, issuedAt, newestStable, app, firmware, proton }) {
+  if (!newestStable) throw new Error("no stable release: newest_stable is required in both feeds");
+  const { version, notes_url, uf2 } = firmware ?? {};
+  return {
+    schema: 2,
+    channel,
+    issued_at: issuedAt,
+    newest_stable: newestStable,
+    app,
+    ...(firmware ? { firmware } : {}),
+    firmwares: firmware ? [{ version, ...PICO2_W_IMAGE, notes_url, uf2 }] : [],
+    ...(proton ? { proton } : {}),
+  };
+}
+
+// Keep the previous feed's issued_at when nothing else changed, so an
+// unchanged feed stays byte-identical (publish_feed.sh then has nothing to push).
+export function keepIssuedAt(feed, previousText) {
+  let prev;
+  try {
+    prev = JSON.parse(previousText);
+  } catch {
+    return feed;
+  }
+  if (typeof prev?.issued_at !== "string") return feed;
+  const same = JSON.stringify({ ...prev, issued_at: "" }) === JSON.stringify({ ...feed, issued_at: "" });
+  return same ? { ...feed, issued_at: prev.issued_at } : feed;
 }

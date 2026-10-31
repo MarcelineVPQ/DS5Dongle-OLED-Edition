@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildFeed } from "./manifest_lib.mjs";
 import { checkFeed, trustedKeys } from "./verify_feeds.mjs";
 
 const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -73,4 +74,31 @@ test("the command checks staged feeds against HEAD in a git repo", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// A schema-2 feed as tools/build_manifest.mjs writes it.
+const uf2 = { url: "https://github.com/x/ds5-bridge-oled-v0.9.4-oled-edition.uf2", size: 2745856, sha256: "2f".repeat(32) };
+const schema2 = (over = {}) => ({
+  ...buildFeed({
+    channel: "stable",
+    issuedAt: "2026-11-02T18:04:11Z",
+    newestStable: "0.9.4",
+    app: { version: "0.9.4" },
+    firmware: { version: "v0.9.4-oled-edition", notes_url: "n", uf2 },
+  }),
+  ...over,
+});
+const json = (o) => Buffer.from(JSON.stringify(o, null, 2) + "\n");
+
+test("a signed schema-2 feed passes", () => {
+  assert.deepEqual(check(json(schema2())), []);
+});
+
+test("schema 2 needs newest_stable, a complete firmwares[] and firmware = its pico2_w entry", () => {
+  assert.match(check(json(schema2({ newest_stable: undefined }))).join(), /newest_stable/);
+  assert.match(check(json(schema2({ newest_stable: "0.9.5-dev.20" }))).join(), /newest_stable/);
+  assert.match(check(json(schema2({ firmwares: undefined }))).join(), /firmwares\[\]/);
+  const f = schema2().firmwares[0];
+  assert.match(check(json(schema2({ firmwares: [{ ...f, chip: undefined }] }))).join(), /firmwares\[0\]/);
+  assert.match(check(json(schema2({ firmwares: [{ ...f, uf2: { ...uf2, sha256: "3f".repeat(32) } }] }))).join(), /pico2_w entry/);
 });

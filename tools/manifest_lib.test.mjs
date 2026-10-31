@@ -1,7 +1,7 @@
 // node --test tools/manifest_lib.test.mjs
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
+import { allPages, buildFeed, isoSeconds, keepIssuedAt, PICO2_W_IMAGE, selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
 
 const asset = (name) => ({ name, size: 1, browser_download_url: `https://github.com/x/releases/download/t/${name}` });
 const rel = (tag_name, names, extra = {}) => ({ tag_name, html_url: `https://github.com/x/releases/tag/${tag_name}`, draft: false, prerelease: false, assets: names.map(asset), ...extra });
@@ -78,4 +78,68 @@ test("the Windows entry is the per-user installer (or an older release's portabl
   assert.equal(selectRelease([unified]).platforms.windows.name, "DS5Dongle-OLED-Edition-Configurator-0.8.0-win-x64.exe");
   const stray = rel("v0.9.7-oled-edition", ["DS5Dongle-OLED-Edition-Configurator-0.9.7-win-x64-setup.exe.blockmap", "ds5-bridge-oled-v0.9.7-oled-edition.uf2"]);
   assert.equal(selectRelease([stray]), null);
+});
+
+// Feed schema 2 (DESIGN_FIRMWARE_IDENTITY §2).
+const uf2 = { url: "https://github.com/x/releases/download/v0.9.4-oled-edition/ds5-bridge-oled-v0.9.4-oled-edition.uf2", size: 2745856, sha256: "2f".repeat(32) };
+const firmware = { version: "v0.9.4-oled-edition", notes_url: "https://github.com/x/releases/tag/v0.9.4-oled-edition", uf2 };
+const app = { version: "0.9.4", notes_url: firmware.notes_url, platforms: { linux: { url: "u", size: 1, sha256: "a".repeat(64) } } };
+const protonEntry = { name: "GE-Proton11-7-DualSense", notes_url: "n", tarball: { url: "t", size: 1, sha256: "b".repeat(64) } };
+
+test("schema 2 has the signed fields first and the old keys unchanged", () => {
+  const feed = buildFeed({ channel: "dev", issuedAt: "2026-11-02T18:04:11Z", newestStable: "0.9.4", app, firmware, proton: protonEntry });
+  assert.deepEqual(Object.keys(feed), ["schema", "channel", "issued_at", "newest_stable", "app", "firmware", "firmwares", "proton"]);
+  assert.equal(feed.schema, 2);
+  assert.equal(feed.channel, "dev");
+  assert.equal(feed.issued_at, "2026-11-02T18:04:11Z");
+  assert.equal(feed.newest_stable, "0.9.4");
+  assert.equal(feed.app, app);
+  assert.equal(feed.firmware, firmware);
+  assert.equal(feed.proton, protonEntry);
+});
+
+test("firmwares[] is exactly the Pico 2 W image, the same file as the legacy firmware key", () => {
+  const feed = buildFeed({ channel: "stable", issuedAt: "2026-11-02T18:04:11Z", newestStable: "0.9.4", app, firmware });
+  assert.deepEqual(feed.firmwares, [
+    { version: "v0.9.4-oled-edition", board: "pico2_w", chip: "rp2350a", flash_min: 4194304, personas: ["ds5"], displays: ["none", "pico_oled_1_3"], notes_url: firmware.notes_url, uf2 },
+  ]);
+  assert.deepEqual(feed.firmwares[0].uf2, feed.firmware.uf2);
+  assert.equal(PICO2_W_IMAGE.flash_min, 4 * 1024 * 1024);
+  // No UF2 in the release: no firmware either way.
+  const none = buildFeed({ channel: "stable", issuedAt: "2026-11-02T18:04:11Z", newestStable: "0.9.4", app });
+  assert.equal(none.firmware, undefined);
+  assert.deepEqual(none.firmwares, []);
+});
+
+test("newest_stable is required in both feeds", () => {
+  assert.throws(() => buildFeed({ channel: "dev", issuedAt: "2026-11-02T18:04:11Z", app }), /newest_stable/);
+});
+
+test("newest_stable is the newest non-prerelease, whatever the list order", () => {
+  const stable094 = rel("v0.9.4-oled-edition", ["DS5Dongle-OLED-Edition-Configurator-0.9.4-linux-x86_64.AppImage"]);
+  const list = [stable090, devBuild("0.9.5-dev.20"), stable094, { ...rel("v0.9.6-oled-edition", ["DS5Dongle-OLED-Edition-Configurator-0.9.6-linux-x86_64.AppImage"]), draft: true }];
+  assert.equal(selectRelease(list, "stable").version, "0.9.4");
+  assert.equal(selectRelease(list, "dev").version, "0.9.5-dev.20");
+});
+
+test("issued_at is ISO UTC to the second", () => {
+  assert.equal(isoSeconds(new Date(Date.UTC(2026, 10, 2, 18, 4, 11, 789))), "2026-11-02T18:04:11Z");
+});
+
+test("an unchanged feed keeps its issued_at, a changed one takes the new one", () => {
+  const feed = (issuedAt, a = app) => buildFeed({ channel: "stable", issuedAt, newestStable: "0.9.4", app: a, firmware });
+  const prev = JSON.stringify(feed("2026-11-01T00:00:00Z"), null, 2) + "\n";
+  assert.equal(keepIssuedAt(feed("2026-11-02T00:00:00Z"), prev).issued_at, "2026-11-01T00:00:00Z");
+  assert.equal(keepIssuedAt(feed("2026-11-02T00:00:00Z", { ...app, version: "0.9.5" }), prev).issued_at, "2026-11-02T00:00:00Z");
+  // A schema-1 feed (no issued_at) or no file: the new time.
+  assert.equal(keepIssuedAt(feed("2026-11-02T00:00:00Z"), JSON.stringify({ channel: "stable" })).issued_at, "2026-11-02T00:00:00Z");
+  assert.equal(keepIssuedAt(feed("2026-11-02T00:00:00Z"), "").issued_at, "2026-11-02T00:00:00Z");
+});
+
+test("reads every page of the release list", async () => {
+  const pages = { 1: [1, 2], 2: [3, 4], 3: [5] };
+  const asked = [];
+  assert.deepEqual(await allPages(async (n) => (asked.push(n), pages[n] ?? []), 2), [1, 2, 3, 4, 5]);
+  assert.deepEqual(asked, [1, 2, 3]);
+  assert.deepEqual(await allPages(async (n) => (n === 1 ? [1, 2] : []), 2), [1, 2]);
 });

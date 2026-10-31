@@ -6,7 +6,9 @@
 //   - the newest proton-* release: the GE-Proton DualSense build the app's
 //     Games page installs (its SHA256SUMS.txt must list the tarball)
 // Every file is downloaded and hashed here, so the feed can never point at a
-// file that doesn't exist or doesn't match.
+// file that doesn't exist or doesn't match. Writes feed schema 2 (manifest_lib
+// buildFeed): issued_at (now, UTC), newest_stable, firmwares[] beside the
+// legacy firmware key.
 //
 //   node tools/build_manifest.mjs [--out latest.json] [--check] [--channel stable|dev]
 //
@@ -14,7 +16,7 @@
 // result differs from the existing file. Uses GITHUB_TOKEN when set.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
+import { allPages, buildFeed, isoSeconds, keepIssuedAt, selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
 
 const REPO = "MarcelineVPQ/DS5Dongle-OLED-Edition";
 
@@ -26,11 +28,13 @@ if (channel !== "stable" && channel !== "dev") throw new Error(`unknown channel 
 const headers = { Accept: "application/vnd.github+json", "User-Agent": "ds5-manifest-builder" };
 if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 
-async function releases() {
-  const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=50`, { headers });
-  if (!r.ok) throw new Error(`${REPO}: GitHub API returned ${r.status}`);
-  return r.json();
-}
+// All releases, every page (newest_stable may be older than the first page).
+const releases = () =>
+  allPages(async (page) => {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100&page=${page}`, { headers });
+    if (!r.ok) throw new Error(`${REPO}: GitHub API returned ${r.status}`);
+    return r.json();
+  }, 100);
 
 // Download and hash an asset, streamed (the Proton build is ~565 MB).
 async function measure(asset) {
@@ -53,7 +57,7 @@ if (!unified) {
   process.exit(checkOnly ? 0 : 2);
 }
 
-const manifest = { channel };
+const parts = { channel };
 const platforms = {};
 for (const [os, asset] of Object.entries(unified.platforms)) platforms[os] = await measure(asset);
 // The app's part of the release notes (the "## Configurator app" section,
@@ -69,8 +73,8 @@ const appNotes = (body) => {
   return text || undefined;
 };
 const notes = appNotes(unified.release.body ?? "");
-manifest.app = { version: unified.version, notes_url: unified.release.html_url, ...(notes ? { notes } : {}), platforms };
-if (unified.uf2) manifest.firmware = { version: unified.release.tag_name, notes_url: unified.release.html_url, uf2: await measure(unified.uf2) };
+parts.app = { version: unified.version, notes_url: unified.release.html_url, ...(notes ? { notes } : {}), platforms };
+if (unified.uf2) parts.firmware = { version: unified.release.tag_name, notes_url: unified.release.html_url, uf2: await measure(unified.uf2) };
 
 const proton = selectProton(all);
 if (proton) {
@@ -80,14 +84,16 @@ if (proton) {
   if (!r.ok) throw new Error(`SHA256SUMS.txt: download returned ${r.status}`);
   const listed = sumFor(await r.text(), proton.tarball.name);
   if (listed !== measured.sha256) throw new Error(`${proton.tarball.name}: SHA256SUMS.txt says ${listed ?? "nothing"}, download hashes to ${measured.sha256}`);
-  manifest.proton = { name: proton.tarball.name.replace(/\.tar\.gz$/, ""), notes_url: proton.release.html_url, tarball: measured };
+  parts.proton = { name: proton.tarball.name.replace(/\.tar\.gz$/, ""), notes_url: proton.release.html_url, tarball: measured };
 }
 
-const text = JSON.stringify(manifest, null, 2) + "\n";
 const current = existsSync(out) ? readFileSync(out, "utf8") : "";
+const newestStable = selectRelease(all, "stable")?.version;
+const manifest = keepIssuedAt(buildFeed({ ...parts, issuedAt: isoSeconds(new Date()), newestStable }), current);
+const text = JSON.stringify(manifest, null, 2) + "\n";
 if (checkOnly) {
   console.log(text === current ? "latest.json is current." : "latest.json is out of date.");
   process.exit(text === current ? 0 : 1);
 }
 writeFileSync(out, text);
-console.log(`Wrote ${out}: app ${manifest.app.version} (${Object.keys(platforms).join(", ")}), firmware ${manifest.firmware?.version ?? "none"}, proton ${manifest.proton?.name ?? "none"}`);
+console.log(`Wrote ${out}: schema 2, app ${manifest.app.version} (${Object.keys(platforms).join(", ")}), firmware ${manifest.firmware?.version ?? "none"}, proton ${manifest.proton?.name ?? "none"}, newest stable ${manifest.newest_stable}`);

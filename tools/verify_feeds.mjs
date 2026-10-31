@@ -34,6 +34,27 @@ function signedBy(data, sigText, keys) {
   });
 }
 
+// Schema 2's own fields (tools/manifest_lib.mjs buildFeed). Board names are
+// checked against boards.json once it exists (design step 7), not here.
+function checkSchema2(name, feed) {
+  const problems = [];
+  if (!/^\d+\.\d+\.\d+$/.test(feed.newest_stable ?? "")) problems.push(`${name}: newest_stable ${JSON.stringify(feed.newest_stable)} is not a stable version`);
+  if (!Array.isArray(feed.firmwares)) return [...problems, `${name}: schema 2 needs firmwares[]`];
+  for (const [i, f] of feed.firmwares.entries()) {
+    const ok =
+      typeof f?.version === "string" && typeof f.board === "string" && typeof f.chip === "string" && Number.isInteger(f.flash_min) &&
+      Array.isArray(f.personas) && Array.isArray(f.displays) && typeof f.uf2?.url === "string" && /^[0-9a-f]{64}$/.test(f.uf2?.sha256 ?? "") && Number.isInteger(f.uf2?.size);
+    if (!ok) problems.push(`${name}: firmwares[${i}] is missing version, board, chip, flash_min, personas, displays or uf2 (url, size, sha256)`);
+  }
+  // Installed apps offer `firmware`: it must be the Pico 2 W entry, byte for byte.
+  if (feed.firmware) {
+    const p2w = feed.firmwares.find((f) => f?.board === "pico2_w");
+    if (!p2w || p2w.version !== feed.firmware.version || JSON.stringify(p2w.uf2) !== JSON.stringify(feed.firmware.uf2))
+      problems.push(`${name}: firmware (what installed apps offer) is not the pico2_w entry of firmwares[]`);
+  }
+  return problems;
+}
+
 // Problems with one feed, in plain words; [] = it passes.
 // data/sig/prev: Buffers or null (missing).
 export function checkFeed({ name, data, sig, prev, keys }) {
@@ -52,6 +73,7 @@ export function checkFeed({ name, data, sig, prev, keys }) {
   const issued = feed.issued_at === undefined ? null : Date.parse(feed.issued_at);
   if (feed.schema === 2 && issued === null) problems.push(`${name}: schema 2 needs issued_at`);
   if (Number.isNaN(issued)) problems.push(`${name}: issued_at ${JSON.stringify(feed.issued_at)} is not a date`);
+  if (feed.schema === 2) problems.push(...checkSchema2(name, feed));
   let before = null;
   try {
     before = prev ? JSON.parse(prev.toString("utf8")).issued_at : null;
