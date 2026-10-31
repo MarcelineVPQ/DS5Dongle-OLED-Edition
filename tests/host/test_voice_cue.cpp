@@ -123,3 +123,13 @@ TEST(voice_report_clock_matches_the_controller) {
         if (c.due(now)) { c.sent(now); sent++; }
     CHECK(sent - 3 >= 88 && sent - 3 <= 89);
 }
+
+// tools/build_voice_bank.py resamples her lines to 45 kHz (PLAY_RATE) and
+// labels them 48 kHz, because the controller plays a 480-sample frame per
+// half report (10.67 ms). Encoded at 48 kHz as is, a line played 6.25 % slow
+// and 1.1 semitones flat. If the report clock changes, the bank's rate must too.
+TEST(voice_bank_rate_matches_the_report_clock) {
+    constexpr uint64_t kBankRate = 45000;  // tools/build_voice_bank.py PLAY_RATE
+    // 480 samples at kBankRate, in thirds of a microsecond, = half a report
+    CHECK_EQ(480ull * 3'000'000 / kBankRate, AudioReportClock::kPeriod3 / 2);
+}

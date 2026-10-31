@@ -4,9 +4,16 @@
 The lines are recorded and mastered in the app repo
 (DS5Dongle-OLED-Config-Web/assets-src/voice/<lang>-speaker/fw_*.wav, 48 kHz
 mono, approved by ear on the controller). Here they are encoded the way the
-DualSense's speaker expects them: Opus, 48 kHz stereo, 10 ms frames, CELT
+DualSense's speaker expects them: Opus, 48 kHz stereo, 480-sample frames, CELT
 only (as the firmware's own encoder). They're stored compact; the firmware
 pads each frame to the 0x39 report's 200-byte slot when it sends it.
+
+The controller plays a 480-sample frame in 10.67 ms, not 10 ms: two frames
+per 0x39 report, one report per 64 haptic samples at 3 kHz (src/report_clock.h,
+the rate the host path sends; audio.cpp squeezes 512 host samples into each
+480-sample frame). So each frame must carry 10.67 ms of her voice: the WAV is
+resampled to 45 kHz and the result labelled 48 kHz for the encoder. Encoded
+at 48 kHz as is, a line played 6.25 % slow and 1.1 semitones flat.
 
 Bank layout (little endian):
   "DS5V" u8 version=1, u8 langs, u8 lines, u8 0
@@ -26,6 +33,10 @@ LANGS = ["en", "de", "fr", "es", "pt-BR", "zh-CN", "ja"]
 LINES = ["fw_connected", "fw_slot_0", "fw_slot_1", "fw_slot_2", "fw_slot_3", "fw_battery_low"]
 BITRATE = "48k"
 MAX_PACKET = 200
+FRAME_SAMPLES = 480
+FRAME_S = 64 / 3000 / 2                   # half a report period (src/report_clock.h)
+PLAY_RATE = round(FRAME_SAMPLES / FRAME_S)  # 45000 Hz: the rate the controller really plays at
+assert PLAY_RATE == 48000 * 480 // 512 == 45000
 
 
 def ogg_packets(data: bytes) -> list[bytes]:
@@ -49,7 +60,8 @@ def ogg_packets(data: bytes) -> list[bytes]:
 def encode(wav: Path) -> list[bytes]:
     with tempfile.NamedTemporaryFile(suffix=".ogg") as out:
         subprocess.run(
-            ["ffmpeg", "-loglevel", "error", "-y", "-i", str(wav), "-ac", "2", "-ar", "48000",
+            ["ffmpeg", "-loglevel", "error", "-y", "-i", str(wav),
+             "-af", f"aresample={PLAY_RATE}:resampler=soxr,asetrate=48000", "-ac", "2", "-ar", "48000",
              "-c:a", "libopus", "-application", "lowdelay", "-frame_duration", "10",
              "-b:a", BITRATE, "-vbr", "on", str(out.name)],
             check=True,
@@ -74,7 +86,7 @@ def main() -> None:
         for line in LINES:
             frames = encode(src / f"{lang}-speaker" / f"{line}.wav")
             entries.append((len(header) + table_size + len(data), len(frames)))
-            total_s += len(frames) / 100
+            total_s += len(frames) * FRAME_S
             for f in frames:
                 data += bytes([len(f)]) + f
     for offset, count in entries:
