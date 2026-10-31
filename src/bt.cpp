@@ -549,20 +549,16 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 // Slot-ownership filter: skip devices owned by a different slot;
                 // if our slot is occupied, only accept its exact bd_addr.
                 // Unowned devices pair into the current slot if it's empty.
+                // (src/bt_policy.h, host-tested)
                 const int owner = slot_owner_of(addr);
-                if (owner >= 0 && owner != g_current_slot) {
-                    printf("[HCI] Gamepad %s belongs to slot %d, skip (cur=%d)\n",
-                           bd_addr_to_str(addr), owner, g_current_slot);
+                const bool occupied = slot_occupied(g_current_slot);
+                uint8_t want[6] = {};
+                if (occupied) slot_get_addr(g_current_slot, want);
+                // error: LOGGED-OK — printf; a controller another slot owns, or not the current slot's, is skipped on purpose (slot routing)
+                if (!btpolicy::inquiry_result_pairs(owner, g_current_slot, occupied, memcmp(want, addr, 6) == 0)) {
+                    printf("[HCI] Gamepad %s skipped (owner slot %d, current %d%s)\n",
+                           bd_addr_to_str(addr), owner, g_current_slot, occupied ? ", holds another" : "");
                     break;
-                }
-                if (slot_occupied(g_current_slot)) {
-                    uint8_t want[6];
-                    slot_get_addr(g_current_slot, want);
-                    if (memcmp(want, addr, 6) != 0) {
-                        printf("[HCI] Slot %d wants different addr, skip %s\n",
-                               g_current_slot, bd_addr_to_str(addr));
-                        break;
-                    }
                 }
                 printf("[HCI] Gamepad found: %s (CoD: 0x%06x)\n", bd_addr_to_str(addr), (unsigned int) cod);
                 bd_addr_copy(current_device_addr, addr);

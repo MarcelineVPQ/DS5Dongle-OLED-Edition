@@ -22,6 +22,16 @@ constexpr bool accept_incoming(bool known_controller, bool pairing_window_open) 
     return known_controller || pairing_window_open;
 }
 
+// A controller in pairing mode an inquiry found (gamepad class of device):
+// pair it into the current slot? Not when another slot owns it (`owner`, -1 =
+// none); when the current slot already holds a controller, only that one.
+// Unowned controllers pair into the current slot when it is empty.
+constexpr bool inquiry_result_pairs(int owner, int current_slot, bool current_occupied, bool is_current_slots_addr) {
+    // error: NOT-WORTH — a yes/no decision, not a failure; bt.cpp prints the skip
+    if (owner >= 0 && owner != current_slot) return false;
+    return !current_occupied || is_current_slots_addr;
+}
+
 // An inquiry ended (BTstack reports GAP_EVENT_INQUIRY_COMPLETE for every end
 // and HCI_EVENT_INQUIRY_COMPLETE after a natural one): connect to the
 // controller it found, unless a connection attempt is already on its way.

@@ -48,3 +48,12 @@ TEST(bt_policy_disconnect_reasons) {
     CHECK(disconnect_is_error(0x05));   // authentication failure
     CHECK(disconnect_is_error(0x22));   // LMP response timeout
 }
+
+// Slot routing of an inquiry result (bt.cpp HCI_EVENT_INQUIRY_RESULT).
+TEST(bt_policy_inquiry_result_slot_routing) {
+    CHECK(inquiry_result_pairs(-1, 0, false, false));  // new controller, empty slot
+    CHECK(!inquiry_result_pairs(-1, 0, true, false));  // new controller, slot taken
+    CHECK(inquiry_result_pairs(0, 0, true, true));     // the slot's own controller
+    CHECK(!inquiry_result_pairs(2, 0, false, false));  // another slot's controller
+    CHECK(!inquiry_result_pairs(2, 0, true, false));
+}
