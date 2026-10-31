@@ -4,6 +4,7 @@
 // on load must never reset settings a released firmware saved.
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -14,6 +15,7 @@
 #include "flash_layout.h"
 #include "hardware/flash.h"
 #include "test.h"
+#include "fixtures/config/gen/nondefault.h"
 
 namespace fs = std::filesystem;
 
@@ -213,4 +215,37 @@ TEST(config_one_field_save_never_reblesses_a_bad_page) {
     config_load();
     CHECK_EQ(get_config().inactive_time, 30);
     CHECK_EQ(get_config().narrator_voice, 2);
+}
+
+// Review update-flash N7: going back to the last stable release keeps the
+// settings. gen/stable_reads.sh runs that release's own config.cpp on the
+// page this firmware saves with the custom settings (stable/current_custom.bin)
+// and records the result in stable/RESULT.txt. This test holds the recorded
+// page to what this firmware saves now: when the saved page changes, rerun
+// the host tests with DS5_STABLE_PAGE_OUT=<that file> and then the script.
+TEST(config_stable_release_reads_the_current_page) {
+    fake_flash_erase_all();
+    g_fake_flash_fail = false;
+    config_load();
+    Config_body b = get_config();
+    nondefault(b);
+    set_config(b);
+    CHECK(config_save());
+    const uint32_t from_end = PICO_FLASH_SIZE_BYTES - CONFIG_FLASH_OFFSET;
+    std::vector<uint8_t> now(4 + FLASH_PAGE_SIZE);
+    std::memcpy(now.data(), &from_end, 4);
+    std::memcpy(now.data() + 4, g_fake_flash + CONFIG_FLASH_OFFSET, FLASH_PAGE_SIZE);
+    if (const char *out = std::getenv("DS5_STABLE_PAGE_OUT")) {
+        std::ofstream(out, std::ios::binary).write(reinterpret_cast<const char *>(now.data()), (std::streamsize) now.size());
+    }
+    const std::string dir = std::string(CONFIG_FIXTURES) + "/stable/";
+    std::ifstream in(dir + "current_custom.bin", std::ios::binary);
+    const std::vector<uint8_t> recorded((std::istreambuf_iterator<char>(in)), {});
+    const bool same = recorded == now;
+    if (!same) std::fprintf(stderr, "  the saved page changed: rerun gen/stable_reads.sh (see this test)\n");
+    CHECK(same);
+    std::ifstream res(dir + "RESULT.txt");
+    std::string verdict;
+    res >> verdict;
+    CHECK(verdict == "ok");
 }
