@@ -959,7 +959,7 @@ void sample_diag_rates() {
 
 // Row list ordered by relevance: always-useful at top, parked-mic-investigation
 // data at bottom. To add a row, bump kNumDiagRows and add a case.
-constexpr int kNumDiagRows = 15;
+constexpr int kNumDiagRows = 17;
 __attribute__((noinline))
 void format_diag_row(int idx, char* line, size_t n) {
     // Each row fits 19 glyphs; counters that can outgrow that go compact (k/M/G, src/diag_rows.h).
@@ -1015,6 +1015,15 @@ void format_diag_row(int idx, char* line, size_t n) {
             // Output reports lost to a full Bluetooth queue (speaker/haptics,
             // mic control, state); "BT32 out" counts only those sent.
             diag_rows::count(line, n, "BT drop: ", bt_send_drops());
+            break;
+        case 15:
+            // Mic audio lost before the PC: packets in (core1 behind),
+            // jitter buffer full, 1 ms holes (jitter buffer empty).
+            diag_rows::mic_lost(line, n, audio_mic_in_drops(), audio_mic_buf_drops(), audio_mic_underruns());
+            break;
+        case 16:
+            // The PC's speaker FIFO found full or overrun (TinyUSB overwrote audio).
+            diag_rows::count(line, n, "USB ovr: ", audio_usb_out_overruns());
             break;
         default:
             line[0] = '\0';

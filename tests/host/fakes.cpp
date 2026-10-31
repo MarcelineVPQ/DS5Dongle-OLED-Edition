@@ -127,6 +127,10 @@ uint32_t audio_mic_plc_frames() { return 11; }
 uint32_t audio_mic_level_drops() { return 0x01020304; }
 uint8_t audio_mic_level() { return 4; }
 uint8_t audio_mic_level_max() { return 6; }
+uint32_t audio_mic_in_drops() { return 0x00011234; }  // 0xFD sends the low 16 bits
+uint32_t audio_mic_buf_drops() { return 0x5678; }
+uint32_t audio_mic_underruns() { return 0x9ABC; }
+uint32_t audio_usb_out_overruns() { return 0xDEF0; }
 uint8_t audio_peak_speaker() { return 12; }
 uint8_t audio_peak_haptic() { return 13; }
 GripWave g_fake_grip;

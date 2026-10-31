@@ -110,6 +110,16 @@ uint32_t audio_mic_plc_frames() { return g_mic_plc_frames; }
 // The jitter buffer's level control (src/mic_level.h); core0 only (mic_drain).
 static MicLevel g_mic_level;
 uint32_t audio_mic_level_drops() { return g_mic_level.drops; }
+// Mic audio lost elsewhere (0xFD [54..59], OLED Diagnostics "Mic i b u"):
+// Opus packets dropped because mic_fifo was full (core1 behind), decoded
+// frames dropped because the jitter buffer was full, and 1 ms silent slices
+// written while playing because the jitter buffer ran dry (a hole in the audio).
+static volatile uint32_t g_mic_in_drops = 0;      // core0 writes
+static volatile uint32_t g_mic_buf_drops = 0;     // core1 writes
+static volatile uint32_t g_mic_underruns = 0;     // core0 writes
+uint32_t audio_mic_in_drops() { return g_mic_in_drops; }
+uint32_t audio_mic_buf_drops() { return g_mic_buf_drops; }
+uint32_t audio_mic_underruns() { return g_mic_underruns; }
 uint8_t audio_mic_level() { return g_mic_level.level; }
 uint8_t audio_mic_level_max() { return g_mic_level.max_level; }
 
@@ -189,6 +199,8 @@ uint32_t audio_hap_push() { return g_hap_push; }
 // emulator's USB / BT rate display. Updated below.
 static volatile uint32_t g_usb_frames = 0;
 static volatile uint32_t g_bt_packets = 0;
+static volatile uint32_t g_usb_out_overruns = 0;  // audio_loop found the PC's speaker FIFO full
+uint32_t audio_usb_out_overruns() { return g_usb_out_overruns; }
 uint32_t audio_usb_frames() { return g_usb_frames; }
 uint32_t audio_bt_packets() { return g_bt_packets; }
 
@@ -214,9 +226,16 @@ void CORE0_RAM_FUNC(mic_add_queue)(const uint8_t *data) {
     static mic_element packet{};
     memcpy(packet.data, data, MIC_OPUS_SIZE);
     g_mic_toc = data[0]; // first byte of the Opus packet
-    if (queue_is_full(&mic_fifo)) queue_try_remove(&mic_fifo, NULL);
-    // error: LOGGED-OK — counter (mic FIFO level in 0xF5); oldest mic packet is dropped first, so the add cannot fail; a drop is a glitch, not a user action
-    queue_try_add(&mic_fifo, &packet);
+    // Full: drop the oldest and add again (testing queue_is_full first raced
+    // core1, which could take one in between).
+    // error: LOGGED-OK — counter g_mic_in_drops below; a full queue drops the oldest packet
+    if (!queue_try_add(&mic_fifo, &packet)) {
+        queue_try_remove(&mic_fifo, NULL);
+        // error: LOGGED-OK — counter g_mic_in_drops (0xFD, OLED Diagnostics "Mic i"); a drop is a glitch, not a user action
+        g_mic_in_drops = g_mic_in_drops + 1;
+        // error: NOT-WORTH — only this core adds, so the slot just freed is still free
+        queue_try_add(&mic_fifo, &packet);
+    }
 }
 
 // Tell the DS5 whether to stream its mic (0x32 audio-control report, as
@@ -306,9 +325,13 @@ static void mic_drain() {
                     queue_try_remove(&mic_decode_fifo, &frame);
                 }
             } else {
+                // Playing and the jitter buffer is empty: a 1 ms hole.
+                // error: LOGGED-OK — counter g_mic_underruns (0xFD, OLED Diagnostics "Mic u"); BT jitter or a slow controller clock, nothing for the user to do
+                if (started) g_mic_underruns = g_mic_underruns + 1;
                 memset(slice, 0, sizeof(slice));
                 // error: LOGGED-OK — g_mic_last_wrote / last_want in OLED Diag + 0xF5; a short USB write is an underrun the PC's audio stack conceals
-                tud_audio_write(slice, MIC_SLICE_BYTES);
+                g_mic_last_wrote = tud_audio_write(slice, MIC_SLICE_BYTES);
+                g_mic_last_want  = MIC_SLICE_BYTES;
                 break;
             }
         }
@@ -486,6 +509,15 @@ void CORE0_RAM_FUNC(audio_loop)() {
 
     // 1. 读取 USB 音频数据
     if (!tud_audio_available()) return;
+    // The PC's speaker FIFO (16 ms, overwritable: TinyUSB overwrites the
+    // oldest audio when we fall behind, silently) found full or overrun.
+    // A lower bound: an overrun past twice its size reads as just full.
+    {
+        const tu_fifo_t *out_ff = tud_audio_get_ep_out_ff();
+        // error: LOGGED-OK — counter g_usb_out_overruns (0xFD, OLED Diagnostics "USB ovr"); the main loop fell behind, nothing for the user to do
+        if (out_ff != nullptr && tu_ff_overflow_count(out_ff->depth, out_ff->wr_idx, out_ff->rd_idx) >= out_ff->depth)
+            g_usb_out_overruns = g_usb_out_overruns + 1;
+    }
 
     int16_t raw[192];
     uint32_t bytes_read = tud_audio_read(raw, sizeof(raw)); // 每次读入 384 bytes
@@ -568,16 +600,20 @@ void CORE0_RAM_FUNC(audio_loop)() {
             if (audio_buf_pos == 512 * 2) {
                 static audio_raw_element element{};
                 memcpy(element.data, audio_buf, 512 * 2 * 4);
-                if (queue_is_full(&audio_fifo)) {
+                // Full: drop the oldest and add again. Testing queue_is_full
+                // first raced core1: a block it took in between made the
+                // remove drop a second, good one.
+                // error: LOGGED-OK — counter g_drop_raw below; a full queue drops the oldest block
+                if (!queue_try_add(&audio_fifo, &element)) {
                     queue_try_remove(&audio_fifo,NULL);
                     // error: LOGGED-OK — counter g_drop_raw (0xFB/0xF5, the app's audio counters); realtime audio drops the oldest block, nothing for the user to do
                     g_drop_raw = g_drop_raw + 1;
+                    // error: LOGGED-OK — printf + g_drop_raw; only this core adds, so the slot just freed is still free
+                    if (!queue_try_add(&audio_fifo, &element)) {
+                        printf("[Audio] Warning: audio_fifo add failed\n");
+                    }
                 }
                 g_raw_push = g_raw_push + 1;
-                // error: LOGGED-OK — printf + g_drop_raw; the FIFO was just made room for, so this can't fail in practice
-                if (!queue_try_add(&audio_fifo, &element)) {
-                    printf("[Audio] Warning: audio_fifo add failed\n");
-                }
                 audio_buf_pos = 0;
             }
         }
@@ -669,22 +705,32 @@ static void __not_in_flash_func(speaker_proc)() {
     if (encoded <= 0) return;
     g_c1_enc = g_c1_enc + 1;
     if (encoded < SPEAKER_OPUS_SIZE) memset(spk.data + encoded, 0, SPEAKER_OPUS_SIZE - encoded);
-    if (queue_is_full(&audio_spk_fifo)) {
+    // Full: drop the oldest and add again (testing queue_is_full first raced
+    // core0's audio_bt_task, which could take one in between).
+    // error: LOGGED-OK — counter g_drop_enc below; a full queue drops the oldest packet
+    if (!queue_try_add(&audio_spk_fifo, &spk)) {
         queue_try_remove(&audio_spk_fifo, NULL);
         // error: LOGGED-OK — counter g_drop_enc (0xF5); realtime speaker drops the oldest packet
         g_drop_enc = g_drop_enc + 1;
+        // error: NOT-WORTH — only core1 adds, so the slot just freed is still free
+        queue_try_add(&audio_spk_fifo, &spk);
     }
-    // error: LOGGED-OK — counted on the line above; room was just made, so the add can't fail
-    queue_try_add(&audio_spk_fifo, &spk);
 }
 #endif
 
 static OpusDecoder *mic_decoder = nullptr;
 
 static void __not_in_flash_func(mic_push_decoded)(const mic_decoded_element &dec) {
-    if (queue_is_full(&mic_decode_fifo)) queue_try_remove(&mic_decode_fifo, NULL);
-    // error: LOGGED-OK — counted on the line above; room was just made, so the add can't fail
-    queue_try_add(&mic_decode_fifo, &dec);
+    // Full: drop the oldest and add again (testing queue_is_full first raced
+    // core0's mic_drain, which could take one in between).
+    // error: LOGGED-OK — counter g_mic_buf_drops below; a full jitter buffer drops the oldest frame
+    if (!queue_try_add(&mic_decode_fifo, &dec)) {
+        queue_try_remove(&mic_decode_fifo, NULL);
+        // error: LOGGED-OK — counter g_mic_buf_drops (0xFD, OLED Diagnostics "Mic b"); a drop is a glitch, not a user action
+        g_mic_buf_drops = g_mic_buf_drops + 1;
+        // error: NOT-WORTH — only core1 adds, so the slot just freed is still free
+        queue_try_add(&mic_decode_fifo, &dec);
+    }
 }
 
 // Mic path: Opus from the controller (mic_fifo) -> decode -> jitter buffer.

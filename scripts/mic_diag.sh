@@ -146,13 +146,17 @@ bt_trace() {
     #     this mic session (x 10 ms = the mic delay the buffer adds).
     #   Section 4 (bytes 50..53, after 0.9.5-dev.20) — output reports the
     #     full Bluetooth output queue dropped (speaker/haptics, mic, state).
-    # The ioctl buffer is 55 bytes (54 payload + 1 byte that the kernel
-    # fills with the report ID); older firmware answers 50 or 44.
+    #   Section 5 (bytes 54..61) — audio lost before Bluetooth, u16 counts
+    #     that wrap: mic packets dropped coming in, decoded mic frames the
+    #     full jitter buffer dropped, 1 ms mic holes (jitter buffer empty),
+    #     and times the PC's speaker FIFO was found full or overrun.
+    # The ioctl buffer is 63 bytes (62 payload + 1 byte that the kernel
+    # fills with the report ID); older firmware answers 54, 50 or 44.
     python3 - <<'PY'
 import fcntl, glob, struct, sys, time
 
 VID, PID = 0x054c, 0x0ce6
-IOCTL_SIZE = 55  # 1 byte report ID + 54 bytes firmware payload (50 up to 0.9.5-dev.20, 44 before 0.9.5)
+IOCTL_SIZE = 63  # 1 byte report ID + 62 bytes firmware payload (54 / 50 / 44 from older firmware)
 
 def find_dongle():
     for path in sorted(glob.glob('/dev/hidraw*')):
@@ -202,6 +206,8 @@ def decode(b):
         'mic_max':    b[49] if len(b) >= 50 else 0,
         'bt_drops_ok':len(b) >= 54,
         'bt_drops':   struct.unpack('<I', b[50:54])[0] if len(b) >= 54 else 0,
+        'lost_ok':    len(b) >= 62,
+        'lost':       struct.unpack('<4H', b[54:62]) if len(b) >= 62 else (0, 0, 0, 0),
     }
 
 s1 = query(); time.sleep(1.0); s2 = query()
@@ -253,6 +259,17 @@ if not d2['bt_drops_ok']:
     print('not reported by this firmware (0.9.5-dev.20 or older)')
 else:
     print(f'reports dropped (queue full): {d2["bt_drops"]} ({d2["bt_drops"] - d1["bt_drops"]}/s)')
+
+# Audio lost before Bluetooth (section 5): u16 counts, so per-second deltas mod 65536
+print()
+print('-- Audio lost before Bluetooth --')
+if not d2['lost_ok']:
+    print('not reported by this firmware')
+else:
+    names = ('mic packets dropped coming in', 'mic frames dropped, jitter buffer full',
+             'mic 1 ms holes, jitter buffer empty', 'PC speaker FIFO found full/overrun')
+    for name, a, b in zip(names, d1['lost'], d2['lost']):
+        print(f'{name}: {b} (low 16 bits) ({(b - a) % 65536}/s)')
 PY
 }
 

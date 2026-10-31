@@ -112,6 +112,18 @@ inline void drops(char *line, size_t n, uint32_t raw, uint32_t enc, uint32_t hap
         snprintf(line, n, "Drop r%s e%s h%s", compact<3>(raw).s, compact<3>(enc).s, compact<3>(hap).s);
 }
 
+// "Mic i12 b0 u345": mic audio lost: packets dropped coming in (core1
+// behind), decoded frames the full jitter buffer dropped, 1 ms holes (the
+// jitter buffer empty while playing).
+inline void mic_lost(char *line, size_t n, uint32_t in, uint32_t buf, uint32_t under) {
+    char exact[48];
+    snprintf(exact, sizeof(exact), "Mic i%lu b%lu u%lu", static_cast<unsigned long>(in),
+             static_cast<unsigned long>(buf), static_cast<unsigned long>(under));
+    // error: NOT-WORTH — not a failure: too long for exact counters, so the compact form
+    if (!exact_fits(line, n, exact))
+        snprintf(line, n, "Mic i%s b%s u%s", compact<3>(in).s, compact<3>(buf).s, compact<4>(under).s);
+}
+
 // "BT32 out: 375/s": label of up to 10 glyphs, a per-second rate.
 inline void rate(char *line, size_t n, const char *label, uint32_t per_s) {
     snprintf(line, n, "%s%s/s", label, compact<6>(per_s).s);

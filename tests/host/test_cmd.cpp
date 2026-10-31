@@ -613,7 +613,7 @@ TEST(cmd_flash_saves_run_from_cmd_task_not_the_usb_callback) {
 TEST(cmd_fd_mic_level_section) {
     fresh();
     uint8_t r[63]{};
-    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 54);
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 62);
     uint32_t drops = 0;
     std::memcpy(&drops, r + 44, 4);
     CHECK_EQ(drops, 0x01020304u);  // fakes.cpp
@@ -628,12 +628,29 @@ TEST(cmd_fd_mic_level_section) {
 TEST(cmd_fd_bt_send_drops_section) {
     fresh();
     uint8_t r[63]{};
-    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 54);
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 62);
     uint32_t drops = 0;
     std::memcpy(&drops, r + 50, 4);
     CHECK_EQ(drops, 0x05060708u);  // fakes.cpp
     uint8_t old[50]{};
     CHECK_EQ(pico_cmd_get(0xFD, old, 50), 50);
+}
+
+// 0xFD section 5: mic and USB speaker audio lost before Bluetooth, u16 each
+// (the low 16 bits of the counts). Hosts asking for 54 bytes get what they did before.
+TEST(cmd_fd_audio_lost_section) {
+    fresh();
+    uint8_t r[63]{};
+    CHECK_EQ(pico_cmd_get(0xFD, r, 63), 62);
+    uint16_t v[4]{};
+    std::memcpy(v, r + 54, 8);
+    CHECK_EQ(v[0], 0x1234);  // fakes.cpp: 0x11234, low 16 bits
+    CHECK_EQ(v[1], 0x5678);
+    CHECK_EQ(v[2], 0x9ABC);
+    CHECK_EQ(v[3], 0xDEF0);
+    CHECK_EQ(r[62], 0);
+    uint8_t old[54]{};
+    CHECK_EQ(pico_cmd_get(0xFD, old, 54), 54);
 }
 
 // Cache pass batch 5: the measured clock (frequency_count_khz busy-waits a few

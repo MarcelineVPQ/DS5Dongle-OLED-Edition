@@ -811,9 +811,15 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         //   [50..53] uint32  output reports dropped since boot because the
         //                    queue was full (speaker/haptics 0x39, mic 0x32,
         //                    state 0x31); not in "BT audio reports out" (0xF5)
-        // Hosts asking for 44 or 50 bytes get exactly what they did before.
-        constexpr uint16_t want = 54;
-        // loop: NOT-WORTH — ≤ 54 bytes zeroed, per 0xFD diagnostic GET
+        // Section 5: audio lost elsewhere (after section 4), u16 each, the
+        //   low 16 bits of a count since boot (they wrap: take differences).
+        //   [54..55] mic Opus packets dropped, mic_fifo full (core1 behind)
+        //   [56..57] decoded mic frames dropped, the jitter buffer full
+        //   [58..59] 1 ms silent mic slices while playing (jitter buffer empty)
+        //   [60..61] times the PC's speaker FIFO was found full or overrun
+        // Hosts asking for 44, 50 or 54 bytes get exactly what they did before.
+        constexpr uint16_t want = 62;
+        // loop: NOT-WORTH — ≤ 62 bytes zeroed, per 0xFD diagnostic GET
         for (uint16_t i = 0; i < want && i < reqlen; i++) buffer[i] = 0;
 
         const uint32_t bt31    = g_bt_31_packets;
@@ -846,6 +852,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         if (49 < reqlen) buffer[49] = audio_mic_level_max();
         const uint32_t bt_drops = bt_send_drops();
         if ((50 + 4) <= reqlen) memcpy(buffer + 50, &bt_drops, 4);
+        const uint16_t lost[4] = {(uint16_t) audio_mic_in_drops(), (uint16_t) audio_mic_buf_drops(),
+                                  (uint16_t) audio_mic_underruns(), (uint16_t) audio_usb_out_overruns()};
+        if ((54 + 8) <= reqlen) memcpy(buffer + 54, lost, 8);
         return (reqlen < want) ? reqlen : want;
     }
     if (report_id == 0xfe) {

@@ -77,6 +77,14 @@ TEST(diag_every_row_fits_19_glyphs_at_its_worst) {
     diag_rows::count(line, sizeof(line), "BT drop: ", UINT32_MAX);
     check_fits("BT drop", line);
     CHECK(std::string(line) == "BT drop: 4294967295");
+    diag_rows::count(line, sizeof(line), "USB ovr: ", UINT32_MAX);
+    check_fits("USB ovr", line);
+    diag_rows::mic_lost(line, sizeof(line), UINT32_MAX, UINT32_MAX, UINT32_MAX);
+    check_fits("mic lost", line);
+    diag_rows::mic_lost(line, sizeof(line), UINT32_MAX, 150000, 99999);
+    CHECK(std::string(line) == "Mic i4G b.1M u99k");
+    diag_rows::mic_lost(line, sizeof(line), 12, 0, 345);
+    CHECK(std::string(line) == "Mic i12 b0 u345");
     diag_rows::trig_tx(line, sizeof(line), UINT32_MAX, UINT32_MAX);
     check_fits("trig/tx", line);
     diag_rows::trig_tx(line, sizeof(line), 812, 123456);
