@@ -212,14 +212,32 @@ static void invalidate_legacy_config() {
 // mic_level (and lost the PC sleep options); before 1.14 that byte was 0xFF.
 // So that byte is the power flags, and the body after `size` reads as erased
 // flash (each newer field at its default).
-static void config_take_short_body(const Config *page) {
-    if (config.size >= sizeof(Config_body)) return;
+static void take_short_body(Config &dst, const Config *page) {
+    // error: NOT-WORTH — not a failure: a full-length body has nothing to fill in
+    if (dst.size >= sizeof(Config_body)) return;
     const auto *saved_body = reinterpret_cast<const uint8_t *>(page) + offsetof(Config, body);
-    config.power_flags = saved_body[config.size];
+    dst.power_flags = saved_body[dst.size];
     // The display choice follows the power flags (0xFF on every page saved
     // before 1.21, which takes the default).
-    config.display_id = saved_body[config.size + 1];
-    memset(reinterpret_cast<uint8_t *>(&config.body) + config.size, 0xFF, sizeof(Config_body) - config.size);
+    dst.display_id = saved_body[dst.size + 1];
+    memset(reinterpret_cast<uint8_t *>(&dst.body) + dst.size, 0xFF, sizeof(Config_body) - dst.size);
+}
+
+static void config_take_short_body(const Config *page) { take_short_body(config, page); }
+
+// The saved settings as config_load() reads them, for a save that changes one
+// field only (narrator, power flags, display): an intact page, its shorter
+// body from older firmware read as take_short_body() does; else (nothing
+// valid saved, or a page failing its CRC) the RAM copy. Copying any page with
+// our magic took an older page's power flags as mic_level and re-blessed a
+// page that failed its CRC (review fw-usb-bt N4).
+static Config saved_page_or_ram() {
+    const Config *saved = flash_config();
+    // error: NOT-WORTH — nothing; reads which copy to start from (no valid save yet = the RAM copy), not a failure
+    if (!config_page_intact(saved)) return config;
+    Config page = *saved;
+    take_short_body(page, saved);
+    return page;
 }
 
 void config_load() {
@@ -311,9 +329,7 @@ bool config_save_narrator(uint8_t value) {
     config.body.narrator_voice = value;
     config_valid();
     // Flash's copy with only this byte changed; nothing valid saved yet = RAM.
-    const Config *saved = flash_config();
-    // error: NOT-WORTH — nothing; reads which copy to start from (no valid save yet = the RAM copy), not a failure
-    Config page = saved->magic == CONFIG_MAGIC ? *saved : config;
+    Config page = saved_page_or_ram();
     page.magic = CONFIG_MAGIC;
     page.version = CONFIG_VERSION;
     page.size = sizeof(Config_body);  // an older, shorter body grows here
@@ -335,9 +351,7 @@ bool config_save_power_flags(uint8_t flags) {
     if (flags & ~POWER_FLAGS_MASK) return false;
     config.power_flags = flags;
     // Flash's copy with only these bits changed; nothing valid saved yet = RAM.
-    const Config *saved = flash_config();
-    // error: NOT-WORTH — nothing; reads which copy to start from (no valid save yet = the RAM copy), not a failure
-    Config page = saved->magic == CONFIG_MAGIC ? *saved : config;
+    Config page = saved_page_or_ram();
     page.magic = CONFIG_MAGIC;
     page.version = CONFIG_VERSION;
     page.size = sizeof(Config_body);
@@ -353,9 +367,7 @@ bool config_save_display_id(uint8_t id) {
     if (!display::is_supported(id)) return false;
     config.display_id = id;
     // Flash's copy with only this byte changed; nothing valid saved yet = RAM.
-    const Config *saved = flash_config();
-    // error: NOT-WORTH — nothing; reads which copy to start from (no valid save yet = the RAM copy), not a failure
-    Config page = saved->magic == CONFIG_MAGIC ? *saved : config;
+    Config page = saved_page_or_ram();
     page.magic = CONFIG_MAGIC;
     page.version = CONFIG_VERSION;
     page.size = sizeof(Config_body);

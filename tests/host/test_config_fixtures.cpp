@@ -157,3 +157,60 @@ TEST(config_fixtures_upstream_07_pages_load_defaults_as_before) {
     }
     CHECK(seen >= 6);
 }
+
+// Review fw-usb-bt N4: a one-field save (narrator, PC sleep options) on a
+// page from any released writer keeps every other setting as config_load()
+// read it. It used to copy the page raw: a 0.9.5-dev.9 page's power flags
+// (body[49]) became mic_level, and a page failing its CRC was re-blessed.
+TEST(config_fixtures_one_field_saves_keep_the_other_settings) {
+    const auto fixtures = load_fixtures();
+    int seen = 0;
+    // loop: NOT-WORTH — host test
+    for (const Fixture &x : fixtures) {
+        if (is_upstream_07(x.tag)) continue;
+        // loop: NOT-WORTH — host test, the two one-field saves
+        for (int which = 0; which < 2; which++) {
+            fake_flash_erase_all();
+            g_fake_flash_fail = false;
+            std::memcpy(g_fake_flash + PICO_FLASH_SIZE_BYTES - x.from_end, x.page.data(), FLASH_PAGE_SIZE);
+            config_default();
+            config_load();
+            Config_body before = get_config();
+            const uint8_t flags_before = config_power_flags();
+            if (which == 0) {
+                CHECK(config_save_narrator(5));
+                before.narrator_voice = 5;
+            } else {
+                CHECK(config_save_power_flags(0x02));
+            }
+            config_default();
+            config_load();
+            const Config_body after = get_config();
+            const bool same = std::memcmp(&before, &after, sizeof(before)) == 0;
+            if (!same) std::fprintf(stderr, "  %s/%s: save %d changed other settings\n", x.tag.c_str(), x.scenario.c_str(), which);
+            CHECK(same);
+            CHECK_EQ(config_power_flags(), which == 0 ? flags_before : 0x02);
+            seen++;
+        }
+    }
+    CHECK(seen > 0);
+}
+
+// A page failing its CRC loads defaults; a one-field save then starts from
+// those (RAM), not from the bad page's bytes.
+TEST(config_one_field_save_never_reblesses_a_bad_page) {
+    fake_flash_erase_all();
+    g_fake_flash_fail = false;
+    config_default();
+    Config_body b = get_config();
+    b.inactive_time = 42;
+    set_config(b);
+    CHECK(config_save());
+    g_fake_flash[CONFIG_FLASH_OFFSET + offsetof(Config, body) + offsetof(Config_body, inactive_time)] ^= 0x01;  // torn
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 30);  // defaults
+    CHECK(config_save_narrator(2));
+    config_load();
+    CHECK_EQ(get_config().inactive_time, 30);
+    CHECK_EQ(get_config().narrator_voice, 2);
+}
