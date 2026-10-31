@@ -1023,6 +1023,7 @@ bool CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {
         // error: LOGGED-OK — the counter is how a full output FIFO surfaces (0xFD, OLED Diagnostics)
         g_bt_send_drops++;
         printf("[L2CAP bt_write] Error: Failed to add packet to send FIFO\n");
+        // error: LOGGED-OK — counted above (0xFD, OLED Diagnostics); false tells the caller it wasn't sent
         return false;
     }
     if (queue_get_level(&send_fifo) == 1) {
