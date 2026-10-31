@@ -350,6 +350,12 @@ if (ENABLE_STACK_USAGE)
         target_compile_options(opus PRIVATE -fstack-usage)
         target_compile_options(wdl_resampler PRIVATE -fstack-usage)
 endif ()
+# Serial (debug) builds guard the bottom of both cores' stacks, so an overflow
+# faults where it happens instead of corrupting the memory below it (core0
+# runs on the SDK's default stack with deep BTstack -> callback chains).
+if (ENABLE_SERIAL)
+        target_compile_definitions(ds5-bridge PRIVATE PICO_USE_STACK_GUARDS=1)
+endif ()
 
 # Control-only vendor-class USB interface for the desktop configurator
 # (docs: CLAUDE.md "Companion vendor interface"). Linux hid_playstation only

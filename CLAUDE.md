@@ -39,7 +39,7 @@ cmake --build build --target ds5-bridge
 
 Common build flags (set via `-D` on the cmake invocation):
 
-- `ENABLE_SERIAL=ON` — route printf to USB CDC for debugging. Default OFF (production).
+- `ENABLE_SERIAL=ON` — route printf to USB CDC for debugging, with the SDK's stack guards on both cores (`PICO_USE_STACK_GUARDS=1`: an overflow faults at once instead of corrupting memory). Default OFF (production).
 - `ENABLE_VERBOSE=ON` — chatty BT/HID logging. Default OFF.
 - `ENABLE_BATT_LED=OFF` — disable the low-battery LED blink. Default ON.
 - `PICO_W_BUILD=ON` — build for the original Pico W (drops audio, lower clock). Default targets Pico 2 W.
