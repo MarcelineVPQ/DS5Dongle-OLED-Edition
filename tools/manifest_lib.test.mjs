@@ -208,7 +208,37 @@ test("hash cache: the same file in both feeds downloads once; --no-cache downloa
   await assert.rejects(assetHasher({ fetch: short.fetch, noCache: true })(tar), /size 6 != 12/);
 });
 
+test("hash cache with a gate (G2): checked on download, the pass cached per key, a refused file not cached", async () => {
+  const entries = {};
+  const seen = [];
+  const gate = (key, ok = true) => ({ key, check: (bytes, sha256) => { seen.push([key, bytes.toString(), sha256]); if (!ok) throw new Error("G2 refused"); } });
+  const f = fakeFetch(files);
+  assert.equal((await assetHasher({ fetch: f.fetch, entries })(tar, gate("k1"))).sha256, sha("proton bytes"));
+  assert.deepEqual(seen, [["k1", "proton bytes", sha("proton bytes")]]);
+  assert.equal(entries[7].gate, "k1");
+  // Same key: no download, no check. Without a gate: the cached hash.
+  const g = fakeFetch(files);
+  await assetHasher({ fetch: g.fetch, entries })(tar, gate("k1"));
+  await assetHasher({ fetch: g.fetch, entries })(tar);
+  assert.equal(g.calls.length, 0);
+  assert.equal(seen.length, 1);
+  // Another key (boards.json row or entry changed): downloaded and checked again; a refusal throws and keeps the old entry.
+  const h = fakeFetch(files);
+  await assert.rejects(assetHasher({ fetch: h.fetch, entries })(tar, gate("k2", false)), /G2 refused/);
+  assert.equal(h.calls.length, 1);
+  assert.equal(entries[7].gate, "k1");
+});
+
 const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
+
+// src/fw_identity.h keeps its own copy of the type ids (kBoard<Id in
+// PascalCase>, e.g. pico2_w -> kBoardPico2W): it must be boards.json's.
+test("src/fw_identity.h board type ids equal boards.json type_id, row for row", () => {
+  const header = readFileSync(new URL("../src/fw_identity.h", import.meta.url), "utf8");
+  const inHeader = Object.fromEntries([...header.matchAll(/\b(kBoard(?!Unknown)\w+)\s*=\s*(\d+)/g)].map((m) => [m[1], Number(m[2])]));
+  const pascal = (id) => id.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+  assert.deepEqual(inHeader, Object.fromEntries(boards.map((b) => [`kBoard${pascal(b.id)}`, b.type_id])));
+});
 
 test("boards.json's pico2_w row describes the image every release so far published", () => {
   assert.deepEqual(imageFields(boards.find((b) => b.id === "pico2_w")), PICO2_W_IMAGE);

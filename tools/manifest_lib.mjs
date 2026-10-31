@@ -157,6 +157,10 @@ export function keepIssuedAt(feed, previousText) {
 // `digest` ("sha256:…") it must equal the cached or computed sha256, or this
 // throws: neither side is trusted silently. save(entries) runs after each new
 // hash, so an interrupted publish keeps what it already hashed.
+// measure(asset, gate): gate = { key, check(bytes, sha256) } runs on the
+// downloaded bytes and throws to refuse the file (gate G2 on a UF2); the
+// entry records `gate: key`, and a cached entry without that key is
+// downloaded and checked again.
 export function assetHasher({ fetch, entries = {}, noCache = false, save = () => {} }) {
   const inRun = new Map();
   const confirm = (asset, sha256, where) => {
@@ -164,9 +168,9 @@ export function assetHasher({ fetch, entries = {}, noCache = false, save = () =>
     const d = /^sha256:([0-9a-f]{64})$/.exec(asset.digest);
     if (d && d[1] !== sha256) throw new Error(`${asset.name}: GitHub's digest says ${d[1]}, ${where} says ${sha256}`);
   };
-  async function hash(asset) {
+  async function hash(asset, gate) {
     const hit = entries[asset.id];
-    if (!noCache && hit && hit.name === asset.name && hit.size === asset.size && hit.updated_at === asset.updated_at) {
+    if (!noCache && hit && hit.name === asset.name && hit.size === asset.size && hit.updated_at === asset.updated_at && (!gate || hit.gate === gate.key)) {
       confirm(asset, hit.sha256, "the hash cache");
       return { url: asset.browser_download_url, size: hit.size, sha256: hit.sha256 };
     }
@@ -174,19 +178,23 @@ export function assetHasher({ fetch, entries = {}, noCache = false, save = () =>
     if (!r.ok || !r.body) throw new Error(`${asset.name}: download returned ${r.status}`);
     const h = createHash("sha256");
     let size = 0;
+    const chunks = [];
     for await (const chunk of r.body) {
       size += chunk.byteLength;
       h.update(chunk);
+      if (gate) chunks.push(chunk);
     }
     if (size !== asset.size) throw new Error(`${asset.name}: size ${size} != ${asset.size}`);
     const sha256 = h.digest("hex");
     confirm(asset, sha256, "the download");
-    entries[asset.id] = { name: asset.name, size, updated_at: asset.updated_at, sha256 };
+    if (gate) gate.check(Buffer.concat(chunks), sha256);
+    entries[asset.id] = { name: asset.name, size, updated_at: asset.updated_at, sha256, ...(gate ? { gate: gate.key } : {}) };
     save(entries);
     return { url: asset.browser_download_url, size, sha256 };
   }
-  return (asset) => {
-    if (!inRun.has(asset.id)) inRun.set(asset.id, hash(asset));
-    return inRun.get(asset.id);
+  return (asset, gate) => {
+    const k = `${asset.id} ${gate?.key ?? ""}`;
+    if (!inRun.has(k)) inRun.set(k, hash(asset, gate));
+    return inRun.get(k);
   };
 }

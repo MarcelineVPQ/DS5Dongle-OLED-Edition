@@ -8,8 +8,9 @@
 #
 # The version is "<last tag>+<commits since>.<commit>[.dirty]", e.g.
 # v0.9.3-oled-edition+3.a1b2c3d: the OLED, the app and picotool all show it,
-# so a dev build is never mistaken for a release. Build folders live in
-# ~/.cache/ds5dongle/ (one per board), kept between builds for speed.
+# so a dev build is never mistaken for a release. Built like a release image
+# (tools/build_board.sh: boards.json flags, image checks, gate G2) in
+# ~/.cache/ds5dongle/build/<board>, kept between builds for speed.
 # PICO_SDK_PATH / PICO_TOOLCHAIN_PATH pick the SDK and compiler (tools/toolchain.sh).
 set -euo pipefail
 FW="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,15 +29,13 @@ toolchain_setup || exit 1
 desc="$(git -C "$FW" describe --tags --match 'v*-oled-edition' --long --dirty)"
 # v0.9.3-oled-edition-3-ga1b2c3d[-dirty] -> v0.9.3-oled-edition+3.a1b2c3d[.dirty]
 VERSION="$(sed -E 's/-([0-9]+)-g([0-9a-f]+)(-dirty)?$/+\1.\2\3/; s/-dirty$/.dirty/' <<<"$desc")"
-BUILD="${XDG_CACHE_HOME:-$HOME/.cache}/ds5dongle/build-$BOARD"
-EXTRA=()
-[ "$BOARD" = pico_w ] && EXTRA=(-DPICO_W_BUILD=ON)
+OUT="${XDG_CACHE_HOME:-$HOME/.cache}/ds5dongle"
 
 echo "== Firmware $VERSION ($BOARD)"
-toolchain_fresh_build_dir "$BUILD"
-cmake -S "$FW" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_COMPANION_VENDOR=ON "-DVERSION=$VERSION" "${EXTRA[@]}" >/dev/null
-cmake --build "$BUILD" --target ds5-bridge >/dev/null
-UF2="$BUILD/ds5-bridge-oled.uf2"
+toolchain_fresh_build_dir "$OUT/build/$BOARD"
+rm -rf "$OUT/artifacts"  # only the newest build's named copy is kept
+DS5_OUT_DIR="$OUT" "$FW/tools/build_board.sh" "$BOARD" "$VERSION" -DENABLE_COMPANION_VENDOR=ON >/dev/null
+UF2="$(ls "$OUT"/artifacts/*.uf2)"
 echo "Built: $UF2"
 $FLASH || exit 0
 

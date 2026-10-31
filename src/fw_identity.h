@@ -33,8 +33,8 @@ namespace fwid {
 constexpr uint8_t kLayout = 1;
 constexpr uint16_t kLen = 14;
 
-// Board type ids (the firmware repo's boards.json from step 7; the app's
-// src/update/boardIdentity.ts). 0 = a board not in the table.
+// Board type ids: boards.json type_id (tools/manifest_lib.test.mjs fails when
+// they differ; the app's src/update/boardIdentity.ts). 0 = a board not in the table.
 enum : uint16_t { kBoardUnknown = 0, kBoardPico2W = 1, kBoardPicoW = 2 };
 enum : uint8_t { kPersonaDs5 = 0 };
 enum : uint8_t { kChipRp2040 = 0, kChipRp2350A = 1, kChipRp2350B = 2, kChipUnknown = 0xFF };

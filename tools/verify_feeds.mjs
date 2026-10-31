@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { imageFields } from "./manifest_lib.mjs";
 
 export const FEEDS = { "latest.json": "stable", "latest-dev.json": "dev" };
 
@@ -34,9 +35,10 @@ function signedBy(data, sigText, keys) {
   });
 }
 
-// Schema 2's own fields (tools/manifest_lib.mjs buildFeed). Board names are
-// checked against boards.json once it exists (design step 7), not here.
-function checkSchema2(name, feed) {
+// Schema 2's own fields (tools/manifest_lib.mjs buildFeed). Every
+// firmwares[] entry is a release:true row of boards.json (the rows the feed
+// may offer), with that row's chip, flash_min, personas and displays.
+function checkSchema2(name, feed, boards) {
   const problems = [];
   if (!/^\d+\.\d+\.\d+$/.test(feed.newest_stable ?? "")) problems.push(`${name}: newest_stable ${JSON.stringify(feed.newest_stable)} is not a stable version`);
   if (!Array.isArray(feed.firmwares)) return [...problems, `${name}: schema 2 needs firmwares[]`];
@@ -44,7 +46,14 @@ function checkSchema2(name, feed) {
     const ok =
       typeof f?.version === "string" && typeof f.board === "string" && typeof f.chip === "string" && Number.isInteger(f.flash_min) &&
       Array.isArray(f.personas) && Array.isArray(f.displays) && typeof f.uf2?.url === "string" && /^[0-9a-f]{64}$/.test(f.uf2?.sha256 ?? "") && Number.isInteger(f.uf2?.size);
-    if (!ok) problems.push(`${name}: firmwares[${i}] is missing version, board, chip, flash_min, personas, displays or uf2 (url, size, sha256)`);
+    if (!ok) {
+      problems.push(`${name}: firmwares[${i}] is missing version, board, chip, flash_min, personas, displays or uf2 (url, size, sha256)`);
+      continue;
+    }
+    const row = boards.find((b) => b.id === f.board);
+    if (!row?.release) problems.push(`${name}: firmwares[${i}] board ${JSON.stringify(f.board)} is not a release board in boards.json`);
+    else if (JSON.stringify(imageFields(row)) !== JSON.stringify({ board: f.board, chip: f.chip, flash_min: f.flash_min, personas: f.personas, displays: f.displays }))
+      problems.push(`${name}: firmwares[${i}] (${f.board}) chip, flash_min, personas or displays differ from boards.json`);
   }
   // Installed apps offer `firmware`: it must be the Pico 2 W entry, byte for byte.
   if (feed.firmware) {
@@ -56,8 +65,8 @@ function checkSchema2(name, feed) {
 }
 
 // Problems with one feed, in plain words; [] = it passes.
-// data/sig/prev: Buffers or null (missing).
-export function checkFeed({ name, data, sig, prev, keys }) {
+// data/sig/prev: Buffers or null (missing). boards: boards.json's rows.
+export function checkFeed({ name, data, sig, prev, keys, boards }) {
   if (!data) return sig ? [`${name}.sig exists without ${name}`] : [];
   if (!sig) return [`${name} has no ${name}.sig`];
   if (!signedBy(data, sig.toString("utf8"), keys)) return [`${name}: the signature doesn't match (edited by hand, or signed with a key the app doesn't trust)`];
@@ -73,7 +82,7 @@ export function checkFeed({ name, data, sig, prev, keys }) {
   const issued = feed.issued_at === undefined ? null : Date.parse(feed.issued_at);
   if (feed.schema === 2 && issued === null) problems.push(`${name}: schema 2 needs issued_at`);
   if (Number.isNaN(issued)) problems.push(`${name}: issued_at ${JSON.stringify(feed.issued_at)} is not a date`);
-  if (feed.schema === 2) problems.push(...checkSchema2(name, feed));
+  if (feed.schema === 2) problems.push(...checkSchema2(name, feed, boards));
   let before = null;
   try {
     before = prev ? JSON.parse(prev.toString("utf8")).issued_at : null;
@@ -116,12 +125,13 @@ function main(args) {
     console.error(`verify_feeds: no TRUSTED_KEYS in ${trusted}`);
     return 1;
   }
+  const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
   const problems = [];
   let found = 0;
   for (const name of Object.keys(FEEDS)) {
     const data = current(name);
     if (data) found++;
-    problems.push(...checkFeed({ name, data, sig: current(`${name}.sig`), prev: show(`${base}:${name}`), keys }));
+    problems.push(...checkFeed({ name, data, sig: current(`${name}.sig`), prev: show(`${base}:${name}`), keys, boards }));
   }
   if (found === 0) problems.push("no feed found (latest.json, latest-dev.json)");
   if (problems.length) {

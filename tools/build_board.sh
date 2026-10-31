@@ -8,7 +8,9 @@
 # the UF2 to artifacts/ under the row's asset name ({tag} = VERSION), writes
 # artifacts/firmware-image-BOARD.json ([{board, version, file, sha256}], what
 # release.yml merges into firmware-images.json), then runs tools/uf2_info.mjs
-# against the row and that entry. Used by build.yml and release.yml.
+# against the row and that entry. Used by build.yml, release.yml,
+# tools/release.sh and tools/dev_firmware.sh. DS5_OUT_DIR (default: the repo)
+# holds build/BOARD and artifacts/.
 set -euo pipefail
 board="${1:?usage: tools/build_board.sh BOARD VERSION [cmake flags...]}"
 version="${2:?usage: tools/build_board.sh BOARD VERSION [cmake flags...]}"
@@ -22,14 +24,15 @@ field() {
 mapfile -t flags < <(field cmake_flags | sed "/^$/d")
 asset="$(field asset)"
 asset="${asset//\{tag\}/$version}"
-dir="build/$board"
+out="${DS5_OUT_DIR:-.}"
+dir="$out/build/$board"
 cmake -S . -B "$dir" -G Ninja -DCMAKE_BUILD_TYPE=Release -DPICO_SDK_PATH="$PICO_SDK_PATH" "${flags[@]}" "$@" -DVERSION="$version"
 cmake --build "$dir" --target ds5-bridge
 tools/check_ram_residency.sh "$dir/ds5-bridge-oled.elf"
 tools/check_xip_setup.sh "$dir/ds5-bridge-oled.elf" 2 11
 python3 tools/check_flash_reserved.py "$dir/ds5-bridge-oled.elf" "$dir/ds5-bridge-oled.uf2"
-mkdir -p artifacts
-cp "$dir/ds5-bridge-oled.uf2" "artifacts/$asset"
+mkdir -p "$out/artifacts"
+cp "$dir/ds5-bridge-oled.uf2" "$out/artifacts/$asset"
 printf '[{"board":"%s","version":"%s","file":"%s","sha256":"%s"}]\n' \
-  "$board" "$version" "$asset" "$(sha256sum "artifacts/$asset" | cut -d' ' -f1)" > "artifacts/firmware-image-$board.json"
-node tools/uf2_info.mjs "artifacts/$asset" --board "$board" --version "$version" --images "artifacts/firmware-image-$board.json"
+  "$board" "$version" "$asset" "$(sha256sum "$out/artifacts/$asset" | cut -d' ' -f1)" > "$out/artifacts/firmware-image-$board.json"
+node tools/uf2_info.mjs "$out/artifacts/$asset" --board "$board" --version "$version" --images "$out/artifacts/firmware-image-$board.json"

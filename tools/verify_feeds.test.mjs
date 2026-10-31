@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -16,7 +16,8 @@ const pub = publicKey.export({ format: "der", type: "spki" }).toString("base64")
 const keys = [pub];
 const feed = (fields) => Buffer.from(JSON.stringify({ channel: "stable", app: { version: "0.9.5" }, ...fields }, null, 2) + "\n");
 const sigOf = (data) => Buffer.from(sign(null, data, privateKey).toString("base64") + "\n");
-const check = (data, extra = {}) => checkFeed({ name: "latest.json", data, sig: sigOf(data), prev: null, keys, ...extra });
+const boards = JSON.parse(readFileSync(new URL("../boards.json", import.meta.url), "utf8")).boards;
+const check = (data, extra = {}) => checkFeed({ name: "latest.json", data, sig: sigOf(data), prev: null, keys, boards, ...extra });
 
 test("reads the keys out of the app's TRUSTED_KEYS", () => {
   const src = `export const TRUSTED_KEYS = [\n  "${pub}", // note\n];\nconst other = "AAAA";\n`;
@@ -101,4 +102,16 @@ test("schema 2 needs newest_stable, a complete firmwares[] and firmware = its pi
   const f = schema2().firmwares[0];
   assert.match(check(json(schema2({ firmwares: [{ ...f, chip: undefined }] }))).join(), /firmwares\[0\]/);
   assert.match(check(json(schema2({ firmwares: [{ ...f, uf2: { ...uf2, sha256: "3f".repeat(32) } }] }))).join(), /pico2_w entry/);
+});
+
+test("schema 2: every firmwares[] board is a release row of boards.json with its chip, flash_min, personas and displays", () => {
+  const f = schema2().firmwares[0];
+  const one = (over) => check(json(schema2({ firmware: undefined, firmwares: [{ ...f, ...over }] }))).join();
+  assert.equal(one({}), "");
+  assert.match(one({ board: "pico_w" }), /"pico_w" is not a release board/);
+  assert.match(one({ board: "nonesuch" }), /"nonesuch" is not a release board/);
+  assert.match(one({ chip: "rp2350b" }), /differ from boards\.json/);
+  assert.match(one({ flash_min: 2097152 }), /differ from boards\.json/);
+  assert.match(one({ personas: ["ds5", "x"] }), /differ from boards\.json/);
+  assert.match(one({ displays: ["none"] }), /differ from boards\.json/);
 });
