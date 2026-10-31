@@ -1748,6 +1748,14 @@ __attribute__((noinline)) void render_screen_slots() {
     flush_fb();
 }
 
+// The splash stays up for kSplashUs without blocking: oled_loop() draws
+// nothing until then, while the main loop already runs Bluetooth and USB
+// (it used to sleep 1.5 s in oled_init(), before the main loop; review
+// fw-usb-bt N9).
+constexpr uint32_t kSplashUs = 1500 * 1000;
+static bool s_splash_hold = false;
+static uint32_t s_splash_since_us = 0;
+
 void boot_splash() {
     fb_clear();
     auto cx_for = [](const char* s) {
@@ -1765,7 +1773,8 @@ void boot_splash() {
     draw_text(cx2 < 0 ? 0 : cx2, 30, l2);
     draw_text(cx_for(l3), 44, l3);
     flush_fb();
-    sleep_ms(1500);
+    s_splash_since_us = time_us_32();
+    s_splash_hold = true;
 }
 
 // Sample controller edges every main-loop pass, independently of the 10 Hz
@@ -1983,6 +1992,10 @@ void oled_loop() {
     screen_input_tick();
     const uint32_t now = time_us_32();
     rumble_burst_tick(now);
+    if (s_splash_hold) {
+        if (now - s_splash_since_us < kSplashUs) return;  // the boot splash is still up
+        s_splash_hold = false;
+    }
     if ((now - last_render_us) < kFrameUs) return;
     last_render_us = now;
     // Track charge progress every frame — before the power-ladder early-returns
