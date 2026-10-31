@@ -18,7 +18,8 @@ set -euo pipefail
 
 FW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 KEY="$HOME/.config/ds5-release/manifest-signing-key.pem"
-APP_DIR="$(cd "$(dirname "$0")/../.." && pwd)/DS5Dongle-OLED-Config-Web"
+# the app repo sits next to the main checkout (a worktree lives deeper, so go from git's common dir)
+APP_DIR="$(cd "$(git -C "$FW_DIR" rev-parse --path-format=absolute --git-common-dir)/../.." && pwd)/DS5Dongle-OLED-Config-Web"
 while [ $# -gt 0 ]; do
   case "$1" in
     --key) KEY="${2:?--key needs a path}"; shift 2 ;;
