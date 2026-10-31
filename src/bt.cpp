@@ -28,6 +28,7 @@
 #include "slots.h"
 #include "usb_power.h"
 #include "scan_policy.h"
+#include "bt_policy.h"
 #include "oled.h"
 #include "oled_toast.h"
 #if ENABLE_BATT_LED
@@ -110,9 +111,12 @@ static int g_current_slot = 0;
 
 bool bt_disconnect();  // fwd decl — defined further down
 
-// Keep the dongle discoverable while at least one slot is empty (covers
-// initial setup + partial-wipe states). Once all 4 slots are full, go
-// non-discoverable so a stray phone can't try to pair.
+// The board is never discoverable: pairing is its own inquiry finding the
+// controller in pairing mode and connecting to it, and a paired controller
+// pages it by address (PS), so nothing needs to find the board. It used to be
+// discoverable while a slot was empty (nearly always), which let a phone find
+// and pair with it (review fw-usb-bt S3). Incoming connections are filtered
+// too: accept_classic_connection() below.
 // Page scanning: fast (continuous 11.25 ms, interlaced) while waiting for a
 // controller so it reconnects quickly after PS (upstream ade9ea1), light
 // (11.25 ms every 1.28 s, the Bluetooth default) while one is connected: the
@@ -123,11 +127,7 @@ static void page_scan_fast(bool fast) {
 }
 
 static void update_discoverable() {
-    if (slots_any_empty()) {
-        gap_discoverable_control(1);
-    } else {
-        gap_discoverable_control(0);
-    }
+    gap_discoverable_control(0);
 }
 
 // Inquiry (the active scan for a controller in pairing mode) runs only in a
@@ -167,6 +167,26 @@ static void pairing_window_open() {
     if (acl_handle == HCI_CON_HANDLE_INVALID && !device_found) inquiry_start();
 }
 
+// Incoming connections (BTstack's classic connection filter, and our own
+// HCI_EVENT_CONNECTION_REQUEST accept): a known controller, or anything while
+// a pairing window is open (src/bt_policy.h).
+static bool incoming_allowed(bd_addr_t addr) {
+    link_key_t key;
+    link_key_type_t type;
+    const bool known = slot_owner_of(addr) >= 0 || gap_get_link_key_for_bd_addr(addr, key, &type);
+    // error: NOT-WORTH — a yes/no decision, not a failure; a refusal is printed by the caller
+    return btpolicy::accept_incoming(known, g_scan.open_now(time_us_64()));
+}
+
+static int accept_classic_connection(bd_addr_t addr, hci_link_type_t link_type) {
+    (void) link_type;
+    // error: NOT-WORTH — a yes/no decision, not a failure; the refusal below is printed
+    if (incoming_allowed(addr)) return 1;
+    printf("[HCI] Incoming connection from %s refused: not a paired controller, no pairing window\n", bd_addr_to_str(addr));
+    // error: LOGGED-OK — printf; an unknown device paging the board outside a pairing window is refused on purpose (it is not a controller of this board)
+    return 0;
+}
+
 // "Pair now" on the board (KEY0 held 2 s on the OLED's Status screen): a
 // pairing window for the current slot, when the boot / slot-action one ran out
 // with nothing connected. With no controller the board is off USB, so the app
@@ -193,7 +213,16 @@ bool bt_is_connected() { return hid_interrupt_cid != 0; }
 
 void bt_get_addr(uint8_t out[6]) { memcpy(out, current_device_addr, 6); }
 
-uint32_t bt_hci_err_count() { return 0; }  // stub for OLED Diagnostics
+// HCI errors since boot (0xFB [14..17], OLED Diagnostics): a failed command
+// (status or complete), a failed connection or authentication, a disconnect
+// for a fault (btpolicy::disconnect_is_error). Counted once BTstack is up,
+// so its own start-up probing doesn't count. It used to be a constant 0.
+static uint32_t g_hci_errs = 0;
+uint32_t bt_hci_err_count() { return g_hci_errs; }
+static void hci_error_seen() {
+    // error: SHOWN — this counter is the 0xFB "HCI errors" value (the app's board page, OLED Diagnostics)
+    if (g_hci_working) g_hci_errs++;
+}
 
 static volatile uint32_t g_bt_send_drops = 0;
 uint32_t bt_send_drops() { return g_bt_send_drops; }
@@ -441,11 +470,15 @@ int bt_init() {
     // SSP (Secure Simple Pairing)
     gap_ssp_set_enable(true);
     gap_secure_connections_enable(true);
-    gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
+    // No display, no keys: honest Just Works, what the DualSense uses too (it
+    // said Display Yes/No and confirmed every request itself).
+    gap_ssp_set_io_capability(SSP_IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
     gap_ssp_set_authentication_requirement(SSP_IO_AUTHREQ_MITM_PROTECTION_NOT_REQUIRED_GENERAL_BONDING);
 
     gap_connectable_control(1);
     update_discoverable();
+    // lifetime: NOT-WORTH — boot; one registration for the firmware's life
+    gap_register_classic_connection_filter(&accept_classic_connection);
 
     hci_event_callback_registration.callback = &hci_packet_handler;
     // lifetime: NOT-WORTH — boot; one registration for the firmware's life
@@ -547,7 +580,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             // BTstack sends GAP_EVENT_INQUIRY_COMPLETE for every end (also a
             // cancel), before the HCI event of a natural end.
             if (event_type == GAP_EVENT_INQUIRY_COMPLETE) g_inquiring = false;
-            if (device_found) {
+            // error: NOT-WORTH — a yes/no decision, not a failure: no controller found, or an attempt already on its way
+            if (btpolicy::inquiry_end_connects(device_found, connect_attempt_started != 0)) {
                 printf("[HCI] Connecting to %s...\n", bd_addr_to_str(current_device_addr));
                 new_pair = true;
                 connect_attempt_started = get_absolute_time(); // arm connection watchdog
@@ -568,6 +602,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             const uint8_t status = hci_event_command_status_get_status(packet);
             const uint16_t opcode = hci_event_command_status_get_command_opcode(packet);
             printf("[HCI] CmdStatus %s(0x%04X) status=0x%02X\n", opcode_to_str(opcode), opcode, status);
+            if (status != ERROR_CODE_SUCCESS) hci_error_seen();
             if (opcode == HCI_OPCODE_HCI_CREATE_CONNECTION && status != ERROR_CODE_SUCCESS) {
                 device_found = false;
                 new_pair = false;
@@ -584,6 +619,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             if (opcode != HCI_OPCODE_HCI_READ_RSSI) {
                 printf("[HCI] CmdComplete %s(0x%04X) status=0x%02X\n", opcode_to_str(opcode), opcode, status);
             }
+            if (packet[1] >= 4 && status != ERROR_CODE_SUCCESS) hci_error_seen();  // [1] = parameter length: a status byte is there
             if (opcode == HCI_OPCODE_HCI_READ_RSSI) {
                 // error: SHOWN — no reading: the OLED BT Signal screen shows "Signal: --" / "Link: unknown", 0xF9 answers -128 (the app shows "—"); printf'd for serial builds. BTstack sends GAP_EVENT_RSSI_MEASUREMENT only on success, so this is the one place a failure is seen.
                 if (status != ERROR_CODE_SUCCESS || packet[1] < 7) {
@@ -610,6 +646,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 new_pair = false;
                 connect_attempt_started = 0; // disarm; no ACL was established
                 printf("[HCI] ACL connect failed status=0x%02X\n", status);
+                hci_error_seen();
                 inquiry_continue();
             }
             break;
@@ -663,6 +700,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             const hci_con_handle_t handle = hci_event_authentication_complete_get_connection_handle(packet);
             printf("[HCI] Authentication complete handle=0x%04X status=0x%02X\n", handle, status);
             if (status != ERROR_CODE_SUCCESS) {
+                hci_error_seen();
                 connect_attempt_started = 0; // disarm; teardown below re-inquires
                 // Only a rejected or missing key means the pairing is gone. Any
                 // other failure (a timeout, the link dropping mid-way) keeps the
@@ -716,7 +754,9 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             hci_event_connection_request_get_bd_addr(packet, addr);
             const uint32_t cod = hci_event_connection_request_get_class_of_device(packet);
             printf("[HCI] Incoming ACL request from %s cod=0x%06x\n", bd_addr_to_str(addr), (unsigned int) cod);
-            if ((cod & 0x000F00) == 0x000500) {
+            // A controller BTstack's filter refused gets no accept from us either.
+            // error: LOGGED-OK — accept_classic_connection() printed the refusal; BTstack declines it
+            if ((cod & 0x000F00) == 0x000500 && incoming_allowed(addr)) {
                 bd_addr_copy(current_device_addr, addr);
                 // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
                 gap_inquiry_stop();
@@ -759,6 +799,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             battery_led_on_disconnect();
 #endif
             printf("[HCI] Disconnected reason=0x%02X\n", reason);
+            if (btpolicy::disconnect_is_error(reason)) hci_error_seen();
             // A paired controller comes back by paging us (page scan is fast
             // again above); inquiry only inside a pairing window (a slot
             // switch's, a failed re-pair's), src/scan_policy.h.

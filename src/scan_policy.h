@@ -59,6 +59,8 @@ struct ScanPolicy {
         if (len_us >= kPairWindowUs && shown) prompt = true;
         window = true;
     }
+    // A pairing window is open now (an unknown device may connect, src/bt_policy.h).
+    bool open_now(uint64_t now) const { return window && now < window_end; }
     // A controller connected: no more inquiries until the next window.
     void close() {
         window = false;
