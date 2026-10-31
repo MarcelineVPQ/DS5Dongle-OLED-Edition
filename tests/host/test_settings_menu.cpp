@@ -377,6 +377,7 @@ TEST(settings_menu_grip_strengths_move_one_grip_each) {
     int left = -1, right = -1;
     // loop: NOT-WORTH — host test, every settings item
     for (int i = 0; i < kNumItems; i++) {
+        if (kItems[i].kind != SK_NUM) continue;  // SK_POWER's off is a bit mask
         if (kItems[i].off == offsetof(Config_body, haptics_gain)) left = i;
         if (kItems[i].off == offsetof(Config_body, haptics_gain_right)) right = i;
     }
