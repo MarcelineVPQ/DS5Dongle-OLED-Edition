@@ -108,6 +108,9 @@ jobs:
       - name: The 7 READMEs match README.md (CLAUDE.md "Releases")
         run: python3 tools/check_readmes.py
 
+      - name: The community files are present (CLAUDE.md "Community files")
+        run: python3 tools/check_community.py
+
       - name: Every loop has a verdict (CLAUDE.md "Loop pass")
         run: python3 tools/list_loops.py --check
 

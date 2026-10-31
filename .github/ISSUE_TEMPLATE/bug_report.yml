@@ -1,0 +1,78 @@
+name: Firmware bug report
+description: The firmware on your board doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Questions and ideas go to [Discussions](https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/discussions); this form is for bugs.
+        Problems with the configurator app itself are welcome here too; say so in the first box.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Pair the controller\n2. Start the game…\n3. The speaker goes silent after a minute"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version
+      description: The OLED Status screen's header, or the board's page in the app
+      placeholder: "e.g. 0.9.5-dev.20"
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - Pico 2 W / Pico 2 WH
+        - Pico W
+        - Other (say which below)
+    validations:
+      required: true
+  - type: dropdown
+    id: oled
+    attributes:
+      label: OLED display
+      options:
+        - Waveshare Pico-OLED-1.3 fitted
+        - No display
+  - type: dropdown
+    id: controller
+    attributes:
+      label: Controller
+      options:
+        - DualSense
+        - DualSense Edge
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options:
+        - Linux
+        - SteamOS / Steam Deck
+        - Windows 10/11
+        - macOS
+        - Other (say which below)
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Distribution / version, USB port, game
+      placeholder: "e.g. Fedora 43, USB 2.0 port on the back, Cyberpunk 2077 via Proton"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics or logs
+      description: "A photo of the OLED Diagnostics screen, the app's diagnostics, or the output of `scripts/audio_diag.py` / `scripts/mic_diag.sh status`, if you have any."

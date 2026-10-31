@@ -42,6 +42,12 @@ HTML_REF = re.compile(r"""<(?:img|a)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["'
 DEV_VERSION = re.compile(r"\b\d+\.\d+\.\d+-dev\.\d+\b")
 
 
+def missing(root, paths):
+    """The paths (relative to root) that aren't a file; shared with
+    tools/check_community.py."""
+    return [p for p in paths if not os.path.isfile(os.path.join(root, p))]
+
+
 def language_bar(current):
     parts = []
     for path, name in READMES:
@@ -108,12 +114,12 @@ def main():
     root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), ".."))
     problems = []
     parsed = {}
+    absent = missing(root, [path for path, _ in READMES])
+    for path in absent:
+        problems.append(f"{path}: missing (every README.md change goes to all {len(READMES)} languages)")
     for path, _ in READMES:
-        full = os.path.join(root, path)
-        if not os.path.isfile(full):
-            problems.append(f"{path}: missing (every README.md change goes to all {len(READMES)} languages)")
-            continue
-        parsed[path] = parse(full)
+        if path not in absent:
+            parsed[path] = parse(os.path.join(root, path))
 
     ref = parsed.get("README.md")
     ref_dev = sorted(set(DEV_VERSION.findall("\n".join(ref[0])))) if ref else []

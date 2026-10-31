@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/discussions
+    about: Ask, share results and suggest features in Discussions
+  - name: A security problem
+    url: https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/security/advisories/new
+    about: Please report it privately, not in a public issue (see SECURITY.md)
