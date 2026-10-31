@@ -71,7 +71,7 @@ void *__not_in_flash_func(memmove)(void *dst, const void *src, size_t n) {
     } else {
         d += n;
         s += n;
-        // loop: HOT-PATH-OK — backward bytewise move (overlap), RAM-resident; rare in callers
+        // loop: HOT-PATH-OK — N = n bytes, backward bytewise move (overlap), RAM-resident; rare in callers
         while (n--) *--d = *--s;
     }
     return dst;

@@ -25,7 +25,7 @@ size_t perf_serialize(uint8_t *out, size_t cap) {
     out[1] = PERF_NUM_STAGES;
     memcpy(out + 2, &window, 2);
     const uint32_t gen = g_perf_gen;
-    // loop: HOT-PATH-OK — PERF_NUM_STAGES rows, per 0xFC telemetry GET
+    // loop: HOT-PATH-OK — N = PERF_NUM_STAGES = 8 rows, per 0xFC telemetry GET
     for (int i = 0; i < PERF_NUM_STAGES; i++) {
         const PerfStat &s = g_perf[i];
         uint32_t sum = 0, count = 0, max = 0, sgen = 0;

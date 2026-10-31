@@ -34,6 +34,7 @@ Usage: python3 tools/list_loops.py           the TSV
 A verdict is a comment on the loop's line or in the comment block right above:
     // loop: SERIAL-REQUIRED — one BT report per call; order is the protocol
 Verdicts: PARALLELIZE BATCH SERIAL-REQUIRED HOT-PATH-OK FIX-HOT-PATH NOT-WORTH.
+HOT-PATH-OK states its N: a number, or "N =" / "N ≤" (--check fails without).
 No dependencies beyond the Python standard library.
 """
 
@@ -44,6 +45,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 VERDICTS = ["PARALLELIZE", "BATCH", "SERIAL-REQUIRED", "HOT-PATH-OK", "FIX-HOT-PATH", "NOT-WORTH"]
 VERDICT_RE = re.compile(r"loop:\s*(" + "|".join(VERDICTS) + r")\s+—\s+\S")
+# HOT-PATH-OK states its N (CLAUDE.md "Loop pass"): a decimal number (hex
+# literals such as 0xFC don't count) or "N =" / "N ≤" / "N <".
+HOT_N_RE = re.compile(r"(?<![0-9A-Za-z_])\d|\bN\s*(=|≤|<)")
 KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "do", "else", "case", "catch",
             "static_assert", "alignof", "decltype", "defined", "__attribute__", "new", "delete"}
 RAM_MACROS = {"CORE0_RAM_FUNC", "__not_in_flash_func", "__no_inline_not_in_flash_func",
@@ -470,6 +474,13 @@ def main_loop_calls(main_fn):
 
 
 def verdict_of(lines, line):
+    v = _verdict_text(lines, line)
+    if v.startswith("loop: HOT-PATH-OK") and not HOT_N_RE.search(re.sub(r"0x[0-9A-Fa-f]+", "", v.split("—", 1)[1])):
+        return "INVALID (HOT-PATH-OK without its N) " + v
+    return v
+
+
+def _verdict_text(lines, line):
     own = lines[line - 1]
     if VERDICT_RE.search(own):
         return own[own.index("loop:"):].strip()

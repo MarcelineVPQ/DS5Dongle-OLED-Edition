@@ -191,7 +191,7 @@ void draw_changed(Canvas &c, const uint8_t *in, bool edge, Cache &cache, bool fo
         c.clear(kLeft, kTop, kW - 2 * kLeft, kBox);
         draw(c, in, edge);
     } else {
-        // loop: HOT-PATH-OK — two sticks and two trigger bars at 10 Hz
+        // loop: HOT-PATH-OK — N = 2 sides (a stick and a trigger bar each) at 10 Hz
         for (int i = 0; i < 2; i++) {
             const int x = i ? mirror_left(kLeft, kBox) : kLeft;
             const int cx = x + 3 + stick_offset(in[2 * i]);

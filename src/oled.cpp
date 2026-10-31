@@ -1049,7 +1049,7 @@ __attribute__((noinline)) void render_screen_diag() {
     sample_diag_rates();
 
     char line[diag_rows::kGlyphs + 1]; // 19 glyphs fit before the scroll markers at x=120
-    // loop: HOT-PATH-OK — five visible rows at 10 Hz, unchanged strings skip drawing
+    // loop: HOT-PATH-OK — N = kDiagVisible = 5 visible rows at 10 Hz, unchanged strings skip drawing
     for (int i = 0; i < kDiagVisible; i++) {
         if (diag_scroll + i < kNumDiagRows) format_diag_row(diag_scroll + i, line, sizeof(line));
         else line[0] = '\0';
