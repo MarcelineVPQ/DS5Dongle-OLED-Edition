@@ -1,7 +1,8 @@
 // node --test tools/manifest_lib.test.mjs
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allPages, buildFeed, isoSeconds, keepIssuedAt, PICO2_W_IMAGE, selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
+import { createHash } from "node:crypto";
+import { allPages, assetHasher, buildFeed, isoSeconds, keepIssuedAt, PICO2_W_IMAGE, selectProton, selectRelease, sumFor, versionKey } from "./manifest_lib.mjs";
 
 const asset = (name) => ({ name, size: 1, browser_download_url: `https://github.com/x/releases/download/t/${name}` });
 const rel = (tag_name, names, extra = {}) => ({ tag_name, html_url: `https://github.com/x/releases/tag/${tag_name}`, draft: false, prerelease: false, assets: names.map(asset), ...extra });
@@ -142,4 +143,66 @@ test("reads every page of the release list", async () => {
   assert.deepEqual(await allPages(async (n) => (asked.push(n), pages[n] ?? []), 2), [1, 2, 3, 4, 5]);
   assert.deepEqual(asked, [1, 2, 3]);
   assert.deepEqual(await allPages(async (n) => (n === 1 ? [1, 2] : []), 2), [1, 2]);
+});
+
+// The hash cache (assetHasher): a fake fetch counts downloads.
+const sha = (text) => createHash("sha256").update(text).digest("hex");
+const fakeFetch = (files) => {
+  const calls = [];
+  const fetch = async (url) => (calls.push(url), new Response(files[url]));
+  return { fetch, calls };
+};
+const file = (id, name, body, extra = {}) => ({ id, name, size: body.length, updated_at: "2026-10-31T10:00:00Z", browser_download_url: `https://github.com/x/d/${name}`, ...extra });
+const tar = file(7, "GE-Proton11-7-DualSense.tar.gz", "proton bytes");
+const files = { [tar.browser_download_url]: "proton bytes" };
+
+test("hash cache: a cached file with the same id, name, size and updated_at is not downloaded", async () => {
+  const entries = {};
+  const first = fakeFetch(files);
+  assert.deepEqual(await assetHasher({ fetch: first.fetch, entries })(tar), { url: tar.browser_download_url, size: 12, sha256: sha("proton bytes") });
+  assert.equal(first.calls.length, 1);
+  assert.deepEqual(entries[7], { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: sha("proton bytes") });
+  const again = fakeFetch(files);
+  assert.deepEqual(await assetHasher({ fetch: again.fetch, entries })(tar), { url: tar.browser_download_url, size: 12, sha256: sha("proton bytes") });
+  assert.equal(again.calls.length, 0);
+});
+
+test("hash cache: a changed updated_at or size downloads again", async () => {
+  const entries = { 7: { name: tar.name, size: 12, updated_at: "2026-10-01T00:00:00Z", sha256: "0".repeat(64) } };
+  const f = fakeFetch(files);
+  assert.equal((await assetHasher({ fetch: f.fetch, entries })(tar)).sha256, sha("proton bytes"));
+  assert.equal(f.calls.length, 1);
+  assert.equal(entries[7].updated_at, tar.updated_at);
+  const replaced = file(7, tar.name, "proton bytes v2");
+  const g = fakeFetch({ [replaced.browser_download_url]: "proton bytes v2" });
+  assert.equal((await assetHasher({ fetch: g.fetch, entries })(replaced)).sha256, sha("proton bytes v2"));
+  assert.equal(g.calls.length, 1);
+});
+
+test("hash cache: GitHub's digest must match the cache and the download", async () => {
+  const good = { ...tar, digest: `sha256:${sha("proton bytes")}` };
+  const bad = { ...tar, digest: `sha256:${"1".repeat(64)}` };
+  const f = fakeFetch(files);
+  assert.equal((await assetHasher({ fetch: f.fetch })(good)).sha256, sha("proton bytes"));
+  await assert.rejects(assetHasher({ fetch: f.fetch })(bad), /digest says 1{64}, the download says/);
+  const entries = { 7: { name: tar.name, size: 12, updated_at: tar.updated_at, sha256: "2".repeat(64) } };
+  await assert.rejects(assetHasher({ fetch: f.fetch, entries })(good), /the hash cache says 2{64}/);
+  assert.equal(f.calls.length, 2);
+});
+
+test("hash cache: the same file in both feeds downloads once; --no-cache downloads again", async () => {
+  const f = fakeFetch(files);
+  const saved = [];
+  const entries = {};
+  const measure = assetHasher({ fetch: f.fetch, entries, save: (e) => saved.push(JSON.stringify(e)) });
+  const [a, b] = await Promise.all([measure(tar), measure({ ...tar })]);
+  assert.deepEqual(a, b);
+  assert.equal(f.calls.length, 1);
+  assert.equal(saved.length, 1);
+  const forced = fakeFetch(files);
+  assert.equal((await assetHasher({ fetch: forced.fetch, entries, noCache: true })(tar)).sha256, sha("proton bytes"));
+  assert.equal(forced.calls.length, 1);
+  // A short download is still refused.
+  const short = fakeFetch({ [tar.browser_download_url]: "proton" });
+  await assert.rejects(assetHasher({ fetch: short.fetch, noCache: true })(tar), /size 6 != 12/);
 });

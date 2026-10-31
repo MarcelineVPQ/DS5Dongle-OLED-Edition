@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // Pure part of tools/build_manifest.mjs: picks the release(s) and asset files
 // that latest.json describes. Kept separate so it can be tested on fixture
 // release lists without touching the network.
@@ -122,4 +124,46 @@ export function keepIssuedAt(feed, previousText) {
   if (typeof prev?.issued_at !== "string") return feed;
   const same = JSON.stringify({ ...prev, issued_at: "" }) === JSON.stringify({ ...feed, issued_at: "" });
   return same ? { ...feed, issued_at: prev.issued_at } : feed;
+}
+
+// Size + sha256 of release files, without downloading one twice. `entries` is
+// the hash cache (feed-hash-cache.json, keyed by GitHub asset id): a file
+// whose id, name, size and updated_at all match its entry is not downloaded
+// again. In one run each asset is downloaded at most once. noCache ignores the
+// stored entries (re-downloads and replaces them). When GitHub lists a
+// `digest` ("sha256:…") it must equal the cached or computed sha256, or this
+// throws: neither side is trusted silently. save(entries) runs after each new
+// hash, so an interrupted publish keeps what it already hashed.
+export function assetHasher({ fetch, entries = {}, noCache = false, save = () => {} }) {
+  const inRun = new Map();
+  const confirm = (asset, sha256, where) => {
+    if (!asset.digest) return;
+    const d = /^sha256:([0-9a-f]{64})$/.exec(asset.digest);
+    if (d && d[1] !== sha256) throw new Error(`${asset.name}: GitHub's digest says ${d[1]}, ${where} says ${sha256}`);
+  };
+  async function hash(asset) {
+    const hit = entries[asset.id];
+    if (!noCache && hit && hit.name === asset.name && hit.size === asset.size && hit.updated_at === asset.updated_at) {
+      confirm(asset, hit.sha256, "the hash cache");
+      return { url: asset.browser_download_url, size: hit.size, sha256: hit.sha256 };
+    }
+    const r = await fetch(asset.browser_download_url, { redirect: "follow" });
+    if (!r.ok || !r.body) throw new Error(`${asset.name}: download returned ${r.status}`);
+    const h = createHash("sha256");
+    let size = 0;
+    for await (const chunk of r.body) {
+      size += chunk.byteLength;
+      h.update(chunk);
+    }
+    if (size !== asset.size) throw new Error(`${asset.name}: size ${size} != ${asset.size}`);
+    const sha256 = h.digest("hex");
+    confirm(asset, sha256, "the download");
+    entries[asset.id] = { name: asset.name, size, updated_at: asset.updated_at, sha256 };
+    save(entries);
+    return { url: asset.browser_download_url, size, sha256 };
+  }
+  return (asset) => {
+    if (!inRun.has(asset.id)) inRun.set(asset.id, hash(asset));
+    return inRun.get(asset.id);
+  };
 }

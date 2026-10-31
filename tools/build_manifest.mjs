@@ -6,23 +6,30 @@
 //   - the newest proton-* release: the GE-Proton DualSense build the app's
 //     Games page installs (its SHA256SUMS.txt must list the tarball)
 // Every file is downloaded and hashed here, so the feed can never point at a
-// file that doesn't exist or doesn't match. Writes feed schema 2 (manifest_lib
-// buildFeed): issued_at (now, UTC), newest_stable, firmwares[] beside the
-// legacy firmware key.
+// file that doesn't exist or doesn't match; the hashes are kept in
+// ~/.cache/ds5-release/feed-hash-cache.json (per GitHub asset id, name, size
+// and updated_at), so an unchanged file is never downloaded again, and
+// GitHub's own sha256 digest, when listed, must agree (manifest_lib
+// assetHasher). Writes feed schema 2 (manifest_lib buildFeed): issued_at
+// (now, UTC), newest_stable, firmwares[] beside the legacy firmware key.
 //
-//   node tools/build_manifest.mjs [--out latest.json] [--check] [--channel stable|dev]
+//   node tools/build_manifest.mjs [--out latest.json] [--check] [--channel stable|dev] [--no-cache]
+//
+// --no-cache downloads and hashes every file again (and refreshes the cache).
 //
 // Exit 2: no unified release yet (nothing to write). --check exits 1 if the
 // result differs from the existing file. Uses GITHUB_TOKEN when set.
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { allPages, buildFeed, isoSeconds, keepIssuedAt, selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { allPages, assetHasher, buildFeed, isoSeconds, keepIssuedAt, selectProton, selectRelease, sumFor } from "./manifest_lib.mjs";
 
 const REPO = "MarcelineVPQ/DS5Dongle-OLED-Edition";
 
 const args = process.argv.slice(2);
 const out = args.includes("--out") ? args[args.indexOf("--out") + 1] : "latest.json";
 const checkOnly = args.includes("--check");
+const noCache = args.includes("--no-cache");
 const channel = args.includes("--channel") ? args[args.indexOf("--channel") + 1] : "stable";
 if (channel !== "stable" && channel !== "dev") throw new Error(`unknown channel ${channel}`);
 const headers = { Accept: "application/vnd.github+json", "User-Agent": "ds5-manifest-builder" };
@@ -36,19 +43,19 @@ const releases = () =>
     return r.json();
   }, 100);
 
-// Download and hash an asset, streamed (the Proton build is ~565 MB).
-async function measure(asset) {
-  const r = await fetch(asset.browser_download_url, { redirect: "follow" });
-  if (!r.ok || !r.body) throw new Error(`${asset.name}: download returned ${r.status}`);
-  const hash = createHash("sha256");
-  let size = 0;
-  for await (const chunk of r.body) {
-    size += chunk.byteLength;
-    hash.update(chunk);
-  }
-  if (size !== asset.size) throw new Error(`${asset.name}: size ${size} != ${asset.size}`);
-  return { url: asset.browser_download_url, size, sha256: hash.digest("hex") };
-}
+// Download and hash an asset, streamed (the Proton build is ~565 MB), unless
+// the hash cache already has it.
+const CACHE = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "ds5-release", "feed-hash-cache.json");
+const measure = assetHasher({
+  fetch,
+  entries: existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, "utf8")) : {},
+  noCache,
+  save: (entries) => {
+    mkdirSync(dirname(CACHE), { recursive: true });
+    writeFileSync(`${CACHE}.tmp`, JSON.stringify(entries, null, 2) + "\n");
+    renameSync(`${CACHE}.tmp`, CACHE);
+  },
+});
 
 const all = await releases();
 const unified = selectRelease(all, channel);

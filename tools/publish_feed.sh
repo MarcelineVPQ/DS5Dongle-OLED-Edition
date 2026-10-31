@@ -5,25 +5,30 @@
 # CI never signs or writes a feed, so a release someone publishes with a
 # stolen GitHub token never reaches installed apps.
 #
-#   tools/publish_feed.sh [--key PATH] [--app ../DS5Dongle-OLED-Config-Web]
+#   tools/publish_feed.sh [--key PATH] [--app ../DS5Dongle-OLED-Config-Web] [--refresh]
 #
 # Run it:
 #   - after every release (tools/release.sh), once GitHub shows the release
 #     published (gh run watch -R MarcelineVPQ/DS5Dongle-OLED-Edition);
 #   - after publishing a proton-* release: the newest one goes in both feeds.
-# Every file in the feeds is downloaded and hashed (tools/build_manifest.mjs;
-# the Proton build is ~565 MB, once per feed), so this takes a few minutes.
+# Every file in the feeds is hashed (tools/build_manifest.mjs), but a file
+# already in ~/.cache/ds5-release/feed-hash-cache.json (same GitHub asset id,
+# name, size and updated_at) is not downloaded again: only new release files
+# are (the Proton build is ~565 MB). --refresh empties that cache first, so
+# every file is downloaded once more (shared files once for both feeds).
 # It shows what changed and asks before it commits and pushes to master.
 set -euo pipefail
 
 FW_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 KEY="$HOME/.config/ds5-release/manifest-signing-key.pem"
+REFRESH=0
 # the app repo sits next to the main checkout (a worktree lives deeper, so go from git's common dir)
 APP_DIR="$(cd "$(git -C "$FW_DIR" rev-parse --path-format=absolute --git-common-dir)/../.." && pwd)/DS5Dongle-OLED-Config-Web"
 while [ $# -gt 0 ]; do
   case "$1" in
     --key) KEY="${2:?--key needs a path}"; shift 2 ;;
     --app) APP_DIR="$(cd "${2:?--app needs a path}" && pwd)"; shift 2 ;;
+    --refresh) REFRESH=1; shift ;;
     *) echo "publish_feed: unknown argument $1" >&2; exit 1 ;;
   esac
 done
@@ -41,6 +46,7 @@ echo "== Feed selection and signing tests"
 node --test tools/manifest_lib.test.mjs tools/sign_manifest.test.mjs tools/verify_feeds.test.mjs
 
 echo "== Build the feeds from the published releases"
+if [ "$REFRESH" = 1 ]; then rm -f "${XDG_CACHE_HOME:-$HOME/.cache}/ds5-release/feed-hash-cache.json"; fi
 # Exit 2 = no release for that channel yet: nothing to write.
 node tools/build_manifest.mjs --out latest.json || [ $? -eq 2 ]
 node tools/build_manifest.mjs --channel dev --out latest-dev.json || [ $? -eq 2 ]
