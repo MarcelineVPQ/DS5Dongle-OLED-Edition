@@ -128,6 +128,9 @@ static uint8_t s_pending_arg = 0;
 static uint8_t s_pending_arg2 = 0;  // 0x0E: the duration in tenths (0 = stop)
 static uint16_t s_pending_hold_ms = 0;  // 0x19: how long the virtual button is held
 static uint64_t s_pending_due_us = 0;
+static uint8_t s_pending_buf[64];  // 0x0D / 0x10 / 0x13 / 0x14: the SET to run from cmd_task()
+static uint16_t s_pending_len = 0;
+static void run_table_cmd(uint8_t const *buffer, uint16_t bufsize);
 
 uint32_t cmd_host_config_gen() { return s_host_gen; }
 
@@ -327,6 +330,13 @@ void cmd_task() {
         case 0x19: // virtual controller button for the OLED screens (proto 1.19)
             // error: SHOWN — CMD_RESULT_BUSY in the 0xF1 result byte: four presses already waiting (button and hold were checked at the SET); the app shows a command error
             result = oled_pad_inject(s_pending_arg, s_pending_hold_ms) ? CMD_RESULT_OK : CMD_RESULT_BUSY;
+            break;
+        case 0x0D: // calibration, remap, Edge extras, stick curves: they save to flash
+        case 0x10:
+        case 0x13:
+        case 0x14:
+            run_table_cmd(s_pending_buf, s_pending_len);
+            result = s_last_result;  // OK, or INVALID / FAILED with its reason (run_table_cmd)
             break;
         default:
             // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: unknown function, the app's command error
@@ -860,6 +870,147 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     return 0;
 }
 
+// Whether a 0x0D / 0x10 / 0x13 / 0x14 SET saves to flash (0x13 / 0x14 with
+// their temporary byte at 1 stay in RAM; a malformed one is deferred too and
+// answers INVALID from cmd_task()).
+static bool table_cmd_writes_flash(uint8_t const *buffer, uint16_t bufsize) {
+    switch (buffer[0]) {
+        case 0x0D:
+        case 0x10:
+            return true;
+        case 0x13:
+            return !(bufsize >= 4 + kRemapExtraCount + 1 && buffer[4 + kRemapExtraCount] == 1);
+        case 0x14: {
+            constexpr uint16_t kNeed = 5 + 2 * sizeof(StickCurve) + 1;
+            return !(bufsize >= kNeed && buffer[kNeed - 1] == 1);
+        }
+        default:
+            // error: NOT-WORTH — a yes/no answer, not a failure: other functions never reach here
+            return false;
+    }
+}
+
+// The table / calibration functions (0x0D, 0x10, 0x11, 0x13, 0x14); the
+// result goes to s_last_result. Called from pico_cmd_set() for the RAM-only
+// ones and from cmd_task() for the ones that save.
+static void run_table_cmd(uint8_t const *buffer, uint16_t bufsize) {
+    s_last_result = CMD_RESULT_OK;
+    // 0x10 set button-remap table (OLED Edition). Hardened framing so a stray
+    // write to 0xF6 can't corrupt the map: magic 'R''M' + protocol version gate
+    // before remap_set() (which itself validates each entry <16 or 0xFF=off).
+    //   [0]      0x10  func-id
+    //   [1]      'R'
+    //   [2]      'M'
+    //   [3]      protocol version (must == kRemapProtoVer)
+    //   [4..19]  16-byte remap table
+    // 0x0D set calibration (proto 1.5): [0x0D]['C']['L'][ver][slot][18-byte
+    // CalibBody]. Not config, so it doesn't bump s_host_gen.
+    if (buffer[0] == 0x0D) {
+        if (bufsize < 5 + kCalibBodySize || buffer[1] != 'C' || buffer[2] != 'L' || buffer[3] != kCalibProtoVer) {
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+            return;
+        }
+        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
+        switch (calib_set(buffer[4], buffer + 5)) {
+            case CalibSet::Ok: break;
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
+            case CalibSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
+            // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
+            case CalibSet::NotSaved: s_last_result = CMD_RESULT_FAILED; break;
+        }
+        return;
+    }
+    // 0x11 (proto 1.8): the same framing as 0x10, applied in RAM only (a
+    // game's button layout while it runs); 0x12 or a reboot ends it.
+    // 0x13 (proto 1.9): the Edge's extra-button entries
+    //   ['R','X', ver 1, Fn L, Fn R, paddle L, paddle R, temporary 0/1]
+    // temporary = a game's layout (RAM only, ended by 0x12, a reboot or a saved set).
+    // 0x14 (proto 1.10): stick response curves
+    //   ['C','V', ver 1, slot, left curve (9), right curve (9), temporary 0/1]
+    // curve = [type 0..5, p1x,p1y .. p4x,p4y]; Custom (5) points must be
+    // non-decreasing. Saved per slot in the calibration sector; temporary =
+    // a game's profile (RAM only, ended by 0x12, a reboot or a saved set).
+    if (buffer[0] == 0x14) {
+        constexpr uint16_t kNeed = 5 + 2 * sizeof(StickCurve) + 1;
+        if (bufsize < kNeed || buffer[1] != 'C' || buffer[2] != 'V' || buffer[3] != kCurveProtoVer || buffer[kNeed - 1] > 1) {
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+            return;
+        }
+        StickCurve pair[2];
+        memcpy(pair, buffer + 5, sizeof(pair));
+        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
+        switch (curves_set(buffer[4], pair, buffer[kNeed - 1] == 1)) {
+            case CalibSet::Ok: break;
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
+            case CalibSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
+            // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
+            case CalibSet::NotSaved: s_last_result = CMD_RESULT_FAILED; break;
+        }
+        return;
+    }
+    if (buffer[0] == 0x13) {
+        if (bufsize < 4 + kRemapExtraCount + 1 || buffer[1] != 'R' || buffer[2] != 'X' || buffer[3] != 1 || buffer[8] > 1) {
+            printf("[CMD] 0x13 extra remap rejected\n");
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+            return;
+        }
+        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
+        switch (remap_set_extra(buffer + 4, buffer[8] == 1)) {
+            case RemapSet::Ok: break;
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
+            case RemapSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
+            case RemapSet::NotSaved:  // active now, but not in flash
+                printf("[CMD] 0x13 extra remap applied, flash save failed\n");
+                // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved (fixed in this pass: said INVALID, "rejected")
+                s_last_result = CMD_RESULT_FAILED;
+                break;
+        }
+        return;
+    }
+    if (buffer[0] == 0x11) {
+        if (bufsize < 4 + kRemapCount || buffer[1] != 'R' || buffer[2] != 'M' || buffer[3] != kRemapProtoVer || !remap_set_temporary(buffer + 4)) {
+            printf("[CMD] 0x11 temporary remap rejected\n");
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+        }
+        return;
+    }
+    if (buffer[0] == 0x10) {
+        constexpr uint16_t kNeed = 4 + kRemapCount;
+        if (bufsize < kNeed) {
+            printf("[CMD] 0x10 remap-set too short (%u<%u)\n", bufsize, kNeed);
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+            return;
+        }
+        if (buffer[1] != 'R' || buffer[2] != 'M' || buffer[3] != kRemapProtoVer) {
+            printf("[CMD] 0x10 remap-set bad magic/version\n");
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
+            s_last_result = CMD_RESULT_INVALID;
+            return;
+        }
+        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
+        switch (remap_set(buffer + 4)) {
+            case RemapSet::Ok:
+                printf("[CMD] remap set ok (rev=%u)\n", remap_revision());
+                break;
+            case RemapSet::Invalid:
+                printf("[CMD] remap set rejected (invalid table)\n");
+                // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
+                s_last_result = CMD_RESULT_INVALID;
+                break;
+            case RemapSet::NotSaved:  // active now, but not in flash
+                printf("[CMD] remap applied, flash save failed\n");
+                // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
+                s_last_result = CMD_RESULT_FAILED;
+                break;
+        }
+    }
+}
+
 void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     // Only 0xF6 carries commands; the other ids are read-only status reports.
     if (report_id != PICO_CMD_SET || bufsize == 0) {
@@ -1048,118 +1199,17 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
             s_last_result = CMD_RESULT_INVALID;
             break;
     }
-    // 0x10 set button-remap table (OLED Edition). Hardened framing so a stray
-    // write to 0xF6 can't corrupt the map: magic 'R''M' + protocol version gate
-    // before remap_set() (which itself validates each entry <16 or 0xFF=off).
-    //   [0]      0x10  func-id
-    //   [1]      'R'
-    //   [2]      'M'
-    //   [3]      protocol version (must == kRemapProtoVer)
-    //   [4..19]  16-byte remap table
-    // 0x0D set calibration (proto 1.5): [0x0D]['C']['L'][ver][slot][18-byte
-    // CalibBody]. Not config, so it doesn't bump s_host_gen.
-    if (buffer[0] == 0x0D) {
-        if (bufsize < 5 + kCalibBodySize || buffer[1] != 'C' || buffer[2] != 'L' || buffer[3] != kCalibProtoVer) {
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-            return;
-        }
-        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
-        switch (calib_set(buffer[4], buffer + 5)) {
-            case CalibSet::Ok: break;
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
-            case CalibSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
-            // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
-            case CalibSet::NotSaved: s_last_result = CMD_RESULT_FAILED; break;
-        }
-        return;
-    }
-    // 0x11 (proto 1.8): the same framing as 0x10, applied in RAM only (a
-    // game's button layout while it runs); 0x12 or a reboot ends it.
-    // 0x13 (proto 1.9): the Edge's extra-button entries
-    //   ['R','X', ver 1, Fn L, Fn R, paddle L, paddle R, temporary 0/1]
-    // temporary = a game's layout (RAM only, ended by 0x12, a reboot or a saved set).
-    // 0x14 (proto 1.10): stick response curves
-    //   ['C','V', ver 1, slot, left curve (9), right curve (9), temporary 0/1]
-    // curve = [type 0..5, p1x,p1y .. p4x,p4y]; Custom (5) points must be
-    // non-decreasing. Saved per slot in the calibration sector; temporary =
-    // a game's profile (RAM only, ended by 0x12, a reboot or a saved set).
-    if (buffer[0] == 0x14) {
-        constexpr uint16_t kNeed = 5 + 2 * sizeof(StickCurve) + 1;
-        if (bufsize < kNeed || buffer[1] != 'C' || buffer[2] != 'V' || buffer[3] != kCurveProtoVer || buffer[kNeed - 1] > 1) {
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-            return;
-        }
-        StickCurve pair[2];
-        memcpy(pair, buffer + 5, sizeof(pair));
-        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
-        switch (curves_set(buffer[4], pair, buffer[kNeed - 1] == 1)) {
-            case CalibSet::Ok: break;
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
-            case CalibSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
-            // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
-            case CalibSet::NotSaved: s_last_result = CMD_RESULT_FAILED; break;
-        }
-        return;
-    }
-    if (buffer[0] == 0x13) {
-        if (bufsize < 4 + kRemapExtraCount + 1 || buffer[1] != 'R' || buffer[2] != 'X' || buffer[3] != 1 || buffer[8] > 1) {
-            printf("[CMD] 0x13 extra remap rejected\n");
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-            return;
-        }
-        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
-        switch (remap_set_extra(buffer + 4, buffer[8] == 1)) {
-            case RemapSet::Ok: break;
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
-            case RemapSet::Invalid: s_last_result = CMD_RESULT_INVALID; break;
-            case RemapSet::NotSaved:  // active now, but not in flash
-                printf("[CMD] 0x13 extra remap applied, flash save failed\n");
-                // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved (fixed in this pass: said INVALID, "rejected")
-                s_last_result = CMD_RESULT_FAILED;
-                break;
-        }
-        return;
-    }
-    if (buffer[0] == 0x11) {
-        if (bufsize < 4 + kRemapCount || buffer[1] != 'R' || buffer[2] != 'M' || buffer[3] != kRemapProtoVer || !remap_set_temporary(buffer + 4)) {
-            printf("[CMD] 0x11 temporary remap rejected\n");
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-        }
-        return;
-    }
-    if (buffer[0] == 0x10) {
-        constexpr uint16_t kNeed = 4 + kRemapCount;
-        if (bufsize < kNeed) {
-            printf("[CMD] 0x10 remap-set too short (%u<%u)\n", bufsize, kNeed);
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-            return;
-        }
-        if (buffer[1] != 'R' || buffer[2] != 'M' || buffer[3] != kRemapProtoVer) {
-            printf("[CMD] 0x10 remap-set bad magic/version\n");
-            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad argument or framing, the app's command error
-            s_last_result = CMD_RESULT_INVALID;
-            return;
-        }
-        // error: SHOWN — mapped to CMD_RESULT_INVALID / FAILED in the 0xF1 result byte on the lines below
-        switch (remap_set(buffer + 4)) {
-            case RemapSet::Ok:
-                printf("[CMD] remap set ok (rev=%u)\n", remap_revision());
-                break;
-            case RemapSet::Invalid:
-                printf("[CMD] remap set rejected (invalid table)\n");
-                // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: an invalid table/curve/calibration, the app's command error
-                s_last_result = CMD_RESULT_INVALID;
-                break;
-            case RemapSet::NotSaved:  // active now, but not in flash
-                printf("[CMD] remap applied, flash save failed\n");
-                // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: applied but not saved, the app's command error
-                s_last_result = CMD_RESULT_FAILED;
-                break;
+    // 0x0D / 0x10 and a saved 0x13 / 0x14 write flash: deferred to cmd_task()
+    // (review S1), so the sector erase never runs inside this USB control
+    // callback. 0x11 and a temporary 0x13 / 0x14 only touch RAM and run now.
+    if (func == 0x0D || func == 0x10 || func == 0x11 || func == 0x13 || func == 0x14) {
+        // error: NOT-WORTH — a yes/no choice of when to run, not a failure; the result comes from run_table_cmd
+        if (table_cmd_writes_flash(buffer, bufsize)) {
+            s_pending_len = bufsize < sizeof(s_pending_buf) ? bufsize : sizeof(s_pending_buf);
+            memcpy(s_pending_buf, buffer, s_pending_len);
+            defer(func, 0, 0);
+        } else {
+            run_table_cmd(buffer, bufsize);
         }
     }
 }

@@ -557,12 +557,54 @@ TEST(cmd_extra_remap_failed_save_is_failed_not_invalid) {
     const uint8_t set[] = {0x13, 'R', 'X', 1, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, 0};
     g_fake_flash_fail = true;
     pico_cmd_set(PICO_CMD_SET, set, sizeof(set));
+    settle();
     CHECK_EQ(last_result(), CMD_RESULT_FAILED);
     g_fake_flash_fail = false;
     pico_cmd_set(PICO_CMD_SET, set, sizeof(set));
+    settle();
     CHECK_EQ(last_result(), CMD_RESULT_OK);
     const uint8_t bad[] = {0x13, 'R', 'X', 1, 16, 0, 0, 0, 0};
     pico_cmd_set(PICO_CMD_SET, bad, sizeof(bad));
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+}
+
+// Review S1: the SETs that save to flash (0x0D, 0x10, a saved 0x13 / 0x14)
+// never erase a sector inside the USB control callback. The SET answers
+// PENDING with nothing applied or written; cmd_task() (the main loop) runs it.
+// The RAM-only ones (0x11, a temporary 0x13 / 0x14) still answer at once.
+TEST(cmd_flash_saves_run_from_cmd_task_not_the_usb_callback) {
+    fresh();
+    const uint16_t rev = remap_revision();
+    uint8_t set[4 + kRemapCount] = {0x10, 'R', 'M', kRemapProtoVer};
+    for (int i = 0; i < kRemapCount; i++) set[4 + i] = (uint8_t) (kRemapCount - 1 - i);
+    pico_cmd_set(PICO_CMD_SET, set, sizeof(set));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    CHECK_EQ(remap_revision(), rev);  // nothing applied (or saved) yet
+    const uint8_t busy[] = {0x15};
+    pico_cmd_set(PICO_CMD_SET, busy, sizeof(busy));
+    CHECK_EQ(last_result(), CMD_RESULT_BUSY);  // another SET meanwhile is BUSY; the save still runs
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK(remap_revision() != rev);
+    remap_load();  // it is in flash
+    uint8_t got[kRemapCount];
+    remap_get(got);
+    CHECK_EQ(got[0], kRemapCount - 1);
+
+    const uint8_t extra_tmp[] = {0x13, 'R', 'X', 1, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, 1};
+    pico_cmd_set(PICO_CMD_SET, extra_tmp, sizeof(extra_tmp));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);  // RAM only: at once
+    const uint8_t extra_saved[] = {0x13, 'R', 'X', 1, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, kRemapExtraSelf, 0};
+    pico_cmd_set(PICO_CMD_SET, extra_saved, sizeof(extra_saved));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+
+    const uint8_t calib_bad[] = {0x0D, 'C', 'L'};  // too short: INVALID, reported from cmd_task
+    pico_cmd_set(PICO_CMD_SET, calib_bad, sizeof(calib_bad));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
     CHECK_EQ(last_result(), CMD_RESULT_INVALID);
 }
 
