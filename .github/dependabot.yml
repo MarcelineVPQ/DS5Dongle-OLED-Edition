@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # GitHub Actions, pinned by commit SHA with the version as a comment
+  # (tools/check_ci_pins.py): Dependabot updates both. The firmware has no npm
+  # dependencies (tools/*.mjs use Node's standard library only); Node itself is
+  # NODE_VERSION in tools/toolchain.env, bumped by hand like the toolchain.
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/firmware-checks"
+    target-branch: "master"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Denver"
+    open-pull-requests-limit: 5
+    # As the app: a version is taken once it is two weeks old.
+    cooldown:
+      default-days: 14
+    # Majors need migration work: they come as a planned task, not a PR.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # Conventional Commits: "ci(deps): bump …".
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
