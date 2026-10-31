@@ -6,30 +6,42 @@
 TEST(native_haptics_starts_silent_and_wakes_on_one_loud_chunk) {
     NativeHapticsPresence d;
     CHECK(d.silent());
-    d.record(NativeHapticsPresence::kThreshold);  // at the threshold: still silent
+    d.record(NativeHapticsPresence::kThreshold, 48);  // at the threshold: still silent
     CHECK(d.silent());
-    d.record(NativeHapticsPresence::kThreshold + 1);
+    d.record(NativeHapticsPresence::kThreshold + 1, 48);
     CHECK(!d.silent());
 }
 
-TEST(native_haptics_goes_silent_after_the_timeout_of_quiet_chunks) {
+TEST(native_haptics_goes_silent_after_100_ms_of_quiet_frames) {
     NativeHapticsPresence d;
-    d.record(30000);
-    for (int i = 0; i < NativeHapticsPresence::kTimeout - 1; i++) d.record(0);
+    d.record(30000, 48);
+    for (int i = 0; i < 99; i++) d.record(0, 48);  // 99 ms of 1 ms packets
     CHECK(!d.silent());
-    d.record(0);
+    d.record(0, 48);  // 100 ms
     CHECK(d.silent());
     // Saturates: a long silence doesn't delay the next detection.
-    for (int i = 0; i < 100000; i++) d.record(0);
-    d.record(1000);
+    for (int i = 0; i < 100000; i++) d.record(0, 48);
+    d.record(1000, 48);
     CHECK(!d.silent());
+}
+
+// The delay is time: a packet read in two parts (48 frames as 47 + 1) used
+// to count as two reads, so Fallback cut in early. 100 ms is 4800 frames
+// however the reads split them.
+TEST(native_haptics_timeout_is_frames_not_reads) {
+    NativeHapticsPresence d;
+    d.record(30000, 48);
+    for (int i = 0; i < 99; i++) { d.record(0, 47); d.record(0, 1); }
+    CHECK(!d.silent());  // 198 reads, 99 ms
+    d.record(0, 48);
+    CHECK(d.silent());
 }
 
 TEST(native_haptics_full_scale_negative_counts_as_loud) {
     // |-32768| as audio_loop computes it: (uint16_t)32768.
     NativeHapticsPresence d;
     const int16_t s = -32768;
-    d.record((uint16_t)(s < 0 ? -s : s));
+    d.record((uint16_t)(s < 0 ? -s : s), 48);
     CHECK(!d.silent());
 }
 

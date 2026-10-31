@@ -49,17 +49,19 @@ struct AudioPeak {
 // Is the host sending its own HD haptics (ch3/ch4)? Fed the raw ch3/ch4 peak
 // of each USB chunk only, never a held meter peak: the VU meter's peak only
 // fell when someone read it, so with the OLED off and no app polling, one
-// loud haptic moment kept Fallback mode from ever engaging. Threshold and the
-// 100-chunk delay are unchanged.
+// loud haptic moment kept Fallback mode from ever engaging. Counted in 48 kHz
+// frames, so the delay is time, not reads: it used to count reads (100 of
+// them, 100 ms at one 48-frame packet per read), and a packet read in two
+// parts counted twice.
 struct NativeHapticsPresence {
-    static constexpr uint16_t kThreshold = 256;
-    static constexpr int kTimeout = 100;  // chunks below kThreshold before "silent"
-    int silent_chunks = kTimeout * 2;
+    static constexpr uint16_t kThreshold = 256;          // peak above this is "native haptics" (-42 dBFS)
+    static constexpr uint32_t kTimeoutFrames = 4800;     // 100 ms at 48 kHz below kThreshold before "silent"
+    uint32_t silent_frames = kTimeoutFrames * 2;
 
-    __attribute__((always_inline)) inline bool silent() const { return silent_chunks >= kTimeout; }
-    __attribute__((always_inline)) inline void record(uint16_t chunk_peak) {
-        if (chunk_peak > kThreshold) silent_chunks = 0;
-        else if (silent_chunks < kTimeout * 2) ++silent_chunks;
+    __attribute__((always_inline)) inline bool silent() const { return silent_frames >= kTimeoutFrames; }
+    __attribute__((always_inline)) inline void record(uint16_t chunk_peak, uint32_t frames) {
+        if (chunk_peak > kThreshold) silent_frames = 0;
+        else if (silent_frames < kTimeoutFrames * 2) silent_frames += frames;
     }
 };
 

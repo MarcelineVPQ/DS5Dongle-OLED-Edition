@@ -32,6 +32,7 @@ add_executable(host_tests
         test_oled_vpad.cpp
         test_state_override.cpp
         test_audio_levels.cpp
+        test_auto_haptics.cpp
         test_speaker_mono.cpp
         test_rssi_poll.cpp
         test_signal_screen.cpp

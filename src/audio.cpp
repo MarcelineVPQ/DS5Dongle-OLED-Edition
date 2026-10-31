@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "audio.h"
 #include "audio_levels.h"
+#include "auto_haptics.h"
 #include "bt.h"
 #include "core0_ram.h"
 #include "grip_wave.h"
@@ -509,21 +510,15 @@ void CORE0_RAM_FUNC(audio_loop)() {
     // the native-haptics detector below.
     uint16_t spk_max = 0, native_max = 0;
 
-    // ---- Audio Auto Haptics (borrowed from loteran/DS5Dongle 5d6bc2f) ----
-    // Derives a haptic-feedback waveform from the speaker audio so games that
-    // never write haptic data (e.g. Ghost of Tsushima on Linux+Steam) still
-    // produce rumble. Mode 1 (Fallback, default) fires only when native is
-    // silent → preserves native HD haptics in games that do send them.
+    // Audio Auto Haptics (src/auto_haptics.h). Mode 1 (Fallback) fires only
+    // when native is silent, so it keeps native HD haptics in games that send
+    // them; the default is 0, Off (config.cpp).
     const uint8_t auto_mode = get_config().auto_haptics_enable;
     const float auto_gain   = (auto_mode > 0) ? (get_config().auto_haptics_gain / 100.0f) : 0.0f;
-    static const float LP_COEFF[4] = { 0.01039f, 0.02074f, 0.03095f, 0.05123f };
-    const float lp_a = LP_COEFF[get_config().auto_haptics_lowpass & 3];
-    static float lp_l = 0.0f, lp_r = 0.0f;
-    static float env_l = 0.0f, env_r = 0.0f;
-    constexpr float ENV_ATK = 0.40f;
-    constexpr float ENV_REL = 0.025f;
+    const float lp_a = AutoHaptics::kLowPass[get_config().auto_haptics_lowpass & 3];
+    static AutoHaptics auto_haptics;
     static NativeHapticsPresence native_haptics;
-    const bool fallback_active = (auto_mode == 1) && native_haptics.silent();
+    const bool fallback_active = (auto_mode == kAutoFallback) && native_haptics.silent();
 #if !DISABLE_SPEAKER_PROC
     // No speaker encoder (yet, or core1 couldn't get its memory, issue #15):
     // nothing would take the PCM, so don't convert and queue it only to drop
@@ -591,30 +586,10 @@ void CORE0_RAM_FUNC(audio_loop)() {
         float h_r = raw[i * INPUT_CHANNELS + 3] / 32768.0f;
 
         if (auto_mode > 0) {
-            const float spk_l = raw[i * INPUT_CHANNELS    ] / 32768.0f;
-            const float spk_r = raw[i * INPUT_CHANNELS + 1] / 32768.0f;
-            lp_l += lp_a * (spk_l - lp_l);
-            lp_r += lp_a * (spk_r - lp_r);
-            const float abs_l = lp_l < 0.0f ? -lp_l : lp_l;
-            const float abs_r = lp_r < 0.0f ? -lp_r : lp_r;
-            env_l = (abs_l > env_l) ? env_l + ENV_ATK * (abs_l - env_l)
-                                    : env_l + ENV_REL * (abs_l - env_l);
-            env_r = (abs_r > env_r) ? env_r + ENV_ATK * (abs_r - env_r)
-                                    : env_r + ENV_REL * (abs_r - env_r);
-            float al = lp_l * (1.0f + 3.0f * env_l) * auto_gain;
-            float ar = lp_r * (1.0f + 3.0f * env_r) * auto_gain;
-            al = al / (1.0f + (al < 0.0f ? -al : al));
-            ar = ar / (1.0f + (ar < 0.0f ? -ar : ar));
-
-            if (auto_mode == 3) {              // Replace
-                h_l = al; h_r = ar;
-            } else if (auto_mode == 2) {       // Mix
-                float m_l = h_l + al, m_r = h_r + ar;
-                h_l = m_l / (1.0f + (m_l < 0.0f ? -m_l : m_l));
-                h_r = m_r / (1.0f + (m_r < 0.0f ? -m_r : m_r));
-            } else if (auto_mode == 1 && fallback_active) {  // Fallback (default)
-                h_l = al; h_r = ar;
-            }
+            float al, ar;
+            auto_haptics.next(raw[i * INPUT_CHANNELS] / 32768.0f, raw[i * INPUT_CHANNELS + 1] / 32768.0f,
+                              lp_a, auto_gain, al, ar);
+            auto_haptics_combine(auto_mode, fallback_active, al, ar, h_l, h_r);
         }
 
         // 3. 48 kHz -> 3 kHz (Auto Haptics above still sees every frame, its
@@ -646,7 +621,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
     }
     g_peak_spk.record(spk_max, s_host_audio_us);
     g_peak_hap.record(native_max, s_host_audio_us);
-    native_haptics.record(native_max);
+    native_haptics.record(native_max, (uint32_t) frames);
     audio_bt_task();
 }
 
