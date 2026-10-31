@@ -84,7 +84,8 @@ if [ "$DEV" = true ]; then
 fi
 
 echo "== App checks"
-(cd "$APP_DIR" && npm run check)
+# DS5_FIRMWARE_REPO: the app's board table is checked against this repo's boards.json
+(cd "$APP_DIR" && DS5_FIRMWARE_REPO="$FW_DIR" npm run check)
 echo "== Doc gates on both repos: CHANGELOG, file references, one version, no secret project's name (the app's tools/doc_gates.mjs)"
 (cd "$APP_DIR" && node tools/doc_gates.mjs --check --firmware "$FW_DIR" && node tools/doc_gates.mjs --check --repo "$FW_DIR")
 echo "== Firmware checks: submodule gitlinks, the 7 READMEs, the community files, host unit tests"

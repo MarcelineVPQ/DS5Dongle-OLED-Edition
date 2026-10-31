@@ -178,7 +178,7 @@ jobs:
         run: |
           mkdir -p bundle
           cp build/pico2_w/ds5-bridge-oled.uf2 bundle/ds5-bridge-oled.uf2
-          printf '{"version":"%s","file":"ds5-bridge-oled.uf2","sha256":"%s"}\n' "$TAG" "$(sha256sum bundle/ds5-bridge-oled.uf2 | cut -d' ' -f1)" > bundle/firmware.json
+          printf '{"version":"%s","board":"%s","file":"ds5-bridge-oled.uf2","sha256":"%s"}\n' "$TAG" "${{ matrix.board }}" "$(sha256sum bundle/ds5-bridge-oled.uf2 | cut -d' ' -f1)" > bundle/firmware.json
           # The app builds this release's firmware CHANGELOG.md into About →
           # Firmware changes (its firmwareChangelog.config.ts), so that tab needs no network.
           cp CHANGELOG.md bundle/CHANGELOG.md
