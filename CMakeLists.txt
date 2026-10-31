@@ -461,6 +461,15 @@ target_link_options(ds5-bridge PRIVATE -Wl,--wrap=flash_safe_execute)
 # for tools/check_flash_reserved.py: a required symbol is a --gc-sections root.
 target_link_options(ds5-bridge PRIVATE -Wl,--require-defined=ds5_reserved_flash_start)
 
+# RP2350: picotool seals a SHA-256 hash of the image into its block loop, and
+# the boot ROM checks it before running the image, so a firmware write cut
+# short (USB pulled mid-update) is not started as a half-written image; the
+# board stays in BOOTSEL instead (review update-flash M3). The RP2040's boot
+# ROM has no such check.
+if (PICO_PLATFORM MATCHES "^rp2350")
+        pico_hash_binary(ds5-bridge)
+endif ()
+
 pico_add_extra_outputs(ds5-bridge)
 
 # Gate (issue #15): an RP2350 build must embed its XIP setup, and the flash
