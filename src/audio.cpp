@@ -39,8 +39,6 @@
 // re-broadcast at the audio rate any more.
 #define REPORT_SIZE       547
 #define REPORT_ID         0x39
-// #define VOLUME_GAIN       2
-// #define BUFFER_LENGTH     48
 
 // DualSense microphone, ported from awalol/DS5Dongle's `mic` branch.
 // The DS5 sends mic audio as Opus packets embedded in BT input report
@@ -63,7 +61,7 @@ queue_t audio_fifo;
 // haptic frames. Ported from upstream (awalol 8eb8612): a queue per stream
 // instead of one shared opus_buf that core1 overwrote and core0 re-read —
 // which could send the same speaker frame twice or skip one (crackle).
-// audio_bt_task() pairs one haptic frame with one speaker frame per 0x36.
+// audio_bt_task() sends two haptic and two speaker frames per 0x39.
 #define SPEAKER_OPUS_SIZE 200
 struct audio_spk_element { uint8_t data[SPEAKER_OPUS_SIZE]; };
 struct haptics_element { int8_t data[SAMPLE_SIZE]; };
@@ -349,10 +347,6 @@ static void mic_drain() {
     }
 }
 
-// Send one 0x39 once two haptic frames and two speaker frames are queued
-// (upstream audio_bt_task). Both streams come from the same USB audio at the
-// same rate, so they stay paired; this halves the BT packet rate vs one 0x36
-// per frame.
 // The PC opened the speaker stream (USB alt setting != 0): audio_loop drops
 // the previous stream's leftovers. Set and read on core0 (tud_task, audio_loop).
 static bool s_spk_stream_opened = false;
@@ -384,6 +378,10 @@ static inline __attribute__((always_inline)) void report_header(uint8_t *pkt) {
     pkt[11] = SAMPLE_SIZE;
 }
 
+// Send one 0x39 once two haptic frames and two speaker frames are queued
+// (upstream audio_bt_task). Both streams come from the same USB audio at the
+// same rate, so they stay paired; this halves the BT packet rate vs one
+// report per frame.
 static void CORE0_RAM_FUNC(audio_bt_task)() {
     if (queue_get_level(&haptics_fifo) < 2) return;
 #if !DISABLE_SPEAKER_PROC

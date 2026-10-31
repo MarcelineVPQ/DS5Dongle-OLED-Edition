@@ -52,7 +52,6 @@ static uint8_t scale_rumble(uint8_t v, float gain) {
     return (uint8_t) (s > 255 ? 255 : s);
 }
 
-uint8_t packetCounter = 0;
 bool spk_active = false;
 extern bool g_lightbar_override; // oled.cpp: OLED owns the lightbar
 
@@ -91,14 +90,11 @@ void bt_31_mic_prefix(uint8_t out[6]) {
 //                     (valid_flag0 bits 2 & 3) — i.e. the host actually
 //                     told us "apply trigger FFB"
 //   out02_to_bt     - 0x02 reports that we forwarded to the controller as
-//                     a BT 0x31 sub-0x10 packet (gated off when speaker is
-//                     active; audio.cpp's 0x36 path carries state then)
-//   out02_trig_folded - of the trig_allow reports, how many arrived while the
-//                     speaker stream was active and were therefore NOT sent as
-//                     a standalone 0x31 — their trigger FFB was folded into the
-//                     0x36 audio frames via state[]. So trig_allow == to_bt's
-//                     trigger share + this, proving the "missing" forwards
-//                     (issue #6) aren't drops. Surfaced on the Diag screen.
+//                     a BT 0x31 sub-0x10 packet (all of them, unless the
+//                     Bluetooth output queue was full)
+//   out02_trig_folded - trigger reports folded into the audio reports
+//                     instead of a 0x31. Stays 0: since upstream 8eb8612 the
+//                     0x39 audio report carries no state, so nothing is folded.
 // Surfaced on the OLED Diagnostics screen.
 volatile uint32_t g_host_out02_total = 0;
 volatile uint32_t g_host_out02_trig_allow = 0;
@@ -235,7 +231,7 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
     }
 
     // Mic-in tap (TEST): once the dongle asserts the mic-enable bit in the
-    // outgoing 0x36 audio report (pkt[4] bit 0, see audio.cpp — awalol
+    // outgoing 0x39 audio report (pkt[4] bit 0, see audio.cpp — awalol
     // confirmed this is the key), the DS5 streams its mic as a 71-byte Opus
     // packet at data+4 of a 0x31 report with bit 1 of data[2] set. Route those
     // to the mic decoder instead of treating them as a standard input report.
