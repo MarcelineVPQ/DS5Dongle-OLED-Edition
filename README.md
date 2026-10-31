@@ -191,7 +191,7 @@ Native triggers work identically on Heroic, but non-Steam launchers are sensitiv
 
 | Item | Notes | Approx. price |
 |---|---|---|
-| **Raspberry Pi Pico 2 W** | RP2350 MCU with on-board CYW43 Bluetooth/WiFi. [Official product page](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~$7 USD |
+| **Raspberry Pi Pico 2 WH** (recommended) or **Pico 2 W** | RP2350 MCU with on-board CYW43 Bluetooth/WiFi. The **WH** comes with its headers already soldered, so the OLED below plugs straight on; the plain **W** needs headers soldered on first. [Official product page](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~$8 USD (WH), ~$7 USD (W) |
 | **Sony DualSense Controller** | Any PS5 DualSense (VID `054C:0CE6`) or DualSense Edge (`054C:0DF2`). | — |
 | **USB-C cable** | Connects the Pico 2 W to the host PC. | — |
 
@@ -208,7 +208,7 @@ Both the Pico 2 W and the Waveshare Pico-OLED-1.3 are widely available worldwide
 
 - **Adafruit**, **Pimoroni**, **The Pi Hut**, **DigiKey**, **Mouser** — major electronics distributors (US / EU)
 - **Waveshare's own store** for the OLED add-on
-- Regional **Amazon** storefronts — search `Raspberry Pi Pico 2 W` and `Waveshare Pico-OLED-1.3` (or the SKU `HIPI1798`)
+- Regional **Amazon** storefronts — search `Raspberry Pi Pico 2 WH` and `Waveshare Pico-OLED-1.3` (or the SKU `HIPI1798`)
 - **AliExpress** — original Waveshare and Pico stock plus clones; check seller ratings
 
 ## Getting Started

@@ -191,7 +191,7 @@
 
 | 物品 | 说明 | 大致价格 |
 |---|---|---|
-| **Raspberry Pi Pico 2 W** | 搭载 RP2350 MCU，板载 CYW43 蓝牙/WiFi。[官方产品页](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | 约 $7 USD |
+| **Raspberry Pi Pico 2 WH**（推荐）或 **Pico 2 W** | 搭载 RP2350 MCU，板载 CYW43 蓝牙/WiFi。**WH** 已焊好排针，下面的 OLED 可以直接插上；普通的 **W** 需要先自行焊接排针。[官方产品页](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | 约 $8 USD（WH），约 $7 USD（W） |
 | **索尼 DualSense 控制器** | 任何 PS5 DualSense（VID `054C:0CE6`）或 DualSense Edge（`054C:0DF2`）。 | — |
 | **USB-C 线缆** | 把 Pico 2 W 连接到主机电脑。 | — |
 
@@ -208,7 +208,7 @@ Pico 2 W 和 Waveshare Pico-OLED-1.3 在全球都很容易买到：
 
 - **Adafruit**、**Pimoroni**、**The Pi Hut**、**DigiKey**、**Mouser** —— 主要电子元件分销商（美 / 欧）
 - **Waveshare 自营商店** 购买 OLED 插件
-- 各地区 **Amazon** 店面 —— 搜索 `Raspberry Pi Pico 2 W` 和 `Waveshare Pico-OLED-1.3`（或 SKU `HIPI1798`）
+- 各地区 **Amazon** 店面 —— 搜索 `Raspberry Pi Pico 2 WH` 和 `Waveshare Pico-OLED-1.3`（或 SKU `HIPI1798`）
 - **AliExpress（速卖通）** —— 原装 Waveshare 与 Pico 货源以及仿品；注意查看卖家评分
 
 ## 快速开始

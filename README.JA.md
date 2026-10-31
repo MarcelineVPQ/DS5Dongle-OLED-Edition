@@ -191,7 +191,7 @@ Linux でゲームに **ボード経由でコントローラーのアダプテ�
 
 | 品目 | 備考 | 参考価格 |
 |---|---|---|
-| **Raspberry Pi Pico 2 W** | RP2350 MCU、オンボードの CYW43 Bluetooth/WiFi。[公式製品ページ](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | 約 $7 USD |
+| **Raspberry Pi Pico 2 WH**（推奨）または **Pico 2 W** | RP2350 MCU、オンボードの CYW43 Bluetooth/WiFi。**WH** はヘッダーがはんだ付け済みなので、下の OLED をそのまま差し込めます。通常の **W** は先にヘッダーのはんだ付けが必要です。[公式製品ページ](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | 約 $8 USD（WH）、約 $7 USD（W） |
 | **Sony DualSense コントローラー** | 任意の PS5 DualSense（VID `054C:0CE6`）または DualSense Edge（`054C:0DF2`）。 | — |
 | **USB-C ケーブル** | Pico 2 W をホスト PC に接続します。 | — |
 
@@ -208,7 +208,7 @@ Pico 2 W と Waveshare Pico-OLED-1.3 はどちらも世界中で広く入手で�
 
 - **Adafruit**、**Pimoroni**、**The Pi Hut**、**DigiKey**、**Mouser** — 主要な電子部品販売店（米国／EU）
 - OLED アドオンは **Waveshare の公式ストア**
-- 各地域の **Amazon** — `Raspberry Pi Pico 2 W` と `Waveshare Pico-OLED-1.3`（または SKU `HIPI1798`）で検索
+- 各地域の **Amazon** — `Raspberry Pi Pico 2 WH` と `Waveshare Pico-OLED-1.3`（または SKU `HIPI1798`）で検索
 - **AliExpress** — Waveshare と Pico の正規品とクローン品。出品者の評価を確認してください
 
 ## はじめに

@@ -191,7 +191,7 @@ Los gatillos nativos funcionan igual en Heroic, pero los lanzadores que no son S
 
 | Artículo | Notas | Precio aprox. |
 |---|---|---|
-| **Raspberry Pi Pico 2 W** | MCU RP2350 con Bluetooth/WiFi CYW43 integrado. [Página oficial del producto](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~7 USD |
+| **Raspberry Pi Pico 2 WH** (recomendada) o **Pico 2 W** | MCU RP2350 con Bluetooth/WiFi CYW43 integrado. La **WH** viene con los pines ya soldados, así que la pantalla OLED de abajo se conecta directamente; a la **W** sencilla hay que soldarle los pines primero. [Página oficial del producto](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~8 USD (WH), ~7 USD (W) |
 | **Mando Sony DualSense** | Cualquier DualSense de PS5 (VID `054C:0CE6`) o DualSense Edge (`054C:0DF2`). | — |
 | **Cable USB-C** | Conecta la Pico 2 W al PC. | — |
 
@@ -208,7 +208,7 @@ Tanto la Pico 2 W como la Waveshare Pico-OLED-1.3 se encuentran fácilmente en t
 
 - **Adafruit**, **Pimoroni**, **The Pi Hut**, **DigiKey**, **Mouser**: grandes distribuidores de electrónica (EE. UU. / UE)
 - **La tienda de Waveshare** para el módulo OLED
-- Las tiendas regionales de **Amazon**: busca `Raspberry Pi Pico 2 W` y `Waveshare Pico-OLED-1.3` (o el SKU `HIPI1798`)
+- Las tiendas regionales de **Amazon**: busca `Raspberry Pi Pico 2 WH` y `Waveshare Pico-OLED-1.3` (o el SKU `HIPI1798`)
 - **AliExpress**: stock original de Waveshare y Pico además de clones; revisa la valoración del vendedor
 
 ## Cómo empezar

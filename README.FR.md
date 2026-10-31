@@ -191,7 +191,7 @@ Les gâchettes natives fonctionnent de la même façon sur Heroic, mais les lanc
 
 | Élément | Remarques | Prix approx. |
 |---|---|---|
-| **Raspberry Pi Pico 2 W** | MCU RP2350 avec Bluetooth/WiFi CYW43 intégré. [Page officielle du produit](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~7 USD |
+| **Raspberry Pi Pico 2 WH** (recommandé) ou **Pico 2 W** | MCU RP2350 avec Bluetooth/WiFi CYW43 intégré. Le **WH** est livré avec ses broches déjà soudées : l'écran OLED ci-dessous s'y branche directement. Sur le **W** simple, il faut d'abord souder les broches. [Page officielle du produit](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) | ~8 USD (WH), ~7 USD (W) |
 | **Manette Sony DualSense** | N'importe quelle DualSense PS5 (VID `054C:0CE6`) ou DualSense Edge (`054C:0DF2`). | — |
 | **Câble USB-C** | Relie le Pico 2 W au PC hôte. | — |
 
@@ -208,7 +208,7 @@ Le Pico 2 W et le Waveshare Pico-OLED-1.3 sont tous deux faciles à trouver dans
 
 - **Adafruit**, **Pimoroni**, **The Pi Hut**, **DigiKey**, **Mouser** : grands distributeurs d'électronique (US / UE)
 - **La boutique de Waveshare** pour le module OLED
-- Les boutiques **Amazon** régionales : cherche `Raspberry Pi Pico 2 W` et `Waveshare Pico-OLED-1.3` (ou le SKU `HIPI1798`)
+- Les boutiques **Amazon** régionales : cherche `Raspberry Pi Pico 2 WH` et `Waveshare Pico-OLED-1.3` (ou le SKU `HIPI1798`)
 - **AliExpress** : stock Waveshare et Pico d'origine plus des clones ; vérifie les notes des vendeurs
 
 ## Prise en main
