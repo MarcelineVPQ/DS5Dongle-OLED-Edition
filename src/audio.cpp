@@ -648,7 +648,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
             float al, ar;
             auto_haptics.next(raw[i * INPUT_CHANNELS] / 32768.0f, raw[i * INPUT_CHANNELS + 1] / 32768.0f,
                               lp_a, auto_gain, al, ar);
-            auto_haptics_combine(auto_mode, fallback_active, al, ar, h_l, h_r);
+            auto_haptics.combine(auto_mode, fallback_active, al, ar, h_l, h_r);
         }
 
         // 3. 48 kHz -> 3 kHz, the mean of each 16 frames (src/haptics_decimate.h;

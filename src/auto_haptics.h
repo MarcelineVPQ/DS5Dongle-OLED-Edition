@@ -2,9 +2,7 @@
 // Audio Auto Haptics (borrowed from loteran/DS5Dongle 5d6bc2f): derives a
 // haptic-feedback waveform from the speaker audio, so games that never write
 // haptic data (e.g. Ghost of Tsushima on Linux+Steam) still produce rumble.
-// Moved out of audio_loop unchanged (same float operations in the same order,
-// so the same output bytes) to put it under a host test
-// (tests/host/test_auto_haptics.cpp).
+// Host-tested in tests/host/test_auto_haptics.cpp.
 //
 // Pure, no Pico SDK; always_inline so it folds into audio_loop (RAM-resident,
 // core0; tools/check_ram_residency.sh checks for an out-of-line copy).
@@ -18,18 +16,39 @@
 // config.auto_haptics_enable
 enum AutoHapticsMode : uint8_t { kAutoOff = 0, kAutoFallback = 1, kAutoMix = 2, kAutoReplace = 3 };
 
+// Mix's limiter: unchanged up to kMixKnee (-3 dBFS), then a soft knee that
+// approaches full scale (1.0) and never reaches it; slope 1 at the knee, so
+// no corner. 1.0 in comes out at 0.85, 2.0 at 0.94.
+constexpr float kMixKnee = 0.7f;
+__attribute__((always_inline)) inline float mix_limit(float m) {
+    const float a = m < 0.0f ? -m : m;
+    if (a <= kMixKnee) return m;
+    const float d = (a - kMixKnee) / (1.0f - kMixKnee);
+    const float out = kMixKnee + (1.0f - kMixKnee) * d / (1.0f + d);
+    return m < 0.0f ? -out : out;
+}
+
 struct AutoHaptics {
     // One-pole low-pass coefficients per 48 kHz sample, for the 80 / 160 /
     // 250 / 400 Hz settings (config.auto_haptics_lowpass). Their -3 dB points
     // are 79.8 / 160.1 / 240.2 / 401.7 Hz (the test checks them).
     static constexpr float kLowPass[4] = {0.01039f, 0.02074f, 0.03095f, 0.05123f};
-    // Peak follower on the low-passed signal, per 48 kHz sample: attack 0.40
-    // (time constant 0.04 ms), release 0.025 (0.82 ms).
+    // Peak envelope of the low-passed signal, per 48 kHz sample: attack 0.40
+    // (time constant 0.04 ms), release 1 - exp(-1 / (50 ms x 48 kHz)) (time
+    // constant 50 ms). The release used to be 0.025 (0.82 ms), which followed
+    // each cycle of an 80-400 Hz signal, so (1 + 3 env) acted as a waveshaper
+    // adding harmonics instead of a level boost; at 50 ms it holds through the
+    // cycles and boosts loud passages.
     static constexpr float kEnvAttack = 0.40f;
-    static constexpr float kEnvRelease = 0.025f;
+    static constexpr float kEnvRelease = 0.00041658f;
+    // Fallback's crossfade between the game's haptics and the derived ones:
+    // linear, 15 ms (720 samples at 48 kHz). It used to switch in one sample,
+    // a step on the grips at every switch.
+    static constexpr float kFadeStep = 1.0f / 720.0f;
 
     float lp_l = 0.0f, lp_r = 0.0f;
     float env_l = 0.0f, env_r = 0.0f;
+    float fade = 0.0f;  // Fallback: 0 = the game's haptics, 1 = derived
 
     // One 48 kHz speaker frame (-1..1) in, the derived haptic pair out
     // (soft-clipped to -1..1). gain = auto_haptics_gain / 100.
@@ -48,23 +67,25 @@ struct AutoHaptics {
         al = al / (1.0f + (al < 0.0f ? -al : al));
         ar = ar / (1.0f + (ar < 0.0f ? -ar : ar));
     }
-};
 
-// The derived pair (al, ar) into the game's own haptics (h_l, h_r, -1..1) by
-// mode. Fallback uses it only while the game's haptics are silent
-// (NativeHapticsPresence, src/audio_levels.h). Mix soft-clips the sum with
-// m / (1 + |m|).
-__attribute__((always_inline)) inline void auto_haptics_combine(uint8_t mode, bool fallback_active, float al,
-                                                                float ar, float &h_l, float &h_r) {
-    if (mode == kAutoReplace) {
-        h_l = al; h_r = ar;
-    } else if (mode == kAutoMix) {
-        const float m_l = h_l + al, m_r = h_r + ar;
-        h_l = m_l / (1.0f + (m_l < 0.0f ? -m_l : m_l));
-        h_r = m_r / (1.0f + (m_r < 0.0f ? -m_r : m_r));
-    } else if (mode == kAutoFallback && fallback_active) {
-        h_l = al; h_r = ar;
+    // The derived pair (al, ar) into the game's own haptics (h_l, h_r, -1..1)
+    // by mode, once per 48 kHz frame. Fallback fades to the derived pair while
+    // the game's haptics are silent (NativeHapticsPresence, src/audio_levels.h)
+    // and back when they return. Mix adds them, limited only near full scale.
+    __attribute__((always_inline)) inline void combine(uint8_t mode, bool fallback_active, float al, float ar,
+                                                       float &h_l, float &h_r) {
+        if (mode == kAutoReplace) {
+            h_l = al; h_r = ar;
+        } else if (mode == kAutoMix) {
+            h_l = mix_limit(h_l + al);
+            h_r = mix_limit(h_r + ar);
+        } else if (mode == kAutoFallback) {
+            if (fallback_active) fade = fade + kFadeStep >= 1.0f ? 1.0f : fade + kFadeStep;
+            else fade = fade - kFadeStep <= 0.0f ? 0.0f : fade - kFadeStep;
+            h_l = h_l * (1.0f - fade) + al * fade;
+            h_r = h_r * (1.0f - fade) + ar * fade;
+        }
     }
-}
+};
 
 #endif  // DS5_BRIDGE_AUTO_HAPTICS_H
