@@ -28,7 +28,7 @@ node --test tools/*.test.mjs             # update-feed selection and signing, th
 python3 tools/check_ci_pins.py          # CI actions pinned by commit, exact Node and toolchain pins
 ```
 
-CI also runs the app repo's doc gates (CHANGELOG, file references, privacy) and its identical-files check on this repo, and `python3 tools/check_protocol_lockstep.py <app checkout>` (the app's config layout and protocol version against `src/config.h` / `src/cmd.h`). `git config core.hooksPath tools/hooks` runs the quick ones before each commit and checks the message is a Conventional Commit.
+CI also runs the app repo's doc gates (CHANGELOG, file references, privacy) and its identical-files check on this repo, and `python3 tools/check_protocol_lockstep.py <app checkout>` (the app's config layout, protocol version, 0xF6 function ids and identity feature bits against `src/config.h`, `src/cmd.h` and `src/cmd.cpp`). `git config core.hooksPath tools/hooks` runs the quick ones before each commit and checks the message is a Conventional Commit.
 
 - **A fix comes with a check:** a host test in `tests/host/` that fails without it when the logic is pure, otherwise a description of the hardware check in the pull request (board, controller, operating system, what you did and what you saw, e.g. the OLED Diagnostics counters or `scripts/audio_diag.py`).
 - **README changes go to all 7 languages** (`README.md` and its `CN`, `DE`, `ES`, `FR`, `JA`, `PT-BR` mirrors) in the same commit; `tools/check_readmes.py` checks them. Other documents are English.
