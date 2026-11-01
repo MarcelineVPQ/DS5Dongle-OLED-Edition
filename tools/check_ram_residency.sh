@@ -4,7 +4,8 @@
 #   1. No __memcpy_chk / __memset_chk / __memmove_chk (libopus fortify put
 #      them in flash, so core1 left RAM every frame).
 #   2. Core1's entry, its frame functions, the libopus encode/decode entry
-#      points, the two WDL_Resampler hot methods, the SDK queue ops and our
+#      points, the speaker resampler (src/speaker_resample.h, inlined unless
+#      the compiler keeps a copy), the SDK queue ops and our
 #      memcpy/memset/memmove all sit in SRAM (0x20000000-0x20080000).
 #      A symbol the build doesn't have (the Pico W build has no speaker
 #      encoder) is skipped; the always-present ones must exist.
@@ -36,7 +37,7 @@ in_ram() { local a=$((16#$1)); (( a >= 0x20000000 && a < 0x20080000 )); }
 # the SDK's ROM wrappers on RP2040 (no symbol of that name), ours on RP2350.
 REQUIRED="_Z11core1_entryv memmove queue_try_add queue_try_remove opus_decode celt_decode_with_ec"
 OPTIONAL="memcpy memset opus_encode_float opus_encode_native celt_encode_with_ec
-  _ZN13WDL_Resampler11ResampleOutEPfiii _ZN13WDL_Resampler15ResamplePrepareEiiPPf"
+  _ZN16SpeakerResampler7processEPKfPf"
 for sym in $REQUIRED $OPTIONAL; do
   addr="$(awk -v s="$sym" '$3 == s && $2 ~ /^[tTwW]$/ {print $1; exit}' <<<"$SYMS")"
   if [ -z "$addr" ]; then
@@ -84,13 +85,13 @@ CORE0=""
 # must be in RAM too. TinyUSB 0.21's single-item tu_fifo_read / tu_fifo_write
 # have no caller in this firmware (the linker drops them); renamed anyway, so checked if linked.
 CORE0_OPTIONAL=""
-[ -n "$CORE0" ] && CORE0_OPTIONAL="_ZN15HapticDecimator4takeEv _Z12haptic_to_s8ff tu_fifo_read tu_fifo_write
+[ -n "$CORE0" ] && CORE0_OPTIONAL="_ZN15HapticDecimator4pushERfS0_ _Z12haptic_to_s8ff tu_fifo_read tu_fifo_write
   audio.cpp:_ZL14grip_test_taskv _ZN8GripWave4nextEPaff _ZN8GripWave4fillEPaiff _ZNK8GripWave6activeEv
   _ZN16AudioReportClock3dueEy _ZN16AudioReportClock4sentEy _ZN16AudioReportClock5resetEv
   _ZNK21NativeHapticsPresence6silentEv _ZN21NativeHapticsPresence6recordEtm
-  _ZN11AutoHaptics4nextEffffRfS0_ _Z20auto_haptics_combinehbffRfS_
+  _ZN11AutoHaptics4nextEffffRfS0_ _ZN11AutoHaptics7combineEhbffRfS0_ _Z9mix_limitf
   _ZNK9AudioPeak5levelEy _ZN9AudioPeak6recordEty
-  _ZN8MicLevel6sampleEji _ZN8MicLevel4dropEji _Z14mic_frame_peakPKsi"
+  _ZN8MicLevel6sampleEji _ZN8MicLevel4dropEji _Z14mic_frame_peakPKsi _Z10mic_splicePKsPsi"
 # FUNC/OBJECT symbols as "file:name addr" (locals, grouped after their FILE
 # entry) and "name addr" (globals and weak), one per line.
 TABLE="$("$READELF" -sW "$ELF" | awk '
