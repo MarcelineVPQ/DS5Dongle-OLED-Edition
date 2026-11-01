@@ -23,6 +23,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ### Fixed
 
+- **Settings from older firmware no longer show as unsaved after a one-field save.** Saving the narrator, the PC sleep options or the display on a board whose settings were last written by older firmware left the app's "unsaved" mark on; the save now writes the settings exactly as start-up reads them.
+- **A restarted speaker stream no longer plays a piece of the last one.** Stopping and starting playback quickly could let one block (about 10 ms) encoded for the old stream through; each block now carries its stream, and the board drops blocks from an old one.
+- **The speaker filter uses less of the audio core's time and is ready sooner at start-up.**
 - **A board with less flash than the firmware expects no longer writes its settings to the wrong place.** At start-up the board reads its flash chip's size (the chip's own SFDP table); when it is smaller than the image was built for, nothing is written to flash at all (settings, pairings, button layout, calibration): they work until the board restarts. The OLED says "Small flash: no save" at start-up and `0xEA` tells the app. A chip that doesn't report its size is treated as before.
 - **A Pico 2 (without the wireless chip) given the Pico 2 W firmware no longer restarts for ever.** After the third failed start of the wireless chip in a row it stops and the OLED says "No wireless chip found: this firmware is for the Pico 2 W". Unplugging it starts the count again.
 
