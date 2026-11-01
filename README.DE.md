@@ -333,11 +333,11 @@ Für ein Release kann ein selbst kompilierter Build die alte Übertaktung noch a
 
 So baust du das Projekt aus dem Quellcode:
 
-1. Installiere Pico SDK **2.3.0**. Der Build nutzt `pico_sdk_import.cmake`. CI und Releases bauen mit ARMs offizieller GNU-Toolchain **15.2.Rel1** (`arm-none-eabi`); das `gcc-arm-none-eabi` einer Distribution funktioniert meist, aber 15.2.Rel1 ergibt dieselbe Binärdatei wie das Release. Die genauen Versionen (SDK, TinyUSB-Commit, Toolchain-Download) stehen in `tools/toolchain.env`. Setze `PICO_TOOLCHAIN_PATH` auf den entpackten Toolchain-Ordner, falls er nicht in deinem `PATH` liegt.
-2. **Setze TinyUSB im Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`) auf den Commit aus `tools/toolchain.env`**: TinyUSB 0.21 plus spätere Fixes, wie Upstream es nutzt. Pico SDK 2.3.0 bringt noch 0.18.0 mit, dem die 4-Argument-Form von `TUD_AUDIO_EP_SIZE` fehlt, die `tusb_config.h` dieses Projekts nutzt, und der Build verweigert jedes TinyUSB außer 0.21:
+1. Installiere Pico SDK **2.3.1**. Der Build nutzt `pico_sdk_import.cmake`. CI und Releases bauen mit ARMs offizieller GNU-Toolchain **15.2.Rel1** (`arm-none-eabi`); das `gcc-arm-none-eabi` einer Distribution funktioniert meist, aber 15.2.Rel1 ergibt dieselbe Binärdatei wie das Release. Die genauen Versionen (SDK, TinyUSB-Commit, Toolchain-Download) stehen in `tools/toolchain.env`. Setze `PICO_TOOLCHAIN_PATH` auf den entpackten Toolchain-Ordner, falls er nicht in deinem `PATH` liegt.
+2. **Setze TinyUSB im Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`) auf den Commit aus `tools/toolchain.env`**: TinyUSB 0.21 plus spätere Fixes, wie Upstream es nutzt. Pico SDK 2.3.1 bringt noch 0.18.0 mit, dem die 4-Argument-Form von `TUD_AUDIO_EP_SIZE` fehlt, die `tusb_config.h` dieses Projekts nutzt, und der Build verweigert jedes TinyUSB außer 0.21:
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. Konfiguriere und baue mit CMake + Ninja (oder Make):

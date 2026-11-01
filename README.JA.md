@@ -333,11 +333,11 @@ Pico デバイスは、コントローラーが接続された後にのみシス
 
 ソースからプロジェクトをビルドするには：
 
-1. Pico SDK **2.3.0** をインストールします。ビルドは `pico_sdk_import.cmake` を使います。CI とリリースは ARM 公式の GNU ツールチェーン **15.2.Rel1**（`arm-none-eabi`）でビルドしています。ディストリビューションの `gcc-arm-none-eabi` でも通常は動作しますが、15.2.Rel1 ならリリースと同じバイナリになります。正確な固定バージョン（SDK、TinyUSB のコミット、ツールチェーンのダウンロード先）は `tools/toolchain.env` にあります。ツールチェーンが `PATH` にない場合は、`PICO_TOOLCHAIN_PATH` を展開したツールチェーンのフォルダーに設定してください。
-2. Pico SDK 内（`$PICO_SDK_PATH/lib/tinyusb`）で **TinyUSB を `tools/toolchain.env` のコミットに固定します**：アップストリームと同じく、TinyUSB 0.21 にその後の修正を加えたものです。Pico SDK 2.3.0 はまだ 0.18.0 を同梱しており、このプロジェクトの `tusb_config.h` が使う `TUD_AUDIO_EP_SIZE` の 4 引数形式がありません。また、ビルドは 0.21 以外の TinyUSB を拒否します：
+1. Pico SDK **2.3.1** をインストールします。ビルドは `pico_sdk_import.cmake` を使います。CI とリリースは ARM 公式の GNU ツールチェーン **15.2.Rel1**（`arm-none-eabi`）でビルドしています。ディストリビューションの `gcc-arm-none-eabi` でも通常は動作しますが、15.2.Rel1 ならリリースと同じバイナリになります。正確な固定バージョン（SDK、TinyUSB のコミット、ツールチェーンのダウンロード先）は `tools/toolchain.env` にあります。ツールチェーンが `PATH` にない場合は、`PICO_TOOLCHAIN_PATH` を展開したツールチェーンのフォルダーに設定してください。
+2. Pico SDK 内（`$PICO_SDK_PATH/lib/tinyusb`）で **TinyUSB を `tools/toolchain.env` のコミットに固定します**：アップストリームと同じく、TinyUSB 0.21 にその後の修正を加えたものです。Pico SDK 2.3.1 はまだ 0.18.0 を同梱しており、このプロジェクトの `tusb_config.h` が使う `TUD_AUDIO_EP_SIZE` の 4 引数形式がありません。また、ビルドは 0.21 以外の TinyUSB を拒否します：
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. CMake + Ninja（または Make）で設定してビルドします：

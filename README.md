@@ -335,11 +335,11 @@ For one release, a source build can still use the old overclock as a fallback: `
 
 To build the project from source:
 
-1. Install Pico SDK **2.3.0**. The build uses `pico_sdk_import.cmake`. CI and releases build with ARM's official GNU toolchain **15.2.Rel1** (`arm-none-eabi`); a distribution's `gcc-arm-none-eabi` usually works, but 15.2.Rel1 gives the same binary as the release. The exact pins (SDK, TinyUSB commit, toolchain download) are in `tools/toolchain.env`. Set `PICO_TOOLCHAIN_PATH` to the unpacked toolchain folder if it isn't on your `PATH`.
-2. **Pin TinyUSB to the commit in `tools/toolchain.env`** inside the Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`): TinyUSB 0.21 plus later fixes, as upstream uses. Pico SDK 2.3.0 still bundles 0.18.0, which lacks the 4-argument form of `TUD_AUDIO_EP_SIZE` this project's `tusb_config.h` uses, and the build refuses any TinyUSB other than 0.21:
+1. Install Pico SDK **2.3.1**. The build uses `pico_sdk_import.cmake`. CI and releases build with ARM's official GNU toolchain **15.2.Rel1** (`arm-none-eabi`); a distribution's `gcc-arm-none-eabi` usually works, but 15.2.Rel1 gives the same binary as the release. The exact pins (SDK, TinyUSB commit, toolchain download) are in `tools/toolchain.env`. Set `PICO_TOOLCHAIN_PATH` to the unpacked toolchain folder if it isn't on your `PATH`.
+2. **Pin TinyUSB to the commit in `tools/toolchain.env`** inside the Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`): TinyUSB 0.21 plus later fixes, as upstream uses. Pico SDK 2.3.1 still bundles 0.18.0, which lacks the 4-argument form of `TUD_AUDIO_EP_SIZE` this project's `tusb_config.h` uses, and the build refuses any TinyUSB other than 0.21:
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. Configure and build with CMake + Ninja (or Make):

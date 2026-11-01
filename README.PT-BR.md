@@ -333,11 +333,11 @@ Por uma versão, uma compilação a partir do código ainda pode usar o overcloc
 
 Para compilar o projeto a partir do código:
 
-1. Instale o Pico SDK **2.3.0**. A compilação usa `pico_sdk_import.cmake`. O CI e as versões oficiais compilam com o toolchain GNU oficial da ARM **15.2.Rel1** (`arm-none-eabi`); o `gcc-arm-none-eabi` de uma distribuição geralmente funciona, mas o 15.2.Rel1 gera o mesmo binário da versão oficial. As versões exatas (SDK, commit do TinyUSB, download do toolchain) estão em `tools/toolchain.env`. Defina `PICO_TOOLCHAIN_PATH` como a pasta do toolchain descompactado se ele não estiver no seu `PATH`.
-2. **Fixe o TinyUSB no commit de `tools/toolchain.env`** dentro do Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`): TinyUSB 0.21 mais correções posteriores, como o upstream usa. O Pico SDK 2.3.0 ainda traz a 0.18.0, que não tem a forma de 4 argumentos de `TUD_AUDIO_EP_SIZE` usada pelo `tusb_config.h` deste projeto, e a compilação recusa qualquer TinyUSB que não seja a 0.21:
+1. Instale o Pico SDK **2.3.1**. A compilação usa `pico_sdk_import.cmake`. O CI e as versões oficiais compilam com o toolchain GNU oficial da ARM **15.2.Rel1** (`arm-none-eabi`); o `gcc-arm-none-eabi` de uma distribuição geralmente funciona, mas o 15.2.Rel1 gera o mesmo binário da versão oficial. As versões exatas (SDK, commit do TinyUSB, download do toolchain) estão em `tools/toolchain.env`. Defina `PICO_TOOLCHAIN_PATH` como a pasta do toolchain descompactado se ele não estiver no seu `PATH`.
+2. **Fixe o TinyUSB no commit de `tools/toolchain.env`** dentro do Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`): TinyUSB 0.21 mais correções posteriores, como o upstream usa. O Pico SDK 2.3.1 ainda traz a 0.18.0, que não tem a forma de 4 argumentos de `TUD_AUDIO_EP_SIZE` usada pelo `tusb_config.h` deste projeto, e a compilação recusa qualquer TinyUSB que não seja a 0.21:
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. Configure e compile com CMake + Ninja (ou Make):

@@ -333,11 +333,11 @@ scripts/set_ds5.py --help                     # 完整参数列表
 
 从源码编译本项目：
 
-1. 安装 Pico SDK **2.3.0**。编译使用 `pico_sdk_import.cmake`。CI 和正式版本使用 ARM 官方 GNU 工具链 **15.2.Rel1**（`arm-none-eabi`）构建；发行版自带的 `gcc-arm-none-eabi` 通常也能用，但 15.2.Rel1 能得到与正式版本相同的二进制。确切的版本（SDK、TinyUSB 提交、工具链下载地址）见 `tools/toolchain.env`。如果工具链不在 `PATH` 中，请把 `PICO_TOOLCHAIN_PATH` 设为解压后的工具链目录。
-2. **在 Pico SDK 内把 TinyUSB 固定到 `tools/toolchain.env` 中的提交**（`$PICO_SDK_PATH/lib/tinyusb`）：即 TinyUSB 0.21 加上之后的修复，与上游一致。Pico SDK 2.3.0 捆绑的仍是 0.18.0，它没有本项目 `tusb_config.h` 使用的 `TUD_AUDIO_EP_SIZE` 四参数形式；而且除 0.21 以外的 TinyUSB 都会被构建拒绝：
+1. 安装 Pico SDK **2.3.1**。编译使用 `pico_sdk_import.cmake`。CI 和正式版本使用 ARM 官方 GNU 工具链 **15.2.Rel1**（`arm-none-eabi`）构建；发行版自带的 `gcc-arm-none-eabi` 通常也能用，但 15.2.Rel1 能得到与正式版本相同的二进制。确切的版本（SDK、TinyUSB 提交、工具链下载地址）见 `tools/toolchain.env`。如果工具链不在 `PATH` 中，请把 `PICO_TOOLCHAIN_PATH` 设为解压后的工具链目录。
+2. **在 Pico SDK 内把 TinyUSB 固定到 `tools/toolchain.env` 中的提交**（`$PICO_SDK_PATH/lib/tinyusb`）：即 TinyUSB 0.21 加上之后的修复，与上游一致。Pico SDK 2.3.1 捆绑的仍是 0.18.0，它没有本项目 `tusb_config.h` 使用的 `TUD_AUDIO_EP_SIZE` 四参数形式；而且除 0.21 以外的 TinyUSB 都会被构建拒绝：
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. 用 CMake + Ninja（或 Make）配置并编译：

@@ -333,11 +333,11 @@ Pendant une version encore, une compilation depuis les sources peut utiliser l'a
 
 Pour compiler le projet depuis les sources :
 
-1. Installe le Pico SDK **2.3.0**. La compilation utilise `pico_sdk_import.cmake`. La CI et les versions publiées compilent avec la chaîne d'outils GNU officielle d'ARM **15.2.Rel1** (`arm-none-eabi`) ; le `gcc-arm-none-eabi` d'une distribution fonctionne généralement, mais 15.2.Rel1 donne le même binaire que la version publiée. Les versions exactes (SDK, commit TinyUSB, téléchargement de la chaîne d'outils) sont dans `tools/toolchain.env`. Définis `PICO_TOOLCHAIN_PATH` sur le dossier de la chaîne d'outils décompressée si elle n'est pas dans ton `PATH`.
-2. **Fixe TinyUSB au commit indiqué dans `tools/toolchain.env`** dans le Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`) : TinyUSB 0.21 plus des correctifs ultérieurs, comme upstream. Le Pico SDK 2.3.0 embarque encore la 0.18.0, qui n'a pas la forme à 4 arguments de `TUD_AUDIO_EP_SIZE` utilisée par le `tusb_config.h` de ce projet, et la compilation refuse tout TinyUSB autre que 0.21 :
+1. Installe le Pico SDK **2.3.1**. La compilation utilise `pico_sdk_import.cmake`. La CI et les versions publiées compilent avec la chaîne d'outils GNU officielle d'ARM **15.2.Rel1** (`arm-none-eabi`) ; le `gcc-arm-none-eabi` d'une distribution fonctionne généralement, mais 15.2.Rel1 donne le même binaire que la version publiée. Les versions exactes (SDK, commit TinyUSB, téléchargement de la chaîne d'outils) sont dans `tools/toolchain.env`. Définis `PICO_TOOLCHAIN_PATH` sur le dossier de la chaîne d'outils décompressée si elle n'est pas dans ton `PATH`.
+2. **Fixe TinyUSB au commit indiqué dans `tools/toolchain.env`** dans le Pico SDK (`$PICO_SDK_PATH/lib/tinyusb`) : TinyUSB 0.21 plus des correctifs ultérieurs, comme upstream. Le Pico SDK 2.3.1 embarque encore la 0.18.0, qui n'a pas la forme à 4 arguments de `TUD_AUDIO_EP_SIZE` utilisée par le `tusb_config.h` de ce projet, et la compilation refuse tout TinyUSB autre que 0.21 :
    ```bash
    cd "$PICO_SDK_PATH/lib/tinyusb"
-   git fetch --depth 1 origin 2d56dc533e45e4e91b15e93fdab5e22e964f328d
+   git fetch --depth 1 origin 98741b55959564746998d0453c32d87064629d7c
    git checkout --detach FETCH_HEAD
    ```
 3. Configure et compile avec CMake + Ninja (ou Make) :
