@@ -63,11 +63,9 @@ add_executable(host_tests
         ${FW}/src/ctrl_info.cpp
         ${FW}/src/dse.cpp
         ${FW}/src/slots.cpp
-        # The reference the haptics decimator is checked against (lib/WDL submodule).
-        ${FW}/lib/WDL/WDL/resample.cpp
 )
 # stubs/ first so its SDK headers win.
-target_include_directories(host_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs ${FW}/src ${FW}/lib/WDL/WDL)
+target_include_directories(host_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs ${FW}/src)
 target_compile_definitions(host_tests PRIVATE
         ENABLE_COMPANION_VENDOR=1
         ENABLE_SERIAL=0
@@ -77,7 +75,6 @@ target_compile_definitions(host_tests PRIVATE
         SYS_CLOCK_KHZ=150000
         FIRMWARE_VERSION="host-test"
         PICO_PROGRAM_VERSION_STRING="host-test"
-        WDL_RESAMPLE_TYPE=float  # as the firmware build
         CONFIG_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/config"  # test_config_fixtures.cpp
 )
 # Same char signedness as the firmware build (CMakeLists.txt: -fsigned-char).
@@ -85,5 +82,4 @@ target_compile_options(host_tests PRIVATE -O1 -g -fsigned-char -Wall -Wextra -Wn
 target_link_options(host_tests PRIVATE ${SAN})
 find_package(Threads REQUIRED)  # test_perf.cpp: a writer thread stands in for core1
 target_link_libraries(host_tests PRIVATE Threads::Threads)
-# Third-party: no warnings from WDL itself.
-set_source_files_properties(${FW}/lib/WDL/WDL/resample.cpp PROPERTIES COMPILE_OPTIONS "-w")
+
