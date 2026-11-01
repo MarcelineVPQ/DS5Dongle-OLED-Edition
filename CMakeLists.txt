@@ -353,6 +353,12 @@ endif ()
 # Serial (debug) builds guard the bottom of both cores' stacks, so an overflow
 # faults where it happens instead of corrupting the memory below it (core0
 # runs on the SDK's default stack with deep BTstack -> callback chains).
+# Core0's guard sits at __StackTop - PICO_STACK_SIZE (the SDK's default
+# 0x800, 2 KB), stricter than a release build, where nothing stops core0's
+# stack at 2 KB (it can run on through SCRATCH_Y into SCRATCH_X). So a clean
+# serial run proves release safe; a guard fault in a serial build may be a
+# 2 KB false alarm: read the faulting address against __StackBottom before
+# calling it a release bug.
 if (ENABLE_SERIAL)
         target_compile_definitions(ds5-bridge PRIVATE PICO_USE_STACK_GUARDS=1)
 endif ()
