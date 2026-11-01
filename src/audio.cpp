@@ -132,6 +132,7 @@ bool audio_mic_wanted() { return mic_active && get_config().bt_mic_enable; }
 
 struct audio_raw_element {
     float data[512 * 2];
+    uint32_t gen;  // the speaker stream it came from (s_spk_gen)
 };
 
 void set_headset(bool state) {
@@ -356,6 +357,10 @@ static void mic_drain() {
 // the previous stream's leftovers. Set and read on core0 (tud_task, audio_loop).
 static bool s_spk_stream_opened = false;
 void audio_speaker_stream_opened() { s_spk_stream_opened = true; }
+// Counts speaker streams (core0 writes, core1 reads): core1 drops a block it
+// encoded for an older stream instead of queueing it after the flush, and
+// clears the resampler's history when a new stream's first block arrives.
+static volatile uint32_t s_spk_gen = 0;
 
 // When the host last sent audio through us: while it streams, the narrator's
 // frames ride in its reports; otherwise voice_task() sends them on its own.
@@ -555,6 +560,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
     // next sound doesn't start with a fragment of the last one.
     if (s_spk_stream_opened) {
         s_spk_stream_opened = false;
+        s_spk_gen = s_spk_gen + 1;
         audio_buf_pos = 0;
         haptic_buf_pos = 0;
         decimator = HapticDecimator{};
@@ -637,6 +643,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
             if (audio_buf_pos == 512 * 2) {
                 static audio_raw_element element{};
                 memcpy(element.data, audio_buf, 512 * 2 * 4);
+                element.gen = s_spk_gen;
                 // Full: drop the oldest and add again. Testing queue_is_full
                 // first raced core1: a block it took in between made the
                 // remove drop a second, good one.
@@ -730,6 +737,12 @@ static SpeakerResampler resampler_audio;  // core1 only
 static void __not_in_flash_func(speaker_proc)() {
     static audio_raw_element audio_element{};
     if (!queue_try_remove(&audio_fifo, &audio_element)) return;
+    // A new stream: no history from the last one in the filter.
+    static uint32_t gen = 0;
+    if (audio_element.gen != gen) {
+        gen = audio_element.gen;
+        memset(resampler_audio.buf, 0, sizeof(resampler_audio.buf));
+    }
     // 将 512 frames 重采样成 480 frames 以解决噪音问题。感谢 @Junhoo
     // A polyphase FIR (src/speaker_resample.h), no longer linear interpolation.
     static float out_buf[480 * 2];
@@ -741,6 +754,10 @@ static void __not_in_flash_func(speaker_proc)() {
     if (encoded <= 0) return;
     g_c1_enc = g_c1_enc + 1;
     if (encoded < SPEAKER_OPUS_SIZE) memset(spk.data + encoded, 0, SPEAKER_OPUS_SIZE - encoded);
+    // The PC restarted its stream while this block was encoding: core0 has
+    // flushed the queue, so don't play the old stream's fragment after it.
+    // error: NOT-WORTH — not a failure: a stale block from a stream that ended
+    if (audio_element.gen != s_spk_gen) return;
     // Full: drop the oldest and add again (testing queue_is_full first raced
     // core0's audio_bt_task, which could take one in between).
     // error: LOGGED-OK — counter g_drop_enc below; a full queue drops the oldest packet
