@@ -15,8 +15,12 @@ const RAM = 0x20000000;
 // A flash image with a binary info header at 0x110 (after an RP2350 vector
 // table), the SDK's PICO_BOARD and version and the 'D','5' strings. The
 // version string is stored in flash at 0x800 but referenced at its RAM
-// address, through the address mapping table (as crt0's data copy).
-function image({ picoBoard = "pico2_w", version = "v0.9.6-oled-edition", d5Board = "pico2_w", personas = "ds5", displays = "none,pico_oled_1_3" } = {}) {
+// address, through the address mapping table (as crt0's data copy). A picobin
+// block loop as the SDK's crt0 lays it out (boot/picobin.h): a start block at
+// 0x140 with the IMAGE_TYPE item, linked to an end block at 0x860 that holds
+// picotool's HASH_DEF and HASH_VALUE when sealed (an ignored item when not),
+// linked back.
+function image({ picoBoard = "pico2_w", version = "v0.9.6-oled-edition", d5Board = "pico2_w", personas = "ds5", displays = "none,pico_oled_1_3", seal = true } = {}) {
   const img = Buffer.alloc(0x900);
   const w32 = (off, v) => img.writeUInt32LE(v >>> 0, off);
   let strAt = 0x600;
@@ -50,6 +54,27 @@ function image({ picoBoard = "pico2_w", version = "v0.9.6-oled-edition", d5Board
   w32(0x118, FLASH + 0x200 + 4 * entries.length);
   w32(0x11c, FLASH + 0x300);
   w32(0x120, 0xe71aa390);
+  // Start block: IMAGE_TYPE (1BS, 1 word), LAST (2BS, size 1), link, end.
+  w32(0x140, 0xffffded3);
+  w32(0x144, 0x42 | (1 << 8) | (0x1021 << 16));
+  w32(0x148, 0xff | (1 << 8));
+  w32(0x14c, 0x860 - 0x140);
+  w32(0x150, 0xab123579);
+  // End block: HASH_DEF (2 words) + HASH_VALUE (9 words), or IGNORED (2BS, 1 word).
+  w32(0x860, 0xffffded3);
+  let p = 0x864;
+  if (seal) {
+    w32(p, 0x47 | (2 << 8) | (1 << 24)); // SHA-256
+    p += 8;
+    w32(p, 0x4b | (9 << 8));
+    p += 36;
+  } else {
+    w32(p, 0xfe | (1 << 8));
+    p += 4;
+  }
+  w32(p, 0xff | (((p - 0x864) / 4) << 8));
+  w32(p + 4, 0x140 - 0x860); // back to the start block (negative)
+  w32(p + 8, 0xab123579);
   return img;
 }
 
@@ -82,6 +107,7 @@ test("reads the SDK's and the D5 binary info, through the address mapping", () =
     pico_board: "pico2_w",
     version: "v0.9.6-oled-edition",
     d5: { board: "pico2_w", personas: "ds5", displays: "none,pico_oled_1_3" },
+    hash_sealed: true,
   });
 });
 
@@ -89,7 +115,8 @@ test("an image that matches its row and entry passes", () => {
   const buf = uf2(image(), FAMILY.rp2350a);
   const entry = { board: "pico2_w", version: "v0.9.6-oled-edition", file: "f.uf2", sha256: sha(buf) };
   assert.deepEqual(check(buf, "pico2_w", { version: "v0.9.6-oled-edition", entry }), []);
-  const picow = uf2(image({ picoBoard: "pico_w", d5Board: "pico_w" }), FAMILY.rp2040, { absoluteBlock: false });
+  // The RP2040 has no hash check, so its image needs no seal.
+  const picow = uf2(image({ picoBoard: "pico_w", d5Board: "pico_w", seal: false }), FAMILY.rp2040, { absoluteBlock: false });
   assert.deepEqual(check(picow, "pico_w"), []);
 });
 
@@ -110,6 +137,19 @@ test("each mismatch fails, in plain words", () => {
   fails(buf, /names g\.uf2/, "pico2_w", { entry: { ...entry, file: "g.uf2" } });
   fails(buf, /version v0\.9\.5/, "pico2_w", { entry: { ...entry, version: "v0.9.5-oled-edition" } });
   fails(buf, /no entry for pico2_w/, "pico2_w", { entry: null });
+});
+
+// Re-review G-S1: the CHANGELOG promises the boot ROM checks a hash, so an
+// RP2350 image without one fails, as does a block loop that doesn't close.
+test("an RP2350 image without the hash seal fails", () => {
+  assert.equal(uf2Info(uf2(image({ seal: false }), FAMILY.rp2350a)).hash_sealed, false);
+  assert.match(check(uf2(image({ seal: false }), FAMILY.rp2350a), "pico2_w").join("\n"), /no hash seal/);
+  const broken = image();
+  broken.writeUInt32LE(0, 0x86c + 36 + 8); // the end block's end marker
+  assert.match(check(uf2(broken, FAMILY.rp2350a), "pico2_w").join("\n"), /no hash seal/);
+  const unlinked = image();
+  unlinked.writeUInt32LE(0x10, 0x14c); // the start block's link points nowhere
+  assert.equal(uf2Info(uf2(unlinked, FAMILY.rp2350a)).hash_sealed, false);
 });
 
 test("not a UF2, or no binary info, is an error", () => {

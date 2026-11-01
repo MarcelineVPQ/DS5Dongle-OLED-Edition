@@ -7,7 +7,10 @@
 // and program version, and the firmware's own 'D','5' strings from
 // src/fw_identity.h: board, personas, displays) and its UF2 family ids, then
 // checks them against the board's row: D5 board = id, PICO_BOARD = pico_board,
-// personas and displays equal, every image block in the chip's family. With
+// personas and displays equal, every image block in the chip's family, and on
+// RP2350 a hash seal (HASH_DEF and HASH_VALUE items in the image's picobin
+// block loop, picotool seal --hash: the boot ROM then refuses a half-written
+// image; CMakeLists.txt pico_hash_binary). With
 // --version the program version must equal it; with --images the board's entry
 // must name this file, its sha256 and the same version. Exit 1 on any problem.
 import { createHash } from "node:crypto";
@@ -29,6 +32,12 @@ const TAG_D5 = 0x3544; // BINARY_INFO_MAKE_TAG('D','5'), src/fw_identity.h
 const ID_PICO_BOARD = 0xb63cffbb;
 const ID_PROGRAM_VERSION = 0x11a9bc3a;
 const D5 = { 0x44350001: "board", 0x44350002: "personas", 0x44350003: "displays" };
+// pico-sdk 2.3.0 boot/picobin.h
+const PICOBIN_START = 0xffffded3;
+const PICOBIN_END = 0xab123579;
+const PICOBIN_ITEM_LAST = 0xff; // 2BS_LAST
+const PICOBIN_ITEM_HASH_DEF = 0x47;
+const PICOBIN_ITEM_HASH_VALUE = 0x4b;
 
 // The UF2's blocks as an address -> bytes image, plus the family ids its
 // image blocks carry.
@@ -106,9 +115,58 @@ export function binaryInfo(pages) {
   return out;
 }
 
+// One picobin block at `at`: its item types and the next block's address
+// (the LAST item's link is relative to this block), or null if none is there.
+function picobinBlock({ byte, u32 }, at) {
+  if (u32(at) !== PICOBIN_START) return null;
+  const items = [];
+  // loop: NOT-WORTH — host tool; a block is at most 0x280 bytes (PICOBIN_MAX_BLOCK_SIZE)
+  for (let p = at + 4; p < at + 0x280; ) {
+    const t = byte(p);
+    if (t === undefined) return null;
+    // 1BS items: byte 1 = size in words; 2BS (bit 7): bytes 1-2
+    const size = t & 0x80 ? byte(p + 1) | (byte(p + 2) << 8) : byte(p + 1);
+    if (t === PICOBIN_ITEM_LAST) {
+      const link = u32(p + 4);
+      if (link === undefined || u32(p + 8) !== PICOBIN_END) return null;
+      return { items, next: (at + (link | 0)) >>> 0 };
+    }
+    if (!size) return null;
+    items.push(t);
+    p += size * 4;
+  }
+  return null;
+}
+
+// The item types of the image's block loop (the first block within its first
+// 4 KB, where the boot ROM looks, then each link until it comes back), or
+// null when there is no complete loop.
+export function picobinItems(pages) {
+  const r = reader(pages);
+  const start = Math.min(...pages.keys());
+  // loop: NOT-WORTH — host tool, 1024 words
+  for (let a = start; a < start + 4096; a += 4) {
+    const first = picobinBlock(r, a);
+    if (!first) continue;
+    const items = [...first.items];
+    let next = first.next;
+    // loop: NOT-WORTH — host tool; the SDK's loop has 2 blocks
+    for (let hops = 0; next !== a && hops < 16; hops++) {
+      const b = picobinBlock(r, next);
+      if (!b) return null;
+      items.push(...b.items);
+      next = b.next;
+    }
+    return next === a ? items : null;
+  }
+  return null;
+}
+
 export function uf2Info(buf) {
   const { pages, families } = readUf2(buf);
-  return { families, ...binaryInfo(pages) };
+  const items = picobinItems(pages) ?? [];
+  const hash_sealed = items.includes(PICOBIN_ITEM_HASH_DEF) && items.includes(PICOBIN_ITEM_HASH_VALUE);
+  return { families, ...binaryInfo(pages), hash_sealed };
 }
 
 // Problems, in plain words; [] = the image is what its row and entry say.
@@ -123,6 +181,8 @@ export function checkImage({ info, row, version, entry, file, sha256 }) {
   if (fam === undefined) p.push(`boards.json chip ${JSON.stringify(row.chip)} has no UF2 family here`);
   else if (info.families.length !== 1 || info.families[0] !== fam)
     p.push(`UF2 families ${info.families.map((f) => f?.toString(16) ?? "none").join(",")} are not ${row.chip}'s ${fam.toString(16)}`);
+  if (row.chip?.startsWith("rp2350") && !info.hash_sealed)
+    p.push(`no hash seal (HASH_DEF + HASH_VALUE in the picobin block loop): the boot ROM would start a half-written update; is pico_hash_binary still in CMakeLists.txt?`);
   if (version !== undefined && info.version !== version) p.push(`program version is ${JSON.stringify(info.version)}, expected ${JSON.stringify(version)}`);
   if (entry !== undefined) {
     if (!entry) return [...p, `firmware-images.json has no entry for ${row.id}`];
