@@ -7,6 +7,9 @@
 # Install once per clone: git config core.hooksPath tools/hooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# Git sets GIT_DIR (and friends) for hooks; the gates also run git in the other
+# repo, where those would point back here.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
 APP="${DS5_APP_REPO:-$HOME/projects/DS5Dongle-OLED-Config-Web}"
 export PYTHONDONTWRITEBYTECODE=1 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
 step() { echo "pre-push: $*"; "$@" > /tmp/ds5fw-pre-push.$$ 2>&1 || { cat /tmp/ds5fw-pre-push.$$; rm -f /tmp/ds5fw-pre-push.$$; echo "pre-push: FAILED: $* (push refused)" >&2; exit 1; }; rm -f /tmp/ds5fw-pre-push.$$; }
