@@ -111,6 +111,10 @@ def main():
     if not bad:
         print(f"check_core1_calls: {len(seen)} RAM functions reached from core1_entry; "
               f"{len(flash)} flash calls, all on the allowed list")
+        # The names a wildcard let through, so they can be pinned one by one.
+        for p in sorted(x for x in ALLOWED if any(c in x for c in "*?[")):
+            names = [t for t in sorted(flash) if fnmatch.fnmatchcase(t, p)]
+            print(f"check_core1_calls: {p} matched {len(names)}: {' '.join(names) or '-'}")
     return 1 if bad else 0
 
 
