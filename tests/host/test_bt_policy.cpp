@@ -7,10 +7,19 @@
 using namespace btpolicy;
 
 TEST(bt_policy_incoming_only_known_or_in_a_window) {
-    CHECK(accept_incoming(true, false));   // PS reconnect of a paired controller
-    CHECK(accept_incoming(true, true));
-    CHECK(accept_incoming(false, true));   // a new controller while pairing
-    CHECK(!accept_incoming(false, false)); // a phone, any other time
+    CHECK(accept_incoming(0, false));      // PS reconnect of a paired controller
+    CHECK(accept_incoming(3, false));      // another slot's controller (it moves the board to its slot)
+    CHECK(accept_incoming(1, true));
+    CHECK(accept_incoming(-1, true));      // a new controller while pairing
+    CHECK(!accept_incoming(-1, false));    // a phone, any other time; also one with a
+                                           // link key older firmware stored (no slot)
+}
+
+// B-S1: at start-up only keys a slot owns stay.
+TEST(bt_policy_start_up_keeps_only_slot_owned_keys) {
+    CHECK(keep_link_key(0));
+    CHECK(keep_link_key(3));
+    CHECK(!keep_link_key(-1));
 }
 
 TEST(bt_policy_pairing_window_open_now) {
@@ -38,6 +47,10 @@ TEST(bt_policy_inquiry_end_connects_once) {
     }
     CHECK_EQ(creates, 1);
     CHECK(!inquiry_end_connects(false, false));
+    // B-N1: the HCI end that follows doesn't start a new inquiry during the
+    // page the GAP end just sent; with nothing in flight it scans on.
+    CHECK(!inquiry_end_scans_on(attempt));
+    CHECK(inquiry_end_scans_on(false));
 }
 
 TEST(bt_policy_disconnect_reasons) {

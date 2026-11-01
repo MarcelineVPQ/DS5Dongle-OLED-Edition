@@ -12,14 +12,25 @@
 namespace btpolicy {
 
 // An incoming Bluetooth connection (another device paging the board). A
-// known controller (its address is in a pairing slot, or a link key is
-// stored for it) always gets in: that is the PS-button reconnect. Anything
-// else only while a pairing window is open (src/scan_policy.h). Before, every
-// device was accepted and the board was discoverable whenever a slot was
-// empty, so a phone could pair with it, push a controller's key out of the
-// 4-key store and hold the only connection (review fw-usb-bt S3).
-constexpr bool accept_incoming(bool known_controller, bool pairing_window_open) {
-    return known_controller || pairing_window_open;
+// controller in a pairing slot (`slot_owner` >= 0, slot_owner_of()) always
+// gets in: that is the PS-button reconnect. Anything else only while a
+// pairing window is open (src/scan_policy.h). Before, every device was
+// accepted and the board was discoverable whenever a slot was empty, so a
+// phone could pair with it, push a controller's key out of the 4-key store
+// and hold the only connection (review fw-usb-bt S3). A stored link key alone
+// doesn't count: a phone paired by older firmware still has one (re-review
+// B-S1); bt.cpp drops such keys at start-up (keep_link_key).
+constexpr bool accept_incoming(int slot_owner, bool pairing_window_open) {
+    return slot_owner >= 0 || pairing_window_open;
+}
+
+// At start-up, a stored link key stays only when a pairing slot holds its
+// address. Every controller the board pairs is put in a slot when it
+// connects; a key without one is a phone or other device older firmware let
+// pair, or a pairing whose slot save failed ("Pair: Save FAIL", which needs
+// a new pairing anyway). Left in place it takes one of the 4 key places.
+constexpr bool keep_link_key(int slot_owner) {
+    return slot_owner >= 0;
 }
 
 // A controller in pairing mode an inquiry found (gamepad class of device):
@@ -40,6 +51,14 @@ constexpr bool inquiry_result_pairs(int owner, int current_slot, bool current_oc
 // one's failure tore the first attempt's state down (review fw-usb-bt N2).
 constexpr bool inquiry_end_connects(bool device_found, bool attempt_in_flight) {
     return device_found && !attempt_in_flight;
+}
+
+// After a natural end (HCI_EVENT_INQUIRY_COMPLETE) with no connect: scan on
+// in the pairing window, but not while a connection attempt is on its way
+// (the GAP event before it may just have sent the create): a new inquiry then
+// ran during the page, slowing it or failing (re-review B-N1).
+constexpr bool inquiry_end_scans_on(bool attempt_in_flight) {
+    return !attempt_in_flight;
 }
 
 // A disconnect reason that is a fault (counted in 0xFB "HCI errors"). The

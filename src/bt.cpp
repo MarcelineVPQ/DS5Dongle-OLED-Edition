@@ -167,15 +167,32 @@ static void pairing_window_open() {
     if (acl_handle == HCI_CON_HANDLE_INVALID && !device_found) inquiry_start();
 }
 
-// Incoming connections (BTstack's classic connection filter, and our own
-// HCI_EVENT_CONNECTION_REQUEST accept): a known controller, or anything while
-// a pairing window is open (src/bt_policy.h).
+// Incoming connections (BTstack's classic connection filter, which also
+// accepts them, and our HCI_EVENT_CONNECTION_REQUEST watchdog): a slot's
+// controller, or anything while a pairing window is open (src/bt_policy.h).
 static bool incoming_allowed(bd_addr_t addr) {
+    // error: NOT-WORTH — a yes/no decision, not a failure; a refusal is printed by the caller
+    return btpolicy::accept_incoming(slot_owner_of(addr), g_scan.open_now(time_us_64()));
+}
+
+// Start-up: drop the link keys no slot owns (btpolicy::keep_link_key), e.g.
+// a phone older firmware let pair, so it can't take a key place or count as
+// known. BTstack's gap_delete_all_link_keys drops while iterating the same way.
+static void drop_unslotted_link_keys() {
+    btstack_link_key_iterator_t it;
+    // error: NOT-WORTH — no link key store, so no key to drop
+    if (!gap_link_key_iterator_init(&it)) return;
+    bd_addr_t addr;
     link_key_t key;
     link_key_type_t type;
-    const bool known = slot_owner_of(addr) >= 0 || gap_get_link_key_for_bd_addr(addr, key, &type);
-    // error: NOT-WORTH — a yes/no decision, not a failure; a refusal is printed by the caller
-    return btpolicy::accept_incoming(known, g_scan.open_now(time_us_64()));
+    // loop: NOT-WORTH — boot, once; at most NVM_NUM_LINK_KEYS = 4 keys
+    while (gap_link_key_iterator_get_next(&it, addr, key, &type)) {
+        // error: NOT-WORTH — not a failure: a slot owns this key, so it stays
+        if (btpolicy::keep_link_key(slot_owner_of(addr))) continue;
+        printf("[BT] Link key for %s has no slot: dropped\n", bd_addr_to_str(addr));
+        gap_drop_link_key_for_bd_addr(addr);
+    }
+    gap_link_key_iterator_done(&it);
 }
 
 static int accept_classic_connection(bd_addr_t addr, hci_link_type_t link_type) {
@@ -516,6 +533,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
                 page_scan_fast(true);
                 g_hci_working = true;
+                drop_unslotted_link_keys();
                 // Every boot opens the 2-min pairing window, also when the
                 // slot holds a controller (owner decision 2026-10-15; was one
                 // 38 s inquiry). With a paired slot it is silent (the Status
@@ -585,6 +603,8 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                              hci_usable_acl_packet_types(), 0, 0, 0, 1);
                 break;
             }
+            // error: NOT-WORTH — not a failure: the create the GAP end just sent is on its way (src/bt_policy.h)
+            if (!btpolicy::inquiry_end_scans_on(connect_attempt_started != 0)) break;
             if (event_type == HCI_EVENT_INQUIRY_COMPLETE) {
                 printf("[HCI] Inquiry ended, scan on only in the pairing window\n");
                 inquiry_continue();
@@ -749,15 +769,19 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             hci_event_connection_request_get_bd_addr(packet, addr);
             const uint32_t cod = hci_event_connection_request_get_class_of_device(packet);
             printf("[HCI] Incoming ACL request from %s cod=0x%06x\n", bd_addr_to_str(addr), (unsigned int) cod);
-            // A controller BTstack's filter refused gets no accept from us either.
+            // BTstack accepts what its filter (accept_classic_connection)
+            // allowed, itself (hci.c, RECEIVED_CONNECTION_REQUEST, same role
+            // policy); a second accept from us only drew an error status.
             // error: LOGGED-OK — accept_classic_connection() printed the refusal; BTstack declines it
-            if ((cod & 0x000F00) == 0x000500 && incoming_allowed(addr)) {
+            if (!incoming_allowed(addr)) break;
+            // Every accepted device must bring HID up within the connect
+            // watchdog or it is dropped: one that isn't a controller can't
+            // hold the board's only connection (re-review B-S1).
+            connect_attempt_started = get_absolute_time(); // arm watchdog (incoming path)
+            if ((cod & 0x000F00) == 0x000500) {
                 bd_addr_copy(current_device_addr, addr);
                 // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it
                 gap_inquiry_stop();
-                // error: LOGGED-OK — printf of the step + BTstack's own event; the connection watchdog (CONNECT_WATCHDOG_TIMEOUT_US) tears a stalled attempt down and inquiry restarts, the OLED shows not connected
-                hci_send_cmd(&hci_accept_connection_request, addr, 0x01);
-                connect_attempt_started = get_absolute_time(); // arm watchdog (incoming path)
             }
             break;
         }
