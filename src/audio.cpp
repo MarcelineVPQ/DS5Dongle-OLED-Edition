@@ -320,8 +320,12 @@ static void mic_drain() {
                 if (g_mic_level.sample(now, queued) && queued > 1
                     && g_mic_level.drop(now, mic_frame_peak(frame.mono, MIC_FRAMES))) {
                     // error: NOT-WORTH — nothing; queued > 1 means a frame is waiting, and only this core removes from mic_decode_fifo
+                    // The dropped frame's start, to crossfade the next one from.
+                    static int16_t head[kMicSpliceSamples];
+                    memcpy(head, frame.mono, sizeof(head));
                     queue_try_remove(&mic_decode_fifo, &frame);
                 }
+                    mic_splice(head, frame.mono, kMicSpliceSamples);
             } else {
                 // Playing and the jitter buffer is empty: a 1 ms hole.
                 // error: LOGGED-OK — counter g_mic_underruns (0xFD, OLED Diagnostics "Mic u"); BT jitter or a slow controller clock, nothing for the user to do

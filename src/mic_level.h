@@ -91,4 +91,17 @@ inline int mic_frame_peak(const int16_t *s, int n) {
     return peak;
 }
 
+// Where the level control drops a frame, the next frame's first 2.5 ms
+// (kMicSpliceSamples) fade linearly from the dropped frame's start, which
+// follows on from what was played before. Without it the splice was a step
+// in the waveform (a click), even in a quiet frame.
+constexpr int kMicSpliceSamples = 120;  // 2.5 ms at 48 kHz
+// from: the dropped frame's first n samples; to: the next frame, crossfaded in place.
+inline void mic_splice(const int16_t *from, int16_t *to, int n) {
+    // loop: HOT-PATH-OK — N = kMicSpliceSamples (120), once per dropped frame
+    for (int i = 0; i < n; i++) {
+        to[i] = static_cast<int16_t>((from[i] * (n - i) + to[i] * (i + 1)) / (n + 1));
+    }
+}
+
 #endif  // DS5_BRIDGE_MIC_LEVEL_H

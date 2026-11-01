@@ -2,7 +2,9 @@
 // the buffer (core1 pushing decoded frames as Bluetooth delivers them, core0
 // playing one per 10 ms of the PC's clock) that measures the mic delay it adds
 // with and without the control.
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include "mic_level.h"
 #include "test.h"
 
@@ -179,4 +181,28 @@ TEST(mic_level_simulated_latency_before_after) {
     }
     // Clock drift alone: back at the 30 ms pre-fill.
     CHECK(simulate(links[0], 120, true).avg_ms <= 35.0);
+}
+
+// The 2.5 ms crossfade at a dropped frame: starts at the dropped frame's
+// sample, ends one step from the next frame's, linear between, and leaves the
+// rest of the next frame alone.
+TEST(mic_splice_crossfades_120_samples) {
+    constexpr int n = kMicSpliceSamples;
+    int16_t from[n], to[480];
+    for (int i = 0; i < n; i++) from[i] = 12000;
+    for (int i = 0; i < 480; i++) to[i] = -12000;
+    mic_splice(from, to, n);
+    CHECK_EQ(to[0], (12000 * n - 12000) / (n + 1));        // 11801: next to the dropped frame
+    CHECK_EQ(to[n - 1], (12000 - 12000 * n) / (n + 1));    // -11801: next to the new frame
+    int worst_step = 0;
+    for (int i = 1; i < n; i++) worst_step = std::max(worst_step, std::abs(to[i] - to[i - 1]));
+    CHECK(worst_step <= 24000 / (n + 1) + 1);               // even ramp: no step bigger than 1/121 of the gap
+    CHECK(std::abs(to[n] - to[n - 1]) <= 24000 / (n + 1) + 1);  // and none into the untouched part
+    CHECK_EQ(to[n], -12000);
+    CHECK_EQ(to[479], -12000);
+    // The same signal on both sides comes through unchanged (full-scale extremes too).
+    int16_t a[n], b[n];
+    for (int i = 0; i < n; i++) a[i] = b[i] = (int16_t) (i % 2 ? 32767 : -32768);
+    mic_splice(a, b, n);
+    for (int i = 0; i < n; i++) CHECK_EQ(b[i], a[i]);
 }
