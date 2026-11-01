@@ -18,6 +18,7 @@
 #include "tusb.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include "opus.h"
 #include "utils.h"
@@ -319,13 +320,13 @@ static void mic_drain() {
                 // too; armed means more than 3, so a next frame is there.
                 if (g_mic_level.sample(now, queued) && queued > 1
                     && g_mic_level.drop(now, mic_frame_peak(frame.mono, MIC_FRAMES))) {
-                    // error: NOT-WORTH — nothing; queued > 1 means a frame is waiting, and only this core removes from mic_decode_fifo
                     // The dropped frame's start, to crossfade the next one from.
                     static int16_t head[kMicSpliceSamples];
                     memcpy(head, frame.mono, sizeof(head));
+                    // error: NOT-WORTH — nothing; queued > 1 means a frame is waiting, and only this core removes from mic_decode_fifo
                     queue_try_remove(&mic_decode_fifo, &frame);
-                }
                     mic_splice(head, frame.mono, kMicSpliceSamples);
+                }
             } else {
                 // Playing and the jitter buffer is empty: a 1 ms hole.
                 // error: LOGGED-OK — counter g_mic_underruns (0xFD, OLED Diagnostics "Mic u"); BT jitter or a slow controller clock, nothing for the user to do
@@ -493,6 +494,11 @@ static void CORE0_RAM_FUNC(grip_test_task)() {
     const bool tail = !s_grip.active();
     s_grip.fill(reinterpret_cast<int8_t *>(pkt + 12), SAMPLE_SIZE, get_config().haptics_gain,
                 get_config().haptics_gain_right);
+    // The haptic meter shows the test's wave (audio_loop doesn't run without host audio).
+    int hap_max = 0;
+    // loop: HOT-PATH-OK — N = 128 haptic bytes per test report, only during the haptic test
+    for (int i = 0; i < SAMPLE_SIZE * 2; i++) hap_max = std::max(hap_max, std::abs((int) (int8_t) pkt[12 + i]));
+    g_peak_hap.record(peak_from_s8(hap_max), now);
 #if !DISABLE_SPEAKER_PROC
     if (voice_take_frames(pkt + 142, pkt + 142 + SPEAKER_OPUS_SIZE, SPEAKER_OPUS_SIZE)) {
         pkt[140] = speaker_block_tag();
@@ -565,9 +571,12 @@ void CORE0_RAM_FUNC(audio_loop)() {
     const float audio_gain = mute[0] ? 0.0f : powf(10.0f, get_config().speaker_volume / 20.0f);
     const float haptics_gain = get_config().haptics_gain;             // left grip
     const float haptics_gain_r = get_config().haptics_gain_right;     // right grip
-    // This chunk's peaks: ch1/ch2 for the meter, ch3/ch4 for the meter and
-    // the native-haptics detector below.
-    uint16_t spk_max = 0, native_max = 0;
+    // This chunk's peaks: the game's ch3/ch4 for the native-haptics detector
+    // below; for the meters, what goes out (the speaker samples handed to the
+    // encoder, the int8 haptic samples sent to the controller).
+    uint16_t native_max = 0;
+    float spk_out_max = 0.0f;
+    int hap_out_max = 0;
 
     // Audio Auto Haptics (src/auto_haptics.h). Mode 1 (Fallback) fires only
     // when native is silent, so it keeps native HD haptics in games that send
@@ -602,18 +611,12 @@ void CORE0_RAM_FUNC(audio_loop)() {
 
     // loop: HOT-PATH-OK — N = frames of one USB audio read (≤ 192, normally 48); peaks + split, the audio path itself
     for (int i = 0; i < frames; i++) {
-        // VU peak tracking
+        // The game's haptics peak (Fallback's detector)
         {
-            int16_t sl = raw[i * INPUT_CHANNELS];
-            int16_t sr = raw[i * INPUT_CHANNELS + 1];
             int16_t hl = raw[i * INPUT_CHANNELS + 2];
             int16_t hr = raw[i * INPUT_CHANNELS + 3];
-            uint16_t a = (uint16_t)(sl < 0 ? -sl : sl);
-            uint16_t b = (uint16_t)(sr < 0 ? -sr : sr);
-            if (a > spk_max) spk_max = a;
-            if (b > spk_max) spk_max = b;
-            a = (uint16_t)(hl < 0 ? -hl : hl);
-            b = (uint16_t)(hr < 0 ? -hr : hr);
+            const uint16_t a = (uint16_t)(hl < 0 ? -hl : hl);
+            const uint16_t b = (uint16_t)(hr < 0 ? -hr : hr);
             if (a > native_max) native_max = a;
             if (b > native_max) native_max = b;
         }
@@ -623,6 +626,8 @@ void CORE0_RAM_FUNC(audio_loop)() {
         if (spk_ready) {
             speaker_frame(raw[i * INPUT_CHANNELS], raw[i * INPUT_CHANNELS + 1], spk_mix, audio_gain,
                           audio_buf[audio_buf_pos], audio_buf[audio_buf_pos + 1]);
+            const float ol = audio_buf[audio_buf_pos], orr = audio_buf[audio_buf_pos + 1];
+            spk_out_max = std::max(spk_out_max, std::max(ol < 0.0f ? -ol : ol, orr < 0.0f ? -orr : orr));
             audio_buf_pos += 2;
             if (audio_buf_pos == 512 * 2) {
                 static audio_raw_element element{};
@@ -666,6 +671,8 @@ void CORE0_RAM_FUNC(audio_loop)() {
             haptic_buf[haptic_buf_pos++] = haptic_to_s8(h_l, haptics_gain);
             haptic_buf[haptic_buf_pos++] = haptic_to_s8(h_r, haptics_gain_r);
         }
+        hap_out_max = std::max(hap_out_max, std::max(std::abs((int) haptic_buf[haptic_buf_pos - 2]),
+                                                     std::abs((int) haptic_buf[haptic_buf_pos - 1])));
 
         // 4. A full 64-byte frame (32 samples x 2 grips) goes to audio_bt_task.
         if (haptic_buf_pos != SAMPLE_SIZE) {
@@ -683,8 +690,8 @@ void CORE0_RAM_FUNC(audio_loop)() {
         queue_try_add(&haptics_fifo, &element);
         haptic_buf_pos = 0;
     }
-    g_peak_spk.record(spk_max, s_host_audio_us);
-    g_peak_hap.record(native_max, s_host_audio_us);
+    g_peak_spk.record(peak_from_float(spk_out_max), s_host_audio_us);
+    g_peak_hap.record(peak_from_s8(hap_out_max), s_host_audio_us);
     native_haptics.record(native_max, (uint32_t) frames);
     audio_bt_task();
 }
@@ -697,6 +704,8 @@ void audio_init() {
     queue_init(&audio_fifo, sizeof(audio_raw_element), 2);
     // lifetime: NOT-WORTH — boot, once per firmware run; the queue lives until reset
     queue_init(&audio_spk_fifo, sizeof(audio_spk_element), 2);
+    // The speaker resampler's filter table, before core1 runs (src/speaker_resample.h).
+    speaker_fir_init();
 #endif
     // Mic queues: core0 fills mic_fifo from BT, core1 decodes into the jitter
     // buffer, core0 drains it to USB. Mic Opus is mono / 48 kHz / 10 ms frames.
@@ -709,8 +718,6 @@ void audio_init() {
 }
 
 #if !DISABLE_SPEAKER_PROC
-    // The speaker resampler's filter table, before core1 runs (src/speaker_resample.h).
-    speaker_fir_init();
 static OpusEncoder *encoder;
 static SpeakerResampler resampler_audio;  // core1 only
 

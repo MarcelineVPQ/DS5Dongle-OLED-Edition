@@ -96,3 +96,22 @@ TEST(audio_peak_new_louder_peak_restarts_quieter_one_doesnt) {
     p.record(1000, 200000);
     CHECK_EQ(p.read(250000), (30000 * 7 / 8) >> 7);
 }
+
+// The meters show what goes out, on AudioPeak's 0..32768 scale.
+TEST(meter_peaks_of_what_goes_out) {
+    CHECK_EQ(peak_from_float(0.0f), 0);
+    CHECK_EQ(peak_from_float(0.5f), 16384);
+    CHECK_EQ(peak_from_float(1.0f), 32768);   // the encoder's full scale (speaker_frame clips there)
+    CHECK_EQ(peak_from_float(1.5f), 32768);
+    CHECK_EQ(peak_from_s8(0), 0);
+    CHECK_EQ(peak_from_s8(32), 8192);          // the haptic test at strength 1: a quarter
+    CHECK_EQ(peak_from_s8(127), 32512);
+    CHECK_EQ(peak_from_s8(128), 32768);        // -128
+    AudioPeak p;
+    p.record(peak_from_s8(128), 0);
+    CHECK_EQ(p.read(0), 255);
+    p.record(peak_from_float(0.1f), 0);        // -20 dBFS reads 25 of 255 (the bar is linear)
+    AudioPeak q;
+    q.record(peak_from_float(0.1f), 0);
+    CHECK_EQ(q.read(0), 25);
+}

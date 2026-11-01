@@ -46,6 +46,18 @@ struct AudioPeak {
     }
 };
 
+// The meters show what goes out (after the speaker's trim, mute and routing;
+// after Auto Haptics, the haptic feedback test and the grip strength), in
+// AudioPeak's 0..32768 scale:
+// a speaker sample as handed to the encoder (-1..1, clipped there).
+__attribute__((always_inline)) inline uint16_t peak_from_float(float max_abs) {
+    return max_abs >= 1.0f ? 32768 : (uint16_t)(max_abs * 32768.0f);
+}
+// the largest |int8| haptic sample sent to the controller (0..128).
+__attribute__((always_inline)) inline uint16_t peak_from_s8(int max_abs) {
+    return (uint16_t)(max_abs * 256);
+}
+
 // Is the host sending its own HD haptics (ch3/ch4)? Fed the raw ch3/ch4 peak
 // of each USB chunk only, never a held meter peak: the VU meter's peak only
 // fell when someone read it, so with the OLED off and no app polling, one
