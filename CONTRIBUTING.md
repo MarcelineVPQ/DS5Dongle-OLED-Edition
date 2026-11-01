@@ -17,6 +17,7 @@ Small and focused, one change each, against `master`. Before opening one, these 
 
 ```bash
 tests/host/run.sh build/host-tests      # host unit tests (ASan + UBSan), no hardware
+tests/host/fixtures/config/gen/stable_reads.sh  # the last stable release reads the settings saved now
 tools/check_gitlinks.sh                 # lib/opus and lib/WDL stay submodule gitlinks
 python3 tools/check_readmes.py          # the 7 READMEs in step
 python3 tools/check_community.py        # the community files are present

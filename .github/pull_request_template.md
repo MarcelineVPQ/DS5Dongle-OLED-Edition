@@ -7,6 +7,7 @@
 ## How it was checked
 
 - [ ] `tests/host/run.sh build/host-tests` passes, and a fix to pure logic comes with a host test that fails without it
+- [ ] `tests/host/fixtures/config/gen/stable_reads.sh` passes (the last stable release reads the settings saved now)
 - [ ] `tools/check_gitlinks.sh`, `python3 tools/check_readmes.py`, `python3 tools/check_community.py` and `python3 tools/check_ci_pins.py` pass
 - [ ] `python3 tools/list_loops.py --check`, `python3 tools/list_errors.py --check` and `python3 tools/list_lifetimes.py --check` pass
 - [ ] Update-feed, `boards.json` or UF2-check code changed: `node --test tools/*.test.mjs` passes

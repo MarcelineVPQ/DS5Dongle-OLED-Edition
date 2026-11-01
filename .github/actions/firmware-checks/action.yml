@@ -152,6 +152,14 @@ runs:
       shell: bash
       run: tests/host/run.sh build/host-tests
 
+    # "Back to stable" keeps the settings: the last stable release's own
+    # config.cpp (built from its tag, one file) reads the page this firmware
+    # saves, which the host tests above hold equal to stable/current_custom.bin.
+    # Run here, not only by hand, so a stale recorded "ok" can't pass.
+    - name: The last stable release reads today's saved settings
+      shell: bash
+      run: tests/host/fixtures/config/gen/stable_reads.sh
+
     # The feeds are built and signed on the developer's PC
     # (tools/publish_feed.sh); CI only tests the selection and signing code,
     # and gate G2's UF2 reader (tools/uf2_info.mjs) on a fixture.
