@@ -440,7 +440,8 @@ static void CORE0_RAM_FUNC(audio_bt_task)() {
 }
 
 // A report carrying only the narrator: silent haptics, her two frames. For
-// when the host isn't streaming audio (voice_task paces it, 20 ms apart).
+// when the host isn't streaming audio (voice_task paces it, 21.33 ms apart:
+// two 10.67 ms frames, src/report_clock.h).
 void audio_send_voice_report() {
 #if !DISABLE_SPEAKER_PROC
     uint8_t pkt[REPORT_SIZE]{};

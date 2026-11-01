@@ -8,7 +8,11 @@
 // multiple of 3 kHz); tests/host/test_haptics_decimate.cpp measures it:
 // -0.4 dB at 500 Hz, -1.6 dB at 1 kHz; content that would land at 100 Hz
 // (100 Hz from a multiple of 3 kHz) at least 29 dB down, at 500 Hz at least
-// 14 dB down.
+// 14 dB down. Just above the 1.5 kHz fold the rejection is weak (computed
+// from the boxcar's response: 1.5 kHz -3.9 dB, 2 kHz landing at 1 kHz
+// -7.6 dB, 2.5 kHz landing at 500 Hz -14.3 dB): the accepted trade-off for
+// one add per frame. A second boxcar in series (sinc^2) would double the
+// rejection in dB for one more add per frame.
 //
 // Pure, no Pico SDK: it is inlined into audio_loop (RAM-resident, core0).
 //
