@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - "**"
+    # Docs-only pushes run nothing (Marcy 2026-11-01: CI only where it proves something).
+    paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
 
 jobs:
