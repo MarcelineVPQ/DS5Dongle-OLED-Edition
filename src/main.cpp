@@ -39,8 +39,6 @@
 #include "oled_toast.h"
 #include "pico/binary_info.h"
 
-// Pico SDK speciifically for waiting on conditions
-#include "pico/critical_section.h"
 #include "hardware/sync.h"
 #include "pico/multicore.h"
 
@@ -116,8 +114,11 @@ uint8_t interrupt_in_data[63] = {
     0x53, 0x9f, 0x28, 0x35, 0xa5, 0xa8, 0x0c, 0x8b
 };
 
-critical_section_t report_cs;
-volatile bool report_dirty = false;
+// Real-time polling: a fresh input report waits for interrupt_loop. Written
+// by on_bt_data (inside cyw43_arch_poll) and read by interrupt_loop, both on
+// core0's main loop (pico_cyw43_arch_poll: no IRQ or core1 access), so no
+// lock (upstream e79c06a dropped report_cs the same way).
+bool report_dirty = false;
 
 void CORE0_RAM_FUNC(interrupt_loop)() {
     // OLED Edition: hold PS + Mute for 2 seconds to soft-reboot the dongle.
@@ -159,14 +160,11 @@ void CORE0_RAM_FUNC(interrupt_loop)() {
     // Local buffer to hold the report data while we prepare it to send. 
     uint8_t safe_report[63];
 
-
-    critical_section_enter_blocking(&report_cs);
     if (report_dirty) {
         memcpy(safe_report, interrupt_in_data, 63);
         report_dirty = false;
         should_send = true;
     }
-    critical_section_exit(&report_cs);
 
     // Remap the snapshot, not interrupt_in_data (outgoing copy only — see above).
     if (should_send) {
@@ -182,9 +180,7 @@ void CORE0_RAM_FUNC(interrupt_loop)() {
 
             // If the report failed to queue, restore the dirty flag 
             // so we try again on the next loop iteration.
-            critical_section_enter_blocking(&report_cs);
             report_dirty = true;
-            critical_section_exit(&report_cs);
         }
     }
 }
@@ -263,10 +259,8 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
             return;
         }
 
-        critical_section_enter_blocking(&report_cs);
         memcpy(interrupt_in_data, data + 3, 63);
         report_dirty = true;
-        critical_section_exit(&report_cs);
 #if ENABLE_BATT_LED
         battery_led_note_report();
 #endif
@@ -674,9 +668,6 @@ int main() {
         printf("Clean boot\n");
     }
 #endif
-
-    // Initialize the critical section for the report buffer
-    critical_section_init(&report_cs);
 
     config_load();
     remap_load();
