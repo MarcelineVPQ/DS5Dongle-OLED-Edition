@@ -71,6 +71,23 @@ TEST(bt_policy_inquiry_result_slot_routing) {
     CHECK(!inquiry_result_pairs(2, 0, true, false));
 }
 
+// Upstream 83fcb19: only names starting "DualSense" (the DualSense and the
+// Edge) pair; another gamepad's name, a short or missing name don't.
+TEST(bt_policy_inquiry_name_is_dualsense) {
+    auto name = [](const char *s) { return inquiry_name_is_dualsense(reinterpret_cast<const uint8_t *>(s), static_cast<uint8_t>(std::strlen(s))); };
+    CHECK(name("DualSense Wireless Controller"));
+    CHECK(name("DualSense Edge Wireless Controller"));
+    CHECK(name("DualSense"));
+    CHECK(!name("Wireless Controller"));  // a DualShock 4
+    CHECK(!name("Xbox Wireless Controller"));
+    CHECK(!name("DualSens"));
+    CHECK(!name("dualsense"));
+    CHECK(!name(""));
+    CHECK(!inquiry_name_is_dualsense(nullptr, 0));
+    const uint8_t not_terminated[9] = {'D', 'u', 'a', 'l', 'S', 'e', 'n', 's', 'e'};
+    CHECK(inquiry_name_is_dualsense(not_terminated, sizeof(not_terminated)));
+}
+
 // Upstream 2e79733 + 3fa663e: one disconnect per dock event, only when on.
 TEST(bt_policy_dock_disconnect_once_per_dock) {
     DockDisconnect d;

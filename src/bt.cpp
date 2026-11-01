@@ -15,6 +15,7 @@
 #include <vector>
 #include "btstack_event.h"
 #include "gap.h"
+#include "hci.h"
 #include "l2cap.h"
 #include "pico/cyw43_arch.h"
 #include "utils.h"
@@ -500,6 +501,11 @@ int bt_init() {
     // lifetime: NOT-WORTH — boot; one registration for the firmware's life
     hci_add_event_handler(&hci_event_callback_registration);
 
+    // Inquiry results with RSSI and the Extended Inquiry Response, so each
+    // one carries the device's name (the DualSense filter below, upstream
+    // 83fcb19). Before power-on: the HCI init sequence writes it.
+    hci_set_inquiry_mode(INQUIRY_MODE_RSSI_AND_EIR);
+
     // error: NOT-WORTH — boot: power-on of the radio cyw43_arch_init already brought up; BTSTACK_EVENT_STATE never reaching WORKING leaves the OLED on its connecting screen
     hci_power_control(HCI_POWER_ON);
     return 0;
@@ -545,24 +551,26 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
             }
             break;
         }
-        case HCI_EVENT_INQUIRY_RESULT:
-        case HCI_EVENT_INQUIRY_RESULT_WITH_RSSI:
-        case HCI_EVENT_EXTENDED_INQUIRY_RESPONSE: {
+        // BTstack turns every inquiry result (plain, with RSSI, or with an
+        // Extended Inquiry Response) into GAP_EVENT_INQUIRY_RESULT, with the
+        // name from the EIR when it has one (the raw HCI events still arrive
+        // too; only this one carries the name).
+        case GAP_EVENT_INQUIRY_RESULT: {
             bd_addr_t addr;
-            uint32_t cod;
-
-            if (event_type == HCI_EVENT_INQUIRY_RESULT) {
-                cod = hci_event_inquiry_result_get_class_of_device(packet);
-                hci_event_inquiry_result_get_bd_addr(packet, addr);
-            } else if (event_type == HCI_EVENT_INQUIRY_RESULT_WITH_RSSI) {
-                cod = hci_event_inquiry_result_with_rssi_get_class_of_device(packet);
-                hci_event_inquiry_result_with_rssi_get_bd_addr(packet, addr);
-            } else {
-                cod = hci_event_extended_inquiry_response_get_class_of_device(packet);
-                hci_event_extended_inquiry_response_get_bd_addr(packet, addr);
-            }
+            gap_event_inquiry_result_get_bd_addr(packet, addr);
+            const uint32_t cod = gap_event_inquiry_result_get_class_of_device(packet);
+            const uint8_t *name = gap_event_inquiry_result_get_name_available(packet) ? gap_event_inquiry_result_get_name(packet) : nullptr;
+            const uint8_t name_len = name ? gap_event_inquiry_result_get_name_len(packet) : 0;
 
             // CoD 0x002508 = Gamepad (Major: Peripheral, Minor: Gamepad)
+            // Only a DualSense (or an Edge) by its name, upstream 83fcb19: a
+            // PS4 controller or another gamepad in pairing mode is left alone.
+            // error: LOGGED-OK — printf; a gamepad that isn't a DualSense is skipped on purpose (not ours to take)
+            if ((cod & 0x000F00) == 0x000500 && !btpolicy::inquiry_name_is_dualsense(name, name_len)) {
+                printf("[HCI] Gamepad %s skipped: name \"%.*s\" isn't a DualSense\n", bd_addr_to_str(addr), (int) name_len,
+                       name ? reinterpret_cast<const char *>(name) : "");
+                break;
+            }
             if ((cod & 0x000F00) == 0x000500) {
                 // Slot-ownership filter: skip devices owned by a different slot;
                 // if our slot is occupied, only accept its exact bd_addr.
@@ -582,7 +590,7 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                         oled_notice(oled_toast::kPairedInSlot[owner]);
                     break;
                 }
-                printf("[HCI] Gamepad found: %s (CoD: 0x%06x)\n", bd_addr_to_str(addr), (unsigned int) cod);
+                printf("[HCI] DualSense found: %s (CoD: 0x%06x)\n", bd_addr_to_str(addr), (unsigned int) cod);
                 bd_addr_copy(current_device_addr, addr);
                 device_found = true;
                 // error: NOT-WORTH — nothing; gap_inquiry_* only fails while an inquiry is already in the wanted state or the stack is off, and INQUIRY_COMPLETE / the watchdog restart it

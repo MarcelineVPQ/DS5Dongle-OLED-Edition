@@ -94,7 +94,7 @@ The development cadence is **one feature per UF2 + checkpoint with the user befo
 - **Link keys** stay in BTstack's TLV NVM (4 slots, unchanged from upstream).
 - **bd_addrs + occupancy** in a custom flash sector owned by `src/slots.cpp` — sector below the config sector (`PICO_FLASH_SIZE_BYTES - 2*FLASH_SECTOR_SIZE`).
 
-Slot routing is enforced in `src/bt.cpp`'s `HCI_EVENT_INQUIRY_RESULT` handler: skip devices owned by other slots, accept only the current slot's bd_addr if occupied, auto-assign on first `L2CAP_EVENT_CHANNEL_OPENED` for HID_CONTROL when the current slot is empty. Switching slots flows: `bt_set_slot()` → persist new index → `bt_disconnect()` → `HCI_EVENT_DISCONNECTION_COMPLETE` → restart inquiry under new filter.
+Slot routing is enforced in `src/bt.cpp`'s `GAP_EVENT_INQUIRY_RESULT` handler (inquiry mode RSSI + EIR; a gamepad is taken only when its name starts with "DualSense", `btpolicy::inquiry_name_is_dualsense`, upstream 83fcb19): skip devices owned by other slots, accept only the current slot's bd_addr if occupied, auto-assign on first `L2CAP_EVENT_CHANNEL_OPENED` for HID_CONTROL when the current slot is empty. Switching slots flows: `bt_set_slot()` → persist new index → `bt_disconnect()` → `HCI_EVENT_DISCONNECTION_COMPLETE` → restart inquiry under new filter.
 
 **Flash layout** (top of flash, growing downward):
 

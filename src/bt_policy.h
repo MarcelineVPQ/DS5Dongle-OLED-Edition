@@ -44,6 +44,20 @@ constexpr bool inquiry_result_pairs(int owner, int current_slot, bool current_oc
     return !current_occupied || is_current_slots_addr;
 }
 
+// An inquiry result's name (from its Extended Inquiry Response, not
+// NUL-terminated) is a DualSense's: "DualSense Wireless Controller" and
+// "DualSense Edge Wireless Controller" both start with "DualSense" (upstream
+// 83fcb19). Checked on top of the gamepad class of device and the slot filter
+// (inquiry_result_pairs), so the board stops taking PS4 controllers and other
+// gamepads in pairing mode (upstream #158, #162, #196). No name = skipped:
+// a DualSense always sends one.
+inline bool inquiry_name_is_dualsense(const uint8_t *name, uint8_t name_len) {
+    static constexpr char kPrefix[] = "DualSense";
+    constexpr uint8_t kLen = sizeof(kPrefix) - 1;
+    // error: NOT-WORTH — a yes/no decision, not a failure; bt.cpp prints the skip
+    return name != nullptr && name_len >= kLen && std::memcmp(name, kPrefix, kLen) == 0;
+}
+
 // "Disconnect when docked" (protocol 1.22, upstream 2e79733 + 3fa663e): the
 // controller's input report byte 53 bit 6 (DockDetect) says it sits on a
 // dock or charging station. One dock event drops the link once: latched
