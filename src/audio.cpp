@@ -536,7 +536,7 @@ void CORE0_RAM_FUNC(audio_loop)() {
 
     static float audio_buf[512 * 2];
     static uint audio_buf_pos = 0;
-    // 2. ch3/ch4 are the haptics: every 16th frame becomes a 3 kHz sample.
+    // 2. ch3/ch4 are the haptics: each 16 frames become one 3 kHz sample.
     static HapticDecimator decimator;
     static int8_t haptic_buf[SAMPLE_SIZE];
     static int haptic_buf_pos = 0;
@@ -651,9 +651,10 @@ void CORE0_RAM_FUNC(audio_loop)() {
             auto_haptics_combine(auto_mode, fallback_active, al, ar, h_l, h_r);
         }
 
-        // 3. 48 kHz -> 3 kHz (Auto Haptics above still sees every frame, its
-        // filters need them). Gain after the rate change, as upstream a55fd46.
-        if (!decimator.take()) continue;
+        // 3. 48 kHz -> 3 kHz, the mean of each 16 frames (src/haptics_decimate.h;
+        // Auto Haptics above sees every frame). Gain after the rate change, as
+        // upstream a55fd46.
+        if (!decimator.push(h_l, h_r)) continue;
         if (s_grip.active()) {  // the haptic feedback test replaces both grips' samples
             s_grip.next(haptic_buf + haptic_buf_pos, haptics_gain, haptics_gain_r);
             haptic_buf_pos += 2;

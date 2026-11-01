@@ -16,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Changed
 
 - **Cleaner sound on the controller's headset jack and speaker.** The PC's audio is converted to the rate the controller plays (48 kHz to its 45 kHz) by a proper filter now (a 32-tap-per-phase polyphase filter) instead of straight-line interpolation. The old way rolled off the top octave (-5.3 dB at 20 kHz) and added faint false tones 3 kHz below high sounds (cymbals, sibilance; -11 to -24 dB); now the sound is flat within 0.05 dB to 20 kHz and those tones are at least 60 dB down. It adds 0.3 ms of delay.
+- **Haptics no longer pick up a buzz from high-frequency content.** Turning the PC's 48 kHz haptic channels into the controller's 3 kHz samples kept every 16th sample and dropped the rest, so anything a game put above 1.5 kHz folded down into the grips as an unrelated buzz. Each sample is now the average of its 16 (a simple anti-alias filter): content that would land at 100 Hz is at least 29 dB weaker, at 500 Hz at least 14 dB; the haptics themselves lose 0.4 dB at 500 Hz and 1.6 dB at 1 kHz. Haptic levels are also rounded to the nearest step instead of cut down, so very quiet haptics no longer vanish and the two directions are treated alike; the haptic feedback test at strength 1 is 32 of 127 instead of 31.
 
 ### Fixed
 

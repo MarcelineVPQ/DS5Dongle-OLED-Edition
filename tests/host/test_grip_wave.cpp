@@ -33,7 +33,7 @@ TEST(grip_wave_level_and_strength) {
         const int8_t hi = haptic_to_s8(kGripWaveLevel, gain);  // the low half is exactly -hi
         for (int i = 0; i < 48; i++) CHECK_EQ(s[i], (i % 24) < 12 ? hi : (int8_t) -hi);
     }
-    CHECK_EQ(haptic_to_s8(kGripWaveLevel, 1.0f), 31);   // strength 1: a quarter
+    CHECK_EQ(haptic_to_s8(kGripWaveLevel, 1.0f), 32);   // strength 1: a quarter (31.75, rounded)
     CHECK_EQ(haptic_to_s8(kGripWaveLevel, 4.0f), 127);  // 4 and up: full
     CHECK_EQ(haptic_to_s8(kGripWaveLevel, 6.0f), 127);
 }
@@ -46,7 +46,7 @@ TEST(grip_wave_sides) {
     for (int r = 0; r < 5; r++) {
         w.fill(pkt, kPairsPerReport, 2.0f, 6.0f);
         for (int i = 0; i < kPairsPerReport; i++) {
-            CHECK(pkt[i * 2] == 63 || pkt[i * 2] == -63);
+            CHECK(pkt[i * 2] == 64 || pkt[i * 2] == -64);
             CHECK_EQ(pkt[i * 2 + 1], 0);
         }
     }
@@ -61,8 +61,8 @@ TEST(grip_wave_sides) {
     w.start(true, true, 64);
     w.fill(pkt, kPairsPerReport, 1.0f, 2.0f);
     for (int i = 0; i < kPairsPerReport; i++) {
-        CHECK(pkt[i * 2] == 31 || pkt[i * 2] == -31);
-        CHECK(pkt[i * 2 + 1] == 63 || pkt[i * 2 + 1] == -63);
+        CHECK(pkt[i * 2] == 32 || pkt[i * 2] == -32);
+        CHECK(pkt[i * 2 + 1] == 64 || pkt[i * 2 + 1] == -64);
         CHECK_EQ(pkt[i * 2] > 0, pkt[i * 2 + 1] > 0);  // in phase
     }
     w.start(false, false, 300);  // no side: nothing runs
@@ -79,7 +79,7 @@ TEST(grip_wave_steady_then_stops) {
         w.start(true, true, n);
         const int reports = (int) (n / kPairsPerReport) + 3;
         const auto s = play(w, reports, 1.0f, 1.0f, 0);
-        for (uint32_t i = 0; i < n; i++) CHECK_EQ(s[i], (i % 24) < 12 ? 31 : -31);
+        for (uint32_t i = 0; i < n; i++) CHECK_EQ(s[i], (i % 24) < 12 ? 32 : -32);
         for (size_t i = n; i < s.size(); i++) CHECK_EQ(s[i], 0);
         CHECK(!w.active());
     }
@@ -94,12 +94,12 @@ TEST(grip_wave_replace_and_stop) {
     w.start(true, true, 1000);
     const auto t = play(w, 1, 1.0f, 1.0f, 0);
     s.insert(s.end(), t.begin(), t.end());
-    for (int i = 0; i < 128; i++) CHECK_EQ(s[i], (i % 24) < 12 ? 31 : -31);
+    for (int i = 0; i < 128; i++) CHECK_EQ(s[i], (i % 24) < 12 ? 32 : -32);
     w.stop();
     CHECK(!w.active());
     for (int8_t v : play(w, 1, 1.0f, 1.0f, 0)) CHECK_EQ(v, 0);
     w.start(true, false, 10);
-    CHECK_EQ(play(w, 1, 1.0f, 1.0f, 0)[0], 31);
+    CHECK_EQ(play(w, 1, 1.0f, 1.0f, 0)[0], 32);
 }
 
 // The test's own reports: two at once, then one per 64 / 3000 s (21333.3 us),
