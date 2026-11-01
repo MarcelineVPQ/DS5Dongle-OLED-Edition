@@ -13,8 +13,8 @@
 #include "haptics_decimate.h"
 #include "mic_level.h"
 #include "mic_session.h"
-#include "resample.h"
 #include "speaker_mono.h"
+#include "speaker_resample.h"
 #include "tusb.h"
 #include <algorithm>
 #include <cmath>
@@ -704,8 +704,10 @@ void audio_init() {
 }
 
 #if !DISABLE_SPEAKER_PROC
+    // The speaker resampler's filter table, before core1 runs (src/speaker_resample.h).
+    speaker_fir_init();
 static OpusEncoder *encoder;
-static WDL_Resampler resampler_audio;
+static SpeakerResampler resampler_audio;  // core1 only
 
 // Speaker path: USB OUT PCM (core0 audio_fifo) -> resample -> Opus encode ->
 // audio_spk_fifo for audio_bt_task. Non-blocking so core1 can also run the mic.
@@ -713,14 +715,9 @@ static void __not_in_flash_func(speaker_proc)() {
     static audio_raw_element audio_element{};
     if (!queue_try_remove(&audio_fifo, &audio_element)) return;
     // 将 512 frames 重采样成 480 frames 以解决噪音问题。感谢 @Junhoo
-    WDL_ResampleSample *in_buf;
-    int nframes = resampler_audio.ResamplePrepare(512, 2, &in_buf);
-    // loop: HOT-PATH-OK — N = 512 stereo samples into the resampler, core1 RAM code, no flash
-    for (int i = 0; i < nframes * 2; i++) {
-        in_buf[i] = audio_element.data[i];
-    }
-    static WDL_ResampleSample out_buf[480 * 2];
-    resampler_audio.ResampleOut(out_buf, nframes, 480, 2);
+    // A polyphase FIR (src/speaker_resample.h), no longer linear interpolation.
+    static float out_buf[480 * 2];
+    resampler_audio.process(audio_element.data, out_buf);
 
     static audio_spk_element spk{};
     // error: LOGGED-OK — the block is skipped (a 10 ms gap); an encode error needs a broken encoder, which core1 flags at start (g_c1_flags 0x02, shown in the app's Dongle dashboard)
@@ -836,11 +833,6 @@ void __not_in_flash_func(core1_entry)() {
         opus_encoder_ctl(encoder,OPUS_SET_VBR(false));
         // error: NOT-WORTH — nothing; constant, valid encoder settings on an encoder that was just created
         opus_encoder_ctl(encoder,OPUS_SET_COMPLEXITY(0)); // max 4
-        resampler_audio.SetMode(true, 0, false);
-        resampler_audio.SetRates(51200, 48000);
-        resampler_audio.SetFeedMode(true);
-        // lifetime: OK — once at core1 start, sized for audio_loop's 512-in/480-out frame, so it never grows
-        resampler_audio.Prealloc(2, 512, 480);
         g_spk_ready = true;
     }
     g_c1_stage = 6;
