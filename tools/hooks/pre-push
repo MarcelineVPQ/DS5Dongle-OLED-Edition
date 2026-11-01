@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Every static check before a push (Marcy 2026-11-01: CI is limited to 5 runs
+# a day; a push that fails on something this machine can check in seconds is
+# careless). The gates of CI's "Toolchain and gates" step that need no
+# toolchain, plus the app repo's doc gates on this repo; no build, no tests:
+# those stay CI's. Refuses the push on the first failure.
+# Install once per clone: git config core.hooksPath tools/hooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+APP="${DS5_APP_REPO:-$HOME/projects/DS5Dongle-OLED-Config-Web}"
+export PYTHONDONTWRITEBYTECODE=1 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
+step() { echo "pre-push: $*"; "$@" > /tmp/ds5fw-pre-push.$$ 2>&1 || { cat /tmp/ds5fw-pre-push.$$; rm -f /tmp/ds5fw-pre-push.$$; echo "pre-push: FAILED: $* (push refused)" >&2; exit 1; }; rm -f /tmp/ds5fw-pre-push.$$; }
+step python3 tools/list_loops.py --check
+step python3 tools/list_errors.py --check
+step python3 tools/list_lifetimes.py --check
+step python3 tools/check_ci_pins.py
+step python3 tools/check_protocol_lockstep.py "$APP"
+step node "$APP/tools/doc_gates.mjs" --check --repo .
+step node "$APP/tools/check_identical_files.mjs"
+echo "pre-push: every static check passed"
