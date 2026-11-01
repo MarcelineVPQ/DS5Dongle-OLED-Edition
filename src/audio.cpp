@@ -40,6 +40,12 @@
 // re-broadcast at the audio rate any more.
 #define REPORT_SIZE       547
 #define REPORT_ID         0x39
+// 0.7.2's one-frame report (upstream 95dcdbb, packet_mode 1, protocol 1.22):
+// one haptic + one speaker frame, twice the report rate, the same 0x39 header
+// but one more buffer-length byte ([3] = 7, [4] bit 7 set). For A/B against
+// the packed 0x39 (upstream #185: haptics less detailed since 0.7.x).
+#define REPORT_SIZE_SINGLE 398
+#define REPORT_ID_SINGLE   0x36
 
 // DualSense microphone, ported from awalol/DS5Dongle's `mic` branch.
 // The DS5 sends mic audio as Opus packets embedded in BT input report
@@ -388,16 +394,72 @@ static inline __attribute__((always_inline)) void report_header(uint8_t *pkt) {
     pkt[11] = SAMPLE_SIZE;
 }
 
+// One 0x36 (packet_mode 1): one haptic frame and, unless the speaker is
+// off / not ready, one speaker frame (or the narrator's). From RAM like
+// audio_bt_task (tools/check_ram_residency.sh), and out of line so its
+// 398-byte report and the 0x39's 547 bytes are never on core0's 2 KB stack
+// together.
+static void __attribute__((noinline)) CORE0_RAM_FUNC(send_single_report)(bool spk_ready) {
+    uint8_t pkt[REPORT_SIZE_SINGLE]{};
+    pkt[0] = REPORT_ID_SINGLE;
+    pkt[1] = reportSeqCounter << 4;
+    reportSeqCounter = (reportSeqCounter + 1) & 0x0F;
+    pkt[2] = 0x11 | 0 << 6 | 1 << 7;
+    pkt[3] = 7;  // one more set bit in [4], one more byte below (0.7.2's layout)
+    pkt[4] = audio_mic_wanted() ? 0b11111111 : 0b11111110;
+    const auto buf_len = get_config().audio_buffer_length;
+    pkt[5] = buf_len;
+    pkt[6] = buf_len;
+    pkt[7] = buf_len;
+    pkt[8] = buf_len; // AudioBufferLength
+    pkt[9] = buf_len; // AudioBufferLength
+    pkt[10] = packetCounter++;
+    // Haptics Audio Data (1 frame)
+    pkt[11] = 0x12 | 0 << 6 | 1 << 7;
+    pkt[12] = SAMPLE_SIZE;
+    static haptics_element hap{};
+    queue_try_remove(&haptics_fifo, &hap);
+    memcpy(pkt + 13, hap.data, SAMPLE_SIZE);
+#if !DISABLE_SPEAKER_PROC
+    // Speaker Audio Data (1 frame): the block tag without bit 6 (one frame).
+    const uint8_t tag = (uint8_t) (speaker_block_tag() & ~(1 << 6));
+    if (spk_ready) {
+        static audio_spk_element spk{};
+        queue_try_remove(&audio_spk_fifo, &spk);
+        memcpy(pkt + 79, spk.data, SPEAKER_OPUS_SIZE);
+        pkt[77] = tag;
+        pkt[78] = SPEAKER_OPUS_SIZE;
+    }
+    // A narrator line takes the speaker's place while it plays.
+    if (voice_take_frame(pkt + 79, SPEAKER_OPUS_SIZE)) {
+        pkt[77] = tag;
+        pkt[78] = SPEAKER_OPUS_SIZE;
+    }
+#else
+    (void) spk_ready;
+#endif
+    // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue loses this report's audio, and it isn't counted as sent
+    if (bt_write(pkt, sizeof(pkt))) g_bt_packets = g_bt_packets + 1;
+}
+
 // Send one 0x39 once two haptic frames and two speaker frames are queued
 // (upstream audio_bt_task). Both streams come from the same USB audio at the
 // same rate, so they stay paired; this halves the BT packet rate vs one
 // report per frame.
 static void CORE0_RAM_FUNC(audio_bt_task)() {
-    if (queue_get_level(&haptics_fifo) < 2) return;
+    // packet_mode (protocol 1.22): 0 = the packed 0x39 (two frames each), 1 = one 0x36 per frame.
+    const unsigned frames = get_config().packet_mode == 1 ? 1 : 2;
+    if (queue_get_level(&haptics_fifo) < frames) return;
 #if !DISABLE_SPEAKER_PROC
     const bool spk_ready = g_spk_ready && speaker_output_on();
-    if (spk_ready && queue_get_level(&audio_spk_fifo) < 2) return;
+    if (spk_ready && queue_get_level(&audio_spk_fifo) < frames) return;
+#else
+    const bool spk_ready = false;
 #endif
+    if (frames == 1) {
+        send_single_report(spk_ready);
+        return;
+    }
 
     uint8_t pkt[REPORT_SIZE]{};
     report_header(pkt);

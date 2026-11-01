@@ -29,7 +29,7 @@ void pico_cmd_set_hid(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize
 #define PICO_CMD_CALIB 0xee       // vendor interface only, GET, calibration body (proto 1.5)
 #define PICO_CMD_OLED_MIRROR 0xef // vendor interface only, GET, 1028 bytes (proto 1.4)
 #define PICO_CMD_FW_IDENTITY 0xea // vendor interface only, GET, firmware identity (proto 1.21, fw_identity.h)
-#define PICO_PROTO_MINOR 21
+#define PICO_PROTO_MINOR 22
 
 // 0xFE mic-debug dump: frame bytes kept of the longest 0x31 seen, so the
 // reply (2 length bytes + these) fits the 63-byte cap.

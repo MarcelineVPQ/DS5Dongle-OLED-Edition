@@ -35,14 +35,14 @@ void settle() {  // let a deferred command run (reboot/BOOTSEL wait 50 ms)
 }
 }  // namespace
 
-TEST(cmd_identity_reports_protocol_1_21) {
+TEST(cmd_identity_reports_protocol_1_22) {
     fresh();
     uint8_t id[47]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 47);
     CHECK(std::memcmp(id, "DS5O", 4) == 0);
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 21);
-    CHECK_EQ(id[6], 51);
+    CHECK_EQ(id[5], 22);
+    CHECK_EQ(id[6], 53);
     CHECK(id[46] & 0x02);  // the 1.13 config fields
     CHECK(id[46] & 0x04);  // the 1.14 PC sleep options
     CHECK(id[46] & 0x08);  // the 1.15 timed grip test
@@ -151,13 +151,14 @@ TEST(cmd_config_get_layouts) {
     CHECK_EQ(r[42], 6);
     CHECK_EQ(r[47], 4);
     CHECK_EQ(pico_cmd_get(0xF7, r, 62), sizeof(Config_body));
+    CHECK_EQ(pico_cmd_get(0xF7, r, 51), 51);                            // what 1.17..1.21 apps ask for: no 1.22 fields
     CHECK_EQ(pico_cmd_get(0xF7, r, 50), 50);                            // what 1.16 apps ask for: no echo cancellation
     CHECK_EQ(pico_cmd_get(0xF7, r, 49), 49);                            // what 1.13..1.15 apps ask for: no mic level
     CHECK_EQ(pico_cmd_get(0xF7, r, kConfigBodyV16), kConfigBodyV16);  // what apps before 1.13 ask for
     CHECK_EQ(pico_cmd_get(0xF7, r, 38), 38);                            // the narrator read
 }
 
-// The app's config write (0x01) carries the whole 51-byte body.
+// The app's config write (0x01) carries the whole 53-byte body.
 TEST(cmd_config_set_takes_the_whole_body) {
     fresh();
     Config_body b = get_config();
@@ -219,6 +220,52 @@ TEST(cmd_config_set_echo_cancel_both_ways) {
     CHECK_EQ(last_result(), CMD_RESULT_OK);
     CHECK_EQ(get_config().mic_level, 12);
     CHECK_EQ(get_config().mic_echo_cancel, 0);
+}
+
+// Protocol 1.22: identity [49] bits 4..6 (1000 Hz polling, the audio report
+// choice, the dock disconnect); a 53-byte write sets the two new fields, a
+// 1.17..1.21 app's 51-byte write leaves them alone, and 0xFF (a body saved
+// by older firmware) takes the defaults.
+TEST(cmd_config_1_22_fields) {
+    fresh();
+    uint8_t id[63]{};
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 50), 50);
+    CHECK_EQ(id[49] & 0x70, 0x70);
+    CHECK_EQ(get_config().packet_mode, 0);         // the packed 0x39
+    CHECK_EQ(get_config().disconnect_on_dock, 0);  // off
+    Config_body b = get_config();
+    b.packet_mode = 1;
+    b.disconnect_on_dock = 1;
+    b.polling_rate_mode = 3;
+    uint8_t msg[1 + sizeof(Config_body)];
+    msg[0] = 0x01;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, sizeof(msg));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(get_config().packet_mode, 1);
+    CHECK_EQ(get_config().disconnect_on_dock, 1);
+    CHECK_EQ(get_config().polling_rate_mode, 3);  // 1000 Hz is valid
+    uint8_t r[63]{};
+    CHECK_EQ(pico_cmd_get(0xF7, r, sizeof(Config_body)), sizeof(Config_body));
+    CHECK_EQ(r[51], 1);
+    CHECK_EQ(r[52], 1);
+    b.packet_mode = 0;
+    b.disconnect_on_dock = 0;
+    b.lock_volume = 1;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, 1 + 51);  // a 1.17..1.21 app's body
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(get_config().lock_volume, 1);
+    CHECK_EQ(get_config().packet_mode, 1);
+    CHECK_EQ(get_config().disconnect_on_dock, 1);
+    b.packet_mode = 0xFF;
+    b.disconnect_on_dock = 0xFF;
+    b.polling_rate_mode = 4;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, sizeof(msg));
+    CHECK_EQ(get_config().packet_mode, 0);
+    CHECK_EQ(get_config().disconnect_on_dock, 0);
+    CHECK_EQ(get_config().polling_rate_mode, 1);  // out of range: 500 Hz
 }
 
 TEST(cmd_fc_timings_layout_and_reset) {

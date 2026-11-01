@@ -70,3 +70,16 @@ TEST(bt_policy_inquiry_result_slot_routing) {
     CHECK(!inquiry_result_pairs(2, 0, false, false));  // another slot's controller
     CHECK(!inquiry_result_pairs(2, 0, true, false));
 }
+
+// Upstream 2e79733 + 3fa663e: one disconnect per dock event, only when on.
+TEST(bt_policy_dock_disconnect_once_per_dock) {
+    DockDisconnect d;
+    CHECK(!d.due(false, true));
+    CHECK(!d.due(true, false));  // off: nothing
+    CHECK(d.due(true, true));    // docked with the setting on
+    CHECK(d.due(true, true));    // the disconnect didn't go out: try again
+    d.sent();
+    CHECK(!d.due(true, true));   // still docked (or switched on again on the dock): stays
+    CHECK(!d.due(false, true));  // lifted
+    CHECK(d.due(true, true));    // docked again
+}

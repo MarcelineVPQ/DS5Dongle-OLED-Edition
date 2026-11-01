@@ -417,7 +417,9 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     //   bit1 identify screen (0xF6 0x1A); (when reqlen >= 58) [50..57] the
     //   board's flash unique id, the same whatever controller is paired;
     //   bit2 (1.21) firmware identity (GET 0xEA, fw_identity.h); bit3 (1.21)
-    //   the display choice (0xF6 0x1B)
+    //   the display choice (0xF6 0x1B); bit4 (1.22) polling_rate_mode 3 =
+    //   1000 Hz; bit5 (1.22) the config body's packet_mode (byte 51); bit6
+    //   (1.22) the config body's disconnect_on_dock (byte 52, body 53)
     //   proto 1.14 (when reqlen >= 48): [47] the PC sleep options' current
     //   bits (POWER_*: bit0 controller off when the PC sleeps, bit1 PS wakes
     //   the PC; 0 when [46] bit2 is clear)
@@ -580,7 +582,10 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         // proto 1.20: [49] a fourth feature byte. bit0 the board id at
         // [50..57]; bit1 the identify screen (0xF6 0x1A); bit2 (1.21) the
         // firmware identity (GET 0xEA); bit3 (1.21) the display choice (0xF6 0x1B).
-        buffer[49] = 0x01 | 0x02 | 0x04 | 0x08;
+        // bit4 (1.22): polling_rate_mode 3 = 1000 Hz (2 stays real-time).
+        // bit5 (1.22): the config body's packet_mode (byte 51: 0x39 or 0x36 audio reports).
+        // bit6 (1.22): the config body's disconnect_on_dock (byte 52, body 53).
+        buffer[49] = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 | 0x20 | 0x40;
         if (reqlen < 50 + kBoardIdLen) return 50;
         // proto 1.20: [50..57] the board's flash unique id (the RP2350's /
         // RP2040's 64-bit id, pico_get_unique_board_id): stable whatever

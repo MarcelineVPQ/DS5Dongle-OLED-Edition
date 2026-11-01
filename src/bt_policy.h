@@ -8,6 +8,7 @@
 #define DS5_BRIDGE_BT_POLICY_H
 
 #include <cstdint>
+#include <cstring>
 
 namespace btpolicy {
 
@@ -42,6 +43,23 @@ constexpr bool inquiry_result_pairs(int owner, int current_slot, bool current_oc
     if (owner >= 0 && owner != current_slot) return false;
     return !current_occupied || is_current_slots_addr;
 }
+
+// "Disconnect when docked" (protocol 1.22, upstream 2e79733 + 3fa663e): the
+// controller's input report byte 53 bit 6 (DockDetect) says it sits on a
+// dock or charging station. One dock event drops the link once: latched
+// until a report without the bit, so a controller switched on again while
+// docked (PS) stays connected. The latch is set only when the disconnect
+// went out (bt_disconnect() true).
+struct DockDisconnect {
+    bool latched = false;
+    // `docked` = the report's DockDetect bit; true = disconnect now.
+    bool due(bool docked, bool enabled) {
+        if (!docked) latched = false;
+        return docked && enabled && !latched;
+    }
+    void sent() { latched = true; }
+};
+constexpr uint8_t kDockByte = 53, kDockBit = 0x40;  // input report (without the id) byte 53 bit 6
 
 // An inquiry ended (BTstack reports GAP_EVENT_INQUIRY_COMPLETE for every end
 // and HCI_EVENT_INQUIRY_COMPLETE after a natural one): connect to the

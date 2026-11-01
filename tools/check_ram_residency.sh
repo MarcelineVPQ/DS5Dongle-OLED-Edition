@@ -77,7 +77,7 @@ CORE0=""
   btstack_run_loop_base_poll_data_sources btstack_run_loop_poll_data_sources_from_irq
   l2cap_request_can_send_now_event btstack_linked_list_iterator_init
   btstack_linked_list_iterator_has_next btstack_linked_list_iterator_next
-  crc32_lookup_table _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv _Z13mic_add_queuePKh
+  crc32_lookup_table _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv audio.cpp:_ZL18send_single_reportb _Z13mic_add_queuePKh
 "
 # Inline helpers audio_loop calls per frame (src/haptics_decimate.h,
 # src/audio_levels.h, src/auto_haptics.h, src/mic_level.h, and the haptic feedback test's grip_test_task with

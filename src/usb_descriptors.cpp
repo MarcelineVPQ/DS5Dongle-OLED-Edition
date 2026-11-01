@@ -524,7 +524,8 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
         case 1:
             bInterval = 0x02;
             break;
-        case 2:
+        case 2:  // real-time
+        case 3:  // 1000 Hz (protocol 1.22, upstream d54cb89)
             bInterval = 0x01;
             break;
     }

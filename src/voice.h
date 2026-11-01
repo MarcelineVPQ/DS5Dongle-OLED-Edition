@@ -27,6 +27,8 @@ void voice_disconnect_after_line();
 // The audio path: while a line plays, its frames replace the host's speaker
 // frames. Fills two 200-byte Opus frames; false when nothing is playing.
 bool voice_take_frames(uint8_t *frame0, uint8_t *frame1, uint16_t frame_size);
+// The same, one frame (the one-frame 0x36 report, packet_mode 1).
+bool voice_take_frame(uint8_t *frame, uint16_t frame_size);
 
 // Main loop: the connect / battery cues, and the line's own audio reports
 // while the host isn't streaming any.

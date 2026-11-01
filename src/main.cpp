@@ -5,6 +5,7 @@
 #include <cstdio>
 #include "bsp/board_api.h"
 #include "bt.h"
+#include "bt_policy.h"
 #include "core0_ram.h"
 #include "utils.h"
 #include "resample.h"
@@ -249,6 +250,17 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
     if (channel == INTERRUPT && len >= kBtInputMinLen && data[1] == 0x31) {
         if ((data[56] & 1) != (interrupt_in_data[53] & 1)) {
             set_headset(data[56] & 1);
+        }
+
+        // "Disconnect when docked" (protocol 1.22): byte 53 (data[56]) bit 6
+        // is DockDetect; one disconnect per dock event (src/bt_policy.h).
+        static btpolicy::DockDisconnect dock;
+        if (dock.due((data[3 + btpolicy::kDockByte] & btpolicy::kDockBit) != 0, get_config().disconnect_on_dock)) {
+            // error: LOGGED-OK — printf; false = no link to drop (already going), and the next docked report tries again
+            if (bt_disconnect()) {
+                dock.sent();
+                printf("[BT] Docked: disconnect\n");
+            }
         }
 
         if (get_config().polling_rate_mode != 2) {

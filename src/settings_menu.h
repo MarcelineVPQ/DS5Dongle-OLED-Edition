@@ -36,12 +36,13 @@ struct SetItem {
 };
 inline const char* const kOnOff[] = {"off", "on"};
 inline const char* const kDisabled[] = {"on", "off"};
-inline const char* const kPoll[] = {"250Hz", "500Hz", "RT"};
+inline const char* const kPoll[] = {"250Hz", "500Hz", "RT", "1000Hz"};  // stored values: 3 = 1000 Hz (protocol 1.22)
 inline const char* const kCtrl[] = {"DS5", "DSE", "Auto"};
 inline const char* const kAutoHap[] = {"Off", "Fallback", "Mix", "Replace"};
 inline const char* const kAHLp[] = {"80Hz", "160Hz", "250Hz", "400Hz"};
 inline const char* const kSpkOut[] = {"Auto", "SPK", "Hset", "off"};
 inline const char* const kMicIn[] = {"Auto", "Int", "Hset"};
+inline const char* const kPacket[] = {"double", "single"};  // 0x39 two frames, 0x36 one (protocol 1.22)
 #define CFG_OFF(field) static_cast<uint8_t>(offsetof(Config_body, field))
 // Group by group (kGroups), most used first in each.
 inline const SetItem kItems[] = {
@@ -62,11 +63,13 @@ inline const SetItem kItems[] = {
     {"Mic level", nullptr, nullptr, nullptr, SK_NUM, SF_PC0, 0, ACT_NONE, CFG_OFF(mic_level), 0, kMicLevelMax, 4},
     {"Echo cancel", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(mic_echo_cancel), 0, 1, 1},
     {"Audio buffer", nullptr, nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(audio_buffer_length), kAudioBufferMin, kAudioBufferMax, 4},
+    {"Audio pkt", nullptr, nullptr, kPacket, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(packet_mode), 0, 1, 1},
     // Connection
     {"Controller", nullptr, nullptr, kCtrl, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(controller_mode), 0, 2, 1},
-    {"Poll rate", nullptr, nullptr, kPoll, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(polling_rate_mode), 0, 2, 1},
+    {"Poll rate", nullptr, nullptr, kPoll, SK_NUM, SF_PLAIN, SIF_WRAP, ACT_NONE, CFG_OFF(polling_rate_mode), 0, 3, 1},
     {"Disconnect", nullptr, nullptr, kDisabled, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disable_inactive_disconnect), 0, 1, 1},
     {"Idle time", "min", nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(inactive_time), 10, 60, 5},
+    {"Drop on dock", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disconnect_on_dock), 0, 1, 1},
     // Screen & lights
     {"Screen dim", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_dim_timeout), 0, 250, 1},
     {"Screen off", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_off_timeout), 0, 250, 1},
@@ -85,11 +88,11 @@ constexpr int kNumItems = sizeof(kItems) / sizeof(kItems[0]);
 struct Group { const char *name; uint8_t first, count; };
 inline constexpr Group kGroups[] = {
     {"Haptics/trigger", 0, 6},
-    {"Audio", 6, 9},
-    {"Connection", 15, 4},
-    {"Screen & lights", 19, 4},
-    {"PC sleep", 23, 2},
-    {"Reset", 25, 2},
+    {"Audio", 6, 10},
+    {"Connection", 16, 5},
+    {"Screen & lights", 21, 4},
+    {"PC sleep", 25, 2},
+    {"Reset", 27, 2},
 };
 constexpr int kNumGroups = sizeof(kGroups) / sizeof(kGroups[0]);
 constexpr bool groups_tile_items() {

@@ -84,7 +84,7 @@ static void config_normalise(Config &c) {
         body->disable_pico_led = 0;
         printf("[Config] disable_pico_led is invalid\n");
     }
-    if (body->polling_rate_mode > 2) {
+    if (body->polling_rate_mode > 3) {  // 3 = 1000 Hz (protocol 1.22)
         // Fresh / erased config: 500 Hz (upstream 501d435). A saved rate is
         // valid and never reaches this line, so nobody's choice changes.
         body->polling_rate_mode = 1;
@@ -156,6 +156,8 @@ static void config_normalise(Config &c) {
     if (body->status_gpio_mode > 1) body->status_gpio_mode = 0;
     if (body->mic_level > kMicLevelMax) body->mic_level = 0;    // protocol 1.16: follow the PC
     if (body->mic_echo_cancel > 1) body->mic_echo_cancel = 1;   // protocol 1.17: on
+    if (body->packet_mode > 1) body->packet_mode = 0;           // protocol 1.22: the packed 0x39
+    if (body->disconnect_on_dock > 1) body->disconnect_on_dock = 0;  // protocol 1.22: off
     if (c.power_flags & ~POWER_FLAGS_MASK) c.power_flags = POWER_FLAGS_DEFAULT; // 0xFF erased / older firmware
     c.display_id = display::resolve(c.display_id);  // 0xFF from firmware before 1.21: the Pico-OLED-1.3
     if (body->config_version != CONFIG_VERSION) {

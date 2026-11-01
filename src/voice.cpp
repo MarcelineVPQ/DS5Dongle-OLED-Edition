@@ -143,6 +143,14 @@ bool voice_take_frames(uint8_t *frame0, uint8_t *frame1, uint16_t frame_size) {
     return true;
 }
 
+// One frame, for the one-frame 0x36 report (packet_mode 1, protocol 1.22).
+bool voice_take_frame(uint8_t *frame, uint16_t frame_size) {
+    // error: NOT-WORTH — not a failure: false = no line playing, the caller keeps the PC's frame
+    if (!voice_active()) return false;
+    take_one(frame, frame_size);
+    return true;
+}
+
 void voice_task() {
     const uint64_t now = time_us_64();
     const bool connected = bt_is_connected();
