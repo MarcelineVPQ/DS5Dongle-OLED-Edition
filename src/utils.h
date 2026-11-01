@@ -249,8 +249,8 @@ struct __attribute__((packed)) USBGetStateData { // 63
 /*53.3#1# uint8_t PluggedUsbData : 1;
 /*53.4#1# uint8_t PluggedUsbPower : 1; // appears that this cannot be 1 if PluggedUsbData is 1
 /*53.5#1# uint8_t UsbPowerOnBT : 1; // appears this is only 1 if BT connected and USB powered
-/*53.5#1# uint8_t DockDetect : 1;
-/*53.5#1# uint8_t PluggedUnk : 1;
+/*53.6#1# uint8_t DockDetect : 1; // on a dock / charging station (disconnect_on_dock, protocol 1.22)
+/*53.7#1# uint8_t PluggedUnk : 1;
 /*54.0#1# uint8_t PluggedExternalMic : 1; // Is external mic active (automatic in mic auto mode)
 /*54.1#1# uint8_t HapticLowPassFilter : 1; // Is the Haptic Low-Pass-Filter active?
 /*54.2#1# uint8_t PluggedUnk3 : 6;
