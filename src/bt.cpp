@@ -576,6 +576,10 @@ static void CORE0_RAM_FUNC(hci_packet_handler)(uint8_t packet_type, uint16_t cha
                 if (!btpolicy::inquiry_result_pairs(owner, g_current_slot, occupied, memcmp(want, addr, 6) == 0)) {
                     printf("[HCI] Gamepad %s skipped (owner slot %d, current %d%s)\n",
                            bd_addr_to_str(addr), owner, g_current_slot, occupied ? ", holds another" : "");
+                    // Another slot's controller: say which, or the pairing
+                    // countdown just runs out with no word why (re-review B-N3).
+                    if (owner >= 0 && owner < kNumSlots && owner != g_current_slot)
+                        oled_notice(oled_toast::kPairedInSlot[owner]);
                     break;
                 }
                 printf("[HCI] Gamepad found: %s (CoD: 0x%06x)\n", bd_addr_to_str(addr), (unsigned int) cod);

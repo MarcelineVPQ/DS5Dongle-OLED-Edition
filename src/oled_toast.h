@@ -26,6 +26,12 @@ static_assert(sizeof(kBrightness) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kLightbar) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kSlot) - 1 <= kMaxChars, "toast too wide");
 static_assert(sizeof(kPair) - 1 <= kMaxChars, "toast too wide");
+// A controller in pairing mode that another slot already holds (bt.cpp's
+// inquiry skips it, slot routing): which slot, as the Slots screen numbers
+// them, so the user switches there instead of waiting out the window.
+constexpr const char *kPairedInSlot[4] = {"Paired in slot 0", "Paired in slot 1", "Paired in slot 2",
+                                          "Paired in slot 3"};
+static_assert(sizeof("Paired in slot 0") - 1 <= kMaxChars, "toast too wide");
 // The flash is smaller than the image was built for (board_facts.h): shown at boot.
 constexpr char kFlashSmall[] = "Small flash: no save";
 static_assert(sizeof(kFlashSmall) - 1 <= kMaxChars, "toast too wide");

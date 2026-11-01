@@ -47,3 +47,13 @@ TEST(oled_toast_every_message_fits) {
         CHECK(kTextX + (int) std::strlen(m) * 6 - 1 <= 126);  // a lit column after the text
     }
 }
+
+// B-N3: the slot a skipped controller is paired in, one per slot, numbered as
+// the Slots screen numbers them.
+TEST(oled_toast_paired_in_slot_names_each_slot) {
+    for (int i = 0; i < 4; i++) {
+        const char *m = kPairedInSlot[i];
+        CHECK((int) std::strlen(m) <= kMaxChars);
+        CHECK(m[std::strlen(m) - 1] == '0' + i);
+    }
+}
