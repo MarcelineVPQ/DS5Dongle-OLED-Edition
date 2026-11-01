@@ -42,22 +42,25 @@ const Config *flash_config() {
     return reinterpret_cast<const Config *>(XIP_BASE + CONFIG_FLASH_OFFSET);
 }
 
-void config_valid() {
+// Every field of `c` in range, as load reads a page: an out-of-range value
+// (0xFF from erased flash or a shorter body from older firmware) takes its
+// default.
+static void config_normalise(Config &c) {
     // valid config and set default value
     // error: LOGGED-OK — printf; a blank or old sector gets defaults; RAM then differs from flash, which the app shows as unsaved settings (identity [19] bit0)
-    if (config.magic != CONFIG_MAGIC) {
-        config.magic = CONFIG_MAGIC;
+    if (c.magic != CONFIG_MAGIC) {
+        c.magic = CONFIG_MAGIC;
         printf("[Config] Config Magic Header is invalid\n");
     }
-    if (config.version != CONFIG_VERSION) {
-        config.version = CONFIG_VERSION;
+    if (c.version != CONFIG_VERSION) {
+        c.version = CONFIG_VERSION;
         printf("[Config] Config Version is invalid\n");
     }
-    if (config.size != sizeof(Config_body)) {
-        config.size = sizeof(Config_body);
+    if (c.size != sizeof(Config_body)) {
+        c.size = sizeof(Config_body);
         printf("[Config] Config Body size is invalid\n");
     }
-    auto body = &config.body;
+    auto body = &c.body;
     if (std::isnan(body->haptics_gain) || body->haptics_gain < 1.0f || body->haptics_gain > 6.0f) {
         body->haptics_gain = 1.0f;
         printf("[Config] Haptics Gain value is invalid\n");
@@ -153,13 +156,15 @@ void config_valid() {
     if (body->status_gpio_mode > 1) body->status_gpio_mode = 0;
     if (body->mic_level > kMicLevelMax) body->mic_level = 0;    // protocol 1.16: follow the PC
     if (body->mic_echo_cancel > 1) body->mic_echo_cancel = 1;   // protocol 1.17: on
-    if (config.power_flags & ~POWER_FLAGS_MASK) config.power_flags = POWER_FLAGS_DEFAULT; // 0xFF erased / older firmware
-    config.display_id = display::resolve(config.display_id);  // 0xFF from firmware before 1.21: the Pico-OLED-1.3
+    if (c.power_flags & ~POWER_FLAGS_MASK) c.power_flags = POWER_FLAGS_DEFAULT; // 0xFF erased / older firmware
+    c.display_id = display::resolve(c.display_id);  // 0xFF from firmware before 1.21: the Pico-OLED-1.3
     if (body->config_version != CONFIG_VERSION) {
         body->config_version = CONFIG_VERSION;
         printf("[Config] Warning: Config may breaking change\n");
     }
 }
+
+void config_valid() { config_normalise(config); }
 
 // True when the settings in RAM differ from the ones saved in flash (or
 // nothing valid is saved yet). Core 0 only, like every flash write, so the
@@ -227,7 +232,8 @@ static void config_take_short_body(const Config *page) { take_short_body(config,
 
 // The saved settings as config_load() reads them, for a save that changes one
 // field only (narrator, power flags, display): an intact page, its shorter
-// body from older firmware read as take_short_body() does; else (nothing
+// body from older firmware read as take_short_body() does and normalised as
+// config_valid() does; else (nothing
 // valid saved, or a page failing its CRC) the RAM copy. Copying any page with
 // our magic took an older page's power flags as mic_level and re-blessed a
 // page that failed its CRC (review fw-usb-bt N4).
@@ -237,6 +243,9 @@ static Config saved_page_or_ram() {
     if (!config_page_intact(saved)) return config;
     Config page = *saved;
     take_short_body(page, saved);
+    // Each field as load reads it: a short body's 0xFF fields at their
+    // defaults, so the saved copy then matches RAM (config_unsaved).
+    config_normalise(page);
     return page;
 }
 

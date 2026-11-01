@@ -164,6 +164,7 @@ TEST(config_fixtures_upstream_07_pages_load_defaults_as_before) {
 // page from any released writer keeps every other setting as config_load()
 // read it. It used to copy the page raw: a 0.9.5-dev.9 page's power flags
 // (body[49]) became mic_level, and a page failing its CRC was re-blessed.
+// Afterwards nothing shows as unsaved.
 TEST(config_fixtures_one_field_saves_keep_the_other_settings) {
     const auto fixtures = load_fixtures();
     int seen = 0;
@@ -192,6 +193,10 @@ TEST(config_fixtures_one_field_saves_keep_the_other_settings) {
             if (!same) std::fprintf(stderr, "  %s/%s: save %d changed other settings\n", x.tag.c_str(), x.scenario.c_str(), which);
             CHECK(same);
             CHECK_EQ(config_power_flags(), which == 0 ? flags_before : 0x02);
+            // Re-review P-N1: the saved copy is what load reads, so nothing
+            // shows as unsaved (a short body's 0xFF fields were saved raw).
+            if (config_unsaved()) std::fprintf(stderr, "  %s/%s: save %d left unsaved changes\n", x.tag.c_str(), x.scenario.c_str(), which);
+            CHECK(!config_unsaved());
             seen++;
         }
     }
