@@ -89,7 +89,7 @@ CORE0_OPTIONAL=""
   audio.cpp:_ZL14grip_test_taskv _ZN8GripWave4nextEPaff _ZN8GripWave4fillEPaiff _ZNK8GripWave6activeEv
   _ZN16AudioReportClock3dueEy _ZN16AudioReportClock4sentEy _ZN16AudioReportClock5resetEv
   _ZNK21NativeHapticsPresence6silentEv _ZN21NativeHapticsPresence6recordEtm
-  _ZN11AutoHaptics4nextEffffRfS0_ _ZN11AutoHaptics7combineEhbffRfS0_ _Z9mix_limitf
+  _ZN11AutoHaptics4nextEffffRfS0_ _ZN11AutoHaptics7combineEhbffRfS0_ _ZN11AutoHaptics8set_modeEh _Z9mix_limitf
   _ZNK9AudioPeak5levelEy _ZN9AudioPeak6recordEty
   _ZN8MicLevel6sampleEmi _ZN8MicLevel4dropEmi _Z14mic_frame_peakPKsi _Z10mic_splicePKsPsi"
 # FUNC/OBJECT symbols as "file:name addr" (locals, grouped after their FILE
