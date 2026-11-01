@@ -27,7 +27,13 @@ OBJDUMP="${OBJDUMP:-arm-none-eabi-objdump}"
 SYMS="$("$NM" "$ELF")"
 has() { awk -v s="$1" '$3 == s {f=1} END {exit !f}' <<<"$SYMS"; }
 
-size="$("$READELF" -SW "$ELF" | awk '{sub(/^ *\[ *[0-9]+\] */, "")} $1 == ".boot2" {print $5; exit}')"
+# boot2's own size, from the linker's start/end symbols: the section's size can
+# include alignment padding before .rodata (0x104 when .text ends 4 bytes off an
+# 8-byte boundary), which isn't boot2 and isn't limited to 256 bytes.
+b2s="$(awk '$3 == "__boot2_start__" {print $1; exit}' <<<"$SYMS")"
+b2e="$(awk '$3 == "__boot2_end__" {print $1; exit}' <<<"$SYMS")"
+size=""
+[ -n "$b2s" ] && [ -n "$b2e" ] && size="$(printf '%x' $(( 16#$b2e - 16#$b2s )))"
 if [ -z "$size" ] || (( 16#$size == 0 || 16#$size > 256 )); then
   echo "check_xip_setup: .boot2 is missing or empty (size '${size:-none}'): no embedded XIP setup" >&2
   exit 1
