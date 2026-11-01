@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.9.5-dev.21-oled-edition] - 2026-11-01
+
 ### Added
 
 - **The board says exactly what it is, so an update can be matched to it** (protocol 1.21). A new read-only report, `0xEA` (identity [49] bit 2; layout in `src/fw_identity.h`), gives the board type, the controller persona this image runs and can switch to, the flash size the image was built for and the size measured at start-up, the chip and its package (RP2040, RP2350A or RP2350B), whether settings can be saved, and the display that runs, the displays this image drives and the one chosen for the next start. The UF2 also names its board, persona and displays in its binary info, for the release checks.
