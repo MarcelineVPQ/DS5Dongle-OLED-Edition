@@ -1,6 +1,6 @@
 // src/auto_haptics.h: Audio Auto Haptics (loteran/DS5Dongle 5d6bc2f): the
 // low-pass cut-offs, the envelope's attack and 50 ms release, Mix's limiter
-// (unchanged below the knee), Fallback's 15 ms crossfade, and the modes.
+// (unchanged below the knee), Fallback's 15 ms fade of the derived haptics, and the modes.
 #include "auto_haptics.h"
 #include "test.h"
 #include <cmath>
@@ -68,25 +68,50 @@ TEST(auto_haptics_mix_adds_and_limits_only_near_full_scale) {
     }
 }
 
-TEST(auto_haptics_fallback_crossfades_in_15_ms) {
+// Fallback fades only the derived haptics, over 15 ms each way; the game's
+// own haptics always pass at full strength (an event's attack isn't faded in).
+TEST(auto_haptics_fallback_fades_only_the_derived_haptics) {
     AutoHaptics ah;
     const float game = 0.4f, derived = -0.2f;
     float hl = 0, hr = 0;
-    auto step = [&](bool active) {
-        hl = game; hr = game;
+    auto step = [&](float native, bool active) {
+        hl = native; hr = native;
         ah.combine(kAutoFallback, active, derived, derived, hl, hr);
     };
-    step(false);
-    CHECK(hl == game);                                   // the game's while it plays
-    for (int i = 0; i < 359; i++) step(true);
-    step(true);                                          // 360 samples: halfway (7.5 ms)
-    CHECK(std::fabs(hl - 0.5f * (game + derived)) < 1e-3f);
-    for (int i = 0; i < 361; i++) step(true);            // 721: fully derived
+    step(game, false);
+    CHECK(hl == game && hr == game);                     // the game's while it plays
+    for (int i = 0; i < 359; i++) step(0.0f, true);
+    step(0.0f, true);                                    // 360 samples: halfway (7.5 ms)
+    CHECK(std::fabs(hl - 0.5f * derived) < 1e-3f);
+    for (int i = 0; i < 361; i++) step(0.0f, true);      // 721: fully derived
     CHECK(hl == derived && hr == derived);
-    step(false);                                         // back: one step, not a jump
-    CHECK(std::fabs(hl - (derived + (game - derived) / 720.0f)) < 1e-4f);
-    for (int i = 0; i < 720; i++) step(false);
-    CHECK(hl == game);
+    step(game, false);                                   // the game returns: full strength at once,
+    CHECK(std::fabs(hl - (game + derived * (1.0f - 1.0f / 720.0f))) < 1e-4f);  // derived fading out
+    for (int i = 0; i < 718; i++) step(game, false);
+    CHECK(std::fabs(hl - (game + derived / 720.0f)) < 1e-4f);  // 719: the last derived step
+    step(game, false);
+    step(game, false);                                   // 721 (float steps: one spare)
+    CHECK(hl == game && hr == game);                     // the game's alone, unchanged
+}
+
+// Another mode in between resets the fade: Fallback starts again from the
+// game's haptics, not fully derived from an earlier Fallback.
+TEST(auto_haptics_fallback_restarts_after_a_mode_change) {
+    AutoHaptics ah;
+    float hl, hr;
+    for (int i = 0; i < 800; i++) {
+        hl = hr = 0.0f;
+        ah.combine(kAutoFallback, true, 0.5f, 0.5f, hl, hr);
+    }
+    CHECK(ah.fade == 1.0f);
+    ah.set_mode(kAutoFallback);
+    CHECK(ah.fade == 1.0f);                              // same mode: kept
+    ah.set_mode(kAutoMix);
+    CHECK(ah.fade == 0.0f);
+    ah.set_mode(kAutoFallback);
+    hl = hr = 0.3f;
+    ah.combine(kAutoFallback, false, 0.5f, 0.5f, hl, hr);
+    CHECK(hl == 0.3f && hr == 0.3f);
 }
 
 TEST(auto_haptics_replace_and_off) {

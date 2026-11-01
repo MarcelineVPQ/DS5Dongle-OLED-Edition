@@ -586,6 +586,20 @@ void CORE0_RAM_FUNC(audio_loop)() {
     const float lp_a = AutoHaptics::kLowPass[get_config().auto_haptics_lowpass & 3];
     static AutoHaptics auto_haptics;
     static NativeHapticsPresence native_haptics;
+    auto_haptics.set_mode(auto_mode);
+    // The game's haptics peak (Fallback's detector), this chunk's included:
+    // judged from the last chunk, a haptic event's first read was replaced
+    // by derived haptics.
+    // loop: HOT-PATH-OK — N = frames of one USB audio read (≤ 192, normally 48); the game's haptics peak
+    for (int i = 0; i < frames; i++) {
+        int16_t hl = raw[i * INPUT_CHANNELS + 2];
+        int16_t hr = raw[i * INPUT_CHANNELS + 3];
+        const uint16_t a = (uint16_t)(hl < 0 ? -hl : hl);
+        const uint16_t b = (uint16_t)(hr < 0 ? -hr : hr);
+        if (a > native_max) native_max = a;
+        if (b > native_max) native_max = b;
+    }
+    native_haptics.record(native_max, (uint32_t) frames);
     const bool fallback_active = (auto_mode == kAutoFallback) && native_haptics.silent();
 #if !DISABLE_SPEAKER_PROC
     // No speaker encoder (yet, or core1 couldn't get its memory, issue #15):
@@ -611,15 +625,6 @@ void CORE0_RAM_FUNC(audio_loop)() {
 
     // loop: HOT-PATH-OK — N = frames of one USB audio read (≤ 192, normally 48); peaks + split, the audio path itself
     for (int i = 0; i < frames; i++) {
-        // The game's haptics peak (Fallback's detector)
-        {
-            int16_t hl = raw[i * INPUT_CHANNELS + 2];
-            int16_t hr = raw[i * INPUT_CHANNELS + 3];
-            const uint16_t a = (uint16_t)(hl < 0 ? -hl : hl);
-            const uint16_t b = (uint16_t)(hr < 0 ? -hr : hr);
-            if (a > native_max) native_max = a;
-            if (b > native_max) native_max = b;
-        }
  #if !DISABLE_SPEAKER_PROC
         // speaker_volume can boost up to +12 dB: speaker_frame clips at full
         // scale rather than hand the encoder samples past +-1.
@@ -692,7 +697,6 @@ void CORE0_RAM_FUNC(audio_loop)() {
     }
     g_peak_spk.record(peak_from_float(spk_out_max), s_host_audio_us);
     g_peak_hap.record(peak_from_s8(hap_out_max), s_host_audio_us);
-    native_haptics.record(native_max, (uint32_t) frames);
     audio_bt_task();
 }
 

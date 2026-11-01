@@ -41,14 +41,21 @@ struct AutoHaptics {
     // cycles and boosts loud passages.
     static constexpr float kEnvAttack = 0.40f;
     static constexpr float kEnvRelease = 0.00041658f;
-    // Fallback's crossfade between the game's haptics and the derived ones:
-    // linear, 15 ms (720 samples at 48 kHz). It used to switch in one sample,
-    // a step on the grips at every switch.
+    // Fallback fades the derived haptics in and out: linear, 15 ms (720
+    // samples at 48 kHz). They used to switch in one sample, a step on the
+    // grips at every switch. The game's own haptics are never faded: they
+    // pass at full strength, so an event's attack isn't softened.
     static constexpr float kFadeStep = 1.0f / 720.0f;
 
     float lp_l = 0.0f, lp_r = 0.0f;
     float env_l = 0.0f, env_r = 0.0f;
-    float fade = 0.0f;  // Fallback: 0 = the game's haptics, 1 = derived
+    float fade = 0.0f;  // Fallback: the derived haptics' weight, 0..1
+
+    // Once per USB chunk: any other mode resets Fallback's fade, so switching
+    // back to Fallback starts from the game's haptics, not mid-fade.
+    __attribute__((always_inline)) inline void set_mode(uint8_t mode) {
+        if (mode != kAutoFallback) fade = 0.0f;
+    }
 
     // One 48 kHz speaker frame (-1..1) in, the derived haptic pair out
     // (soft-clipped to -1..1). gain = auto_haptics_gain / 100.
@@ -69,9 +76,11 @@ struct AutoHaptics {
     }
 
     // The derived pair (al, ar) into the game's own haptics (h_l, h_r, -1..1)
-    // by mode, once per 48 kHz frame. Fallback fades to the derived pair while
+    // by mode, once per 48 kHz frame. Fallback fades the derived pair in while
     // the game's haptics are silent (NativeHapticsPresence, src/audio_levels.h)
-    // and back when they return. Mix adds them, limited only near full scale.
+    // and out when they return, added to the game's haptics unchanged (the
+    // sum is clamped to full scale in haptic_to_s8). Mix adds them, limited
+    // only near full scale.
     __attribute__((always_inline)) inline void combine(uint8_t mode, bool fallback_active, float al, float ar,
                                                        float &h_l, float &h_r) {
         if (mode == kAutoReplace) {
@@ -82,8 +91,8 @@ struct AutoHaptics {
         } else if (mode == kAutoFallback) {
             if (fallback_active) fade = fade + kFadeStep >= 1.0f ? 1.0f : fade + kFadeStep;
             else fade = fade - kFadeStep <= 0.0f ? 0.0f : fade - kFadeStep;
-            h_l = h_l * (1.0f - fade) + al * fade;
-            h_r = h_r * (1.0f - fade) + ar * fade;
+            h_l += al * fade;
+            h_r += ar * fade;
         }
     }
 };
