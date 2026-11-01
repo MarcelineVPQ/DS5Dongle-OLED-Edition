@@ -885,6 +885,7 @@ static void CORE0_RAM_FUNC(l2cap_packet_handler)(uint8_t packet_type, uint16_t c
                 uint8_t report_id = packet[1];
                 // lifetime: OK — reuses the id's buffer (same size each reply); new ids only until disconnect clears
                 feature_data[report_id].assign(packet + 1, packet + size);
+                dse_on_feature_reply(report_id);  // a fresh reply a live read may answer with (dse.h)
 #if ENABLE_VERBOSE
                 printf("[L2CAP] Stored Feature Report 0x%02X, len=%u\n", report_id, size - 1);
 #endif

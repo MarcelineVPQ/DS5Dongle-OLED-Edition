@@ -51,6 +51,7 @@ constexpr uint64_t kSaveRefetchUs = 5000 * 1000;   // 0x80 -> refetch
 void dse_on_connect();
 
 // Back to idle with reads allowed: a DualSense connected, or the link went.
+// No reply counts as fresh until the controller sends one.
 void dse_reset();
 
 // A host SET was forwarded to the controller: 0x60-0x62 (a profile write) on
@@ -64,6 +65,26 @@ inline bool dse_is_profile_report(uint8_t report_id) {
 
 // False while a host GET of a profile report must be refused.
 bool dse_profiles_ready();
+
+// Live reads (upstream 8c647e0, without its wait): a host GET of 0x81 (the
+// test command's result) or of a profile report is answered only with a
+// reply the controller sent after the PC's last SET 0x80 / 0x60-0x62, and a
+// 0x81 reply answers one GET. Otherwise main.cpp asks the controller and the
+// PC gets the 1-byte reply (only the report id) and asks again; the fresh
+// reply is cached a few ms later. Upstream holds the USB request up to 250 ms
+// while it polls Bluetooth; nothing here waits inside a TinyUSB callback.
+inline bool dse_is_live_report(uint8_t report_id) {
+    return report_id == 0x81 || dse_is_profile_report(report_id);
+}
+// bt.cpp: the controller's reply for report_id landed in the feature cache.
+void dse_on_feature_reply(uint8_t report_id);
+// main.cpp: a host SET of report_id went to the controller (0x80 makes 0x81
+// and the profiles stale, 0x60-0x62 the profiles).
+void dse_on_host_set(uint8_t report_id);
+// A host GET of a live report may be answered from the cache now.
+bool dse_live_reply_ready(uint8_t report_id);
+// ...and was: a 0x81 reply answers one GET.
+void dse_live_reply_taken(uint8_t report_id);
 
 // The controller's 0x80/0x81 test slot is in use by this module.
 bool dse_owns_test_slot();

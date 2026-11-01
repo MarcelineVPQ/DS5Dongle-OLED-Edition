@@ -386,10 +386,21 @@ static uint16_t get_report_impl(uint8_t itf, uint8_t report_id, hid_report_type_
         return 0;
     }
 
+    // Live reads (upstream 8c647e0, src/dse.h): 0x81 and the Edge profiles
+    // only with a reply the controller sent after the PC's last write; else
+    // the GET goes to the controller and the PC asks again a moment later.
+    // No wait here: the USB request is answered at once.
+    if (dse_is_live_report(report_id) && !dse_live_reply_ready(report_id)) {
+        bt_request_feature(report_id);
+        // error: NOT-WORTH — a 1-byte reply (only the report id) on purpose until the controller's fresh reply is cached (a few ms; the PC asks again); the read is started here
+        return 0;
+    }
+
     // lifetime: NOT-WORTH — per host GET feature report (the PC asks a few times per connect)
     std::vector<uint8_t> feature_data = get_feature_data(report_id, reqlen);
     // error: NOT-WORTH — nothing cached yet: the reply is only the report id, the PC asks again
     if (feature_data.empty()) return 0;
+    if (dse_is_live_report(report_id)) dse_live_reply_taken(report_id);
     // The data after the id, never more than the host asked for: buffer is
     // TinyUSB's control buffer and holds reqlen bytes (a cached reply can be
     // longer than the GET, e.g. a 64-byte report read with a short wLength).
@@ -566,6 +577,7 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
         report_id == 0x62 ||
         report_id == 0x61) {
         set_feature_data(report_id, const_cast<uint8_t *>(buffer), bufsize);
+        dse_on_host_set(report_id);       // older replies no longer answer the PC's reads
         dse_on_profile_write(report_id);  // 0x60-0x62: re-read the profiles
         return;
     }

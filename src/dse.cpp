@@ -32,6 +32,17 @@ uint64_t s_t0_us = 0;          // the phase's 0x80 SET (UnlockWait, SavePoll, Sa
 uint64_t s_last_get_us = 0;
 uint8_t s_next = 0;            // Fetch: next report id (kLastProfile + 1 = all asked)
 uint8_t s_polls = 0;
+// Live reads: bit i = report kFirstProfile + i, kFresh81 = 0x81; set when
+// the controller's reply arrives, cleared by a host SET (and for 0x81 by the
+// GET it answered).
+constexpr uint16_t kFreshProfiles = (1u << (kLastProfile - kFirstProfile + 1)) - 1;
+constexpr uint16_t kFresh81 = 1u << (kLastProfile - kFirstProfile + 1);
+uint16_t s_fresh = 0;
+
+uint16_t fresh_bit(uint8_t report_id) {
+    if (report_id == 0x81) return kFresh81;
+    return dse_is_profile_report(report_id) ? (uint16_t) (1u << (report_id - kFirstProfile)) : 0;
+}
 
 void send_unlock() {
     uint8_t unlock[59]{};  // the last 4 bytes become the crc32
@@ -59,7 +70,25 @@ bool dse_profiles_ready() { return s_ready; }
 
 bool dse_owns_test_slot() { return s_phase != Phase::Idle; }
 
+void dse_on_feature_reply(uint8_t report_id) { s_fresh |= fresh_bit(report_id); }
+
+void dse_on_host_set(uint8_t report_id) {
+    if (report_id == 0x80) s_fresh &= (uint16_t) ~(kFresh81 | kFreshProfiles);
+    else if (report_id >= 0x60 && report_id <= 0x62) s_fresh &= (uint16_t) ~kFreshProfiles;
+}
+
+bool dse_live_reply_ready(uint8_t report_id) {
+    const uint16_t bit = fresh_bit(report_id);
+    // error: NOT-WORTH — not a failure: false = no reply since the PC's last write yet; main.cpp asks the controller and the PC asks again
+    return bit == 0 || (s_fresh & bit) != 0;
+}
+
+void dse_live_reply_taken(uint8_t report_id) {
+    if (report_id == 0x81) s_fresh &= (uint16_t) ~kFresh81;
+}
+
 void dse_reset() {
+    s_fresh = 0;
     s_phase = Phase::Idle;
     s_ready = true;
     s_fetch_readies = false;

@@ -368,3 +368,44 @@ TEST(dse_save_and_queued_test_no_deadlock) {
     if (unlocks.size() == 1 && tests.size() == 1) CHECK(tests[0].t > unlocks[0].t);
     finish();
 }
+
+// Live reads (upstream 8c647e0, without its wait): 0x81 and the profiles are
+// answered only with a reply that arrived after the PC's last SET 0x80 /
+// 0x60-0x62, and a 0x81 reply answers one GET; other reports are untouched.
+TEST(dse_live_reads_only_fresh_replies) {
+    connect(false);
+    CHECK(dse_is_live_report(0x81));
+    CHECK(dse_is_live_report(0x70));
+    CHECK(dse_is_live_report(0x7B));
+    CHECK(!dse_is_live_report(0x7C));
+    CHECK(!dse_is_live_report(0x20));
+    CHECK(dse_live_reply_ready(0x20));   // not a live report: always the cache
+    CHECK(!dse_live_reply_ready(0x81));  // nothing since the link came up
+    CHECK(!dse_live_reply_ready(0x70));
+
+    dse_on_feature_reply(0x81);
+    dse_on_feature_reply(0x70);
+    CHECK(dse_live_reply_ready(0x81));
+    CHECK(dse_live_reply_ready(0x70));
+    CHECK(!dse_live_reply_ready(0x71));
+    dse_live_reply_taken(0x81);  // one GET per 0x81 reply
+    dse_live_reply_taken(0x70);  // a profile stays answerable
+    CHECK(!dse_live_reply_ready(0x81));
+    CHECK(dse_live_reply_ready(0x70));
+
+    dse_on_feature_reply(0x81);
+    dse_on_host_set(0x61);  // a profile write: the profiles are stale, 0x81 isn't
+    CHECK(dse_live_reply_ready(0x81));
+    CHECK(!dse_live_reply_ready(0x70));
+    dse_on_feature_reply(0x70);
+    dse_on_host_set(0x80);  // a test command / unlock: both stale
+    CHECK(!dse_live_reply_ready(0x81));
+    CHECK(!dse_live_reply_ready(0x70));
+    dse_on_host_set(0x02);  // anything else changes nothing
+    dse_on_feature_reply(0x81);
+    CHECK(dse_live_reply_ready(0x81));
+
+    dse_reset();  // a new link
+    CHECK(!dse_live_reply_ready(0x81));
+    finish();
+}
