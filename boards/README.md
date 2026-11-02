@@ -13,35 +13,24 @@ has a 16-byte limit, so the full CMake board identifier cannot be used there.
 
 ## Build
 
-Use the pins in `tools/toolchain.env`: Pico SDK 2.3.0, TinyUSB
-`2d56dc533e45e4e91b15e93fdab5e22e964f328d`, ARM GNU 15.2.Rel1.
-
-From a fresh build directory:
+`boards.json` has the board's row (`waveshare_rp2350b_plus_w`, board type 3), so the
+board script builds it with the pinned toolchain (`tools/toolchain.env`) and runs
+every image check (RAM residency, XIP setup, reserved flash, gate G2):
 
 ```bash
-cmake -S . -B build/waveshare -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DPICO_SDK_PATH="$PICO_SDK_PATH" \
-  -DWAVESHARE_RP2350B_PLUS_W_BUILD=ON \
-  -DENABLE_COMPANION_VENDOR=ON
-cmake --build build/waveshare --target ds5-bridge
-tools/check_ram_residency.sh build/waveshare/ds5-bridge-oled.elf
-tools/check_xip_setup.sh build/waveshare/ds5-bridge-oled.elf 2 11
-python3 tools/check_flash_reserved.py build/waveshare/ds5-bridge-oled.elf build/waveshare/ds5-bridge-oled.uf2
+tools/build_board.sh waveshare_rp2350b_plus_w v0.9.5-dev.21-oled-edition -DENABLE_COMPANION_VENDOR=ON
 ```
 
-The output is `build/waveshare/ds5-bridge-oled.uf2`.
-For diagnostic USB CDC logging add `-DENABLE_SERIAL=ON -DENABLE_VERBOSE=ON`.
-The normal build retains the stock 150 MHz clock and full RP2350 audio path.
-`PICO_W_BUILD` and the Waveshare option are mutually exclusive.
+The output is `artifacts/ds5-bridge-oled-<version>-waveshare_rp2350b_plus_w.uf2`
+(the build directory is `build/waveshare_rp2350b_plus_w`). By hand, in a fresh build
+directory: `-DWAVESHARE_RP2350B_PLUS_W_BUILD=ON`. For USB CDC logging add
+`-DENABLE_SERIAL=ON -DENABLE_VERBOSE=ON`. The board runs at the RP2350's stock
+150 MHz with the full audio path. `PICO_W_BUILD` and the Waveshare option are
+mutually exclusive.
 
-GitHub Actions builds both Waveshare variants with the configurator interface,
-runs the host tests and the RAM/XIP/flash reservation checks, and uploads
-**DS5-OLED-Waveshare-RP2350B-Plus-W**, containing:
-
-- `ds5-bridge-oled-waveshare.uf2`: normal firmware.
-- `ds5-bridge-oled-waveshare-debug.uf2`: USB CDC and verbose logs.
-- `SHA256SUMS.txt`.
+GitHub Actions builds this image on every push, with the configurator interface,
+like every row of `boards.json`, and uploads it in the
+**ds5-bridge-oled-<commit>-boards** artifact.
 
 ## OLED wiring
 
@@ -74,7 +63,8 @@ For a DualSense / DualSense Edge, also verify the configurator, audio and
 haptics on the actual board. Compilation and static checks cannot establish
 hardware behavior.
 
-Use manual Waveshare firmware updates. The upstream configurator's bundled
-Pico 2 W UF2 uses different radio pins and must not be installed on this board.
-The firmware intentionally keeps a distinct board name; this port does not
-add Waveshare firmware to the configurator's update feed.
+Install Waveshare firmware by hand for now. The board is a `release: false` row:
+its image is not in releases or the update feeds yet, so the configurator offers
+no update for it. The configurator refuses to write another board's firmware to
+it (it reads the chip in BOOTSEL mode: the Pico 2 W image is for an RP2350A and
+uses different radio pins).

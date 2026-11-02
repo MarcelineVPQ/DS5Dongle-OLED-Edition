@@ -35,7 +35,7 @@ constexpr uint16_t kLen = 14;
 
 // Board type ids: boards.json type_id (tools/manifest_lib.test.mjs fails when
 // they differ; the app's src/update/boardIdentity.ts). 0 = a board not in the table.
-enum : uint16_t { kBoardUnknown = 0, kBoardPico2W = 1, kBoardPicoW = 2 };
+enum : uint16_t { kBoardUnknown = 0, kBoardPico2W = 1, kBoardPicoW = 2, kBoardWaveshareRp2350bPlusW = 3 };
 enum : uint8_t { kPersonaDs5 = 0 };
 enum : uint8_t { kChipRp2040 = 0, kChipRp2350A = 1, kChipRp2350B = 2, kChipUnknown = 0xFF };
 enum : uint8_t { kFlagRadio = 0x01, kFlagSavedStateOff = 0x02, kFlagDisplay = 0x04 };
