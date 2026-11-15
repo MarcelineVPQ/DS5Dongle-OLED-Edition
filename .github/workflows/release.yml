@@ -153,6 +153,9 @@ jobs:
         shell: bash
         env:
           DS5_REQUIRE_FIRMWARE_CHANGELOG: "1"
+          # The leak test mounts every page 50 times; the default heap ran out on
+          # the macOS runner (dev.22's first run). The same limit as the local full check.
+          NODE_OPTIONS: --max-old-space-size=4096
       - name: Build
         run: npx electron-vite build && npx electron-builder ${{ matrix.target }} --publish never
         shell: bash
