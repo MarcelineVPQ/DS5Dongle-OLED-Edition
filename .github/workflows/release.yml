@@ -157,11 +157,45 @@ jobs:
           # the macOS runner (dev.22's first run). The same limit as the local full check.
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Build
+        if: matrix.os != 'macos-latest'
         run: npx electron-vite build && npx electron-builder ${{ matrix.target }} --publish never
         shell: bash
         env:
           # Fail rather than ship the "no firmware changelog in this build" note.
           DS5_REQUIRE_FIRMWARE_CHANGELOG: "1"
+      # The only step that gets the Apple signing secrets (Developer ID certificate,
+      # App Store Connect API key; the same setup as CorridorKey Desktop): signed with
+      # the hardened runtime, notarized and stapled by electron-builder
+      # (electron-builder.yml mac:). The .p8 lives in a temporary file for this step only.
+      - name: Build, sign and notarize (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          DS5_REQUIRE_FIRMWARE_CHANGELOG: "1"
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          export APPLE_API_KEY="$RUNNER_TEMP/notary.p8"
+          trap 'rm -f "$APPLE_API_KEY"' EXIT
+          ( umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY" )
+          unset APPLE_API_KEY_P8
+          npx electron-vite build && npx electron-builder --mac --publish never
+      - name: Apple's own checks (signature, notarization ticket, Gatekeeper)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="$(ls release/*-mac-universal.zip)"
+          dir="$(mktemp -d)"
+          ditto -x -k "$zip" "$dir"
+          app="$(ls -d "$dir"/*.app)"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          xcrun stapler validate "$app"
+          spctl --assess --type execute -vvv "$app" 2>&1 | tee /dev/stderr | grep "source=Notarized Developer ID" > /dev/null || { echo "::error::Gatekeeper does not accept the app as notarized"; exit 1; }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: app-${{ matrix.os }}
