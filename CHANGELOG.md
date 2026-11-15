@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.9.5-dev.23-oled-edition] - 2026-11-15
+
 ## [0.9.5-dev.22-oled-edition] - 2026-11-15
 
 ### Added
