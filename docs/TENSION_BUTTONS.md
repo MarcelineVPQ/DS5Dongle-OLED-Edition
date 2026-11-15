@@ -583,7 +583,7 @@ that, renumber 1.24..1.30 per step, nothing else changes.)
 | 1 | Press types (Hold, Double press, With PS, Toggle, Turbo) |
 | 2 | Layers |
 | 3 | Live truth (GET 0xE8) |
-| 4 | Keys and mouse (the `keys_mouse` setting, key / mouse targets, 0x21) |
+| 4 | Keys and mouse: key / mouse-button targets and 0x21 (step 6). The `keys_mouse` setting alone (step 1) has no bit: it is the body's byte 53 (identity [6] ≥ 54), its state in [59] |
 | 5 | Gyro as mouse (and right stick, if approved) |
 | 6 | A set sent by the app for a game (0x22) |
 | 7 | Reserved (switching sets on the controller, open question 7) |
