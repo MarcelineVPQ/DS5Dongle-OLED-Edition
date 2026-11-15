@@ -104,9 +104,9 @@ V = [
     ("with_ps_on_cross", "ok", 0x03, part(pool=e(13, W, BTN(10)))),
     ("hold_edges_15_and_200", "ok", 0x03, part(pool=e(12, H, BTN(11), hold=15) + e(13, H, BTN(11), hold=200))),
     ("pool_61_press_entries", "ok", 0x05, part(layers=2, layer=[("A", 0, 0), ("B", 1, 0)],
-                                               pool=b"".join(e(x, P, BTN(0)) for x in range(22)) +
-                                               b"".join(e(x, P, BTN(0), layer=1) for x in range(22)) +
-                                               b"".join(e(x, P, BTN(0), layer=2) for x in range(17)))),
+                                               pool=b"".join(e(x, P, BTN(0)) for x in range(22) if x != 17) +
+                                               b"".join(e(x, P, BTN(0), layer=1) for x in range(22) if x != 17) +
+                                               b"".join(e(x, P, BTN(0), layer=2) for x in range(20) if x != 17))),
     # --- invalid, one rule each ------------------------------------------
     ("r1_not_used_but_bytes", "bad", None, part(used=False, tail=[(3, 25)])),
     ("r1_bver_2", "bad", None, part(bver=2)),

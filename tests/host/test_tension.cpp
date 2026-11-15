@@ -583,7 +583,11 @@ TEST(tension_save_read_back_and_survive_a_restart) {
     CHECK_EQ(r[2], 0x04);  // slot 2 used
     uint32_t listed;
     std::memcpy(&listed, r + 6 + 4 * 2, 4);
-    CHECK_EQ(listed, crc);
+    // Since layout 2 the list's slot CRC covers the SetBody and its ButtonPart
+    // (494 bytes, TENSION_BUTTONS.md section 3.6); a ver-1 save keeps an empty part.
+    std::vector<uint8_t> whole(sizeof(SetBody) + 360, 0);
+    std::memcpy(whole.data(), &bow, sizeof(SetBody));
+    CHECK_EQ(listed, crc32_ieee(whole.data(), (uint32_t) whole.size()));
 
     // Read it back in three chunks.
     uint8_t back[sizeof(SetBody)];
