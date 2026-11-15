@@ -48,8 +48,8 @@ TEST(fwid_identity_announces_0xea_in_byte_49) {
     uint8_t id[63]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 58);
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 22);
-    CHECK_EQ(id[49], 0x7F);  // board id, identify, 0xEA (bit2), display choice (bit3), 1.22's bits 4..6
+    CHECK_EQ(id[5], 23);
+    CHECK_EQ(id[49], 0xFF);  // board id, identify, 0xEA (bit2), display choice (bit3), 1.22's bits 4..6, Tension (bit7, 1.23)
 }
 
 TEST(fwid_0xea_every_byte) {

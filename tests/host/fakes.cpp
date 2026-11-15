@@ -190,3 +190,13 @@ uint8_t g_get_ring[16][2];
 volatile uint32_t g_get_count;
 uint8_t g_last_out02_trig[47];
 uint8_t interrupt_in_data[63];
+// Bluetooth output reports (bt.cpp's bt_write), for the Tension tests.
+std::vector<std::vector<uint8_t>> g_fake_bt_writes;
+bool g_fake_bt_write_fail = false;
+bool bt_write(const uint8_t *data, uint16_t len) {
+    if (!g_fake_bt_connected || g_fake_bt_write_fail) return false;
+    g_fake_bt_writes.emplace_back(data, data + len);
+    return true;
+}
+uint8_t reportSeqCounter = 0;
+void state_stamp_host_rumble(uint8_t *) {}

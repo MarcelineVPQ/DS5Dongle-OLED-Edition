@@ -37,4 +37,24 @@ inline bool flash_sector_write(uint32_t offset, const uint8_t *page) {
     return flash_safe_execute(flash_sector_write_cb, &w, 100) == PICO_OK;
 }
 
+// The same for a record longer than a page (Tension's sets, 5 pages): erase
+// the sector, program `len` bytes (whole pages, at most a sector) from `data`.
+struct FlashSectorWritePages {
+    uint32_t offset;
+    const uint8_t *data;
+    uint32_t len;
+};
+
+inline void flash_sector_write_pages_cb(void *param) {
+    const auto *w = static_cast<const FlashSectorWritePages *>(param);
+    flash_range_erase(w->offset, FLASH_SECTOR_SIZE);
+    flash_range_program(w->offset, w->data, w->len);
+}
+
+inline bool flash_sector_write_pages(uint32_t offset, const uint8_t *data, uint32_t len) {
+    FlashSectorWritePages w{offset, data, len};
+    // error: SHOWN — returned false to Tension's saves, which report CMD_RESULT_FAILED; counted in g_fse_fail
+    return flash_safe_execute(flash_sector_write_pages_cb, &w, 100) == PICO_OK;
+}
+
 #endif //DS5_BRIDGE_FLASH_SAFE_H

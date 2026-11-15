@@ -25,6 +25,7 @@
 #include "dse.h"
 #include "fw_report.h"
 #include "state_mgr.h"
+#include "tension.h"
 #include "pico/util/queue.h"
 #include "slots.h"
 #include "usb_power.h"
@@ -1071,8 +1072,10 @@ void bt_send_state() {
     state_set(report32 + 4,sizeof(SetStateData));
     state_stamp_host_rumble(report32 + 4);
     state_stamp_config(report32 + 4, false);  // trigger reduction, speaker pre-gain, mic choice (1.13), mic level (1.16), echo cancellation (1.17)
+    // The state carries the game's trigger effects: Tension's go in instead where a set owns the trigger (1.23).
+    const uint8_t tension_wrote = tension_on_state_report(report32 + 4);
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops it and the next state write (the app re-sends on change) replaces it
-    bt_write(report32, sizeof(report32));
+    if (!bt_write(report32, sizeof(report32))) tension_report_lost(tension_wrote);
 }
 
 bool CORE0_RAM_FUNC(bt_write)(const uint8_t *data, const uint16_t len) {

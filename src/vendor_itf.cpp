@@ -11,6 +11,7 @@
 #include "cmd.h"
 #include "oled.h"
 #include "ctrl_info.h"
+#include "tension.h"
 #include "usb_power.h"
 
 // {CD1F1B79-799E-44AC-ADFC-A3F2090D1D4A} — the configurator opens the WinUSB
@@ -189,6 +190,18 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
         uint16_t const reqlen = tu_min16(req->wLength, VENDOR_MAX_PAYLOAD);
         memset(s_buf, 0, sizeof(s_buf));
         uint16_t const n = ctrl_info_get(tu_u16_high(req->wValue), s_buf, reqlen);
+        // error: NOT-WORTH — returned to TinyUSB (STALL on failure); queueing a ≤ 64-byte reply on endpoint 0 can't fail
+        return tud_control_xfer(rhport, req, s_buf, tu_min16(n, reqlen));
+    }
+    // Tension (proto 1.23): wValue's high byte picks the status, the list or
+    // a chunk of a saved set (tension.cpp, docs/TENSION.md).
+    if (id == PICO_CMD_TENSION) {
+        // error: NOT-WORTH — USB STALL for a request this interface doesn't take (wrong direction/recipient/id); the app only sends the documented ones and its transport reports a STALL as an error
+        if (req->bRequest != VENDOR_REQ_GET || req->bmRequestType_bit.direction != TUSB_DIR_IN) return false;
+        if (stage != CONTROL_STAGE_SETUP) return true;
+        uint16_t const reqlen = tu_min16(req->wLength, VENDOR_MAX_PAYLOAD);
+        memset(s_buf, 0, sizeof(s_buf));
+        uint16_t const n = tension_get(tu_u16_high(req->wValue), s_buf, reqlen);
         // error: NOT-WORTH — returned to TinyUSB (STALL on failure); queueing a ≤ 64-byte reply on endpoint 0 can't fail
         return tud_control_xfer(rhport, req, s_buf, tu_min16(n, reqlen));
     }

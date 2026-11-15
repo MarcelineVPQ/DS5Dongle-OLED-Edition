@@ -8,6 +8,8 @@ void fake_flash_erase_all();
 extern bool g_fake_flash_fail;
 extern uint64_t g_fake_time_us;
 extern bool g_fake_bt_connected;
+extern std::vector<std::vector<uint8_t>> g_fake_bt_writes;  // bt_write() (Tension's own reports)
+extern bool g_fake_bt_write_fail;                           // bt_write() returns false (a full queue)
 extern int g_fake_slot;
 extern bool g_fake_rssi_valid;  // bt_get_signal_strength(): a reading exists
 extern int8_t g_fake_rssi;       // its value, dB from the golden range

@@ -19,13 +19,19 @@ constexpr uint32_t CONFIG_FLASH_OFFSET = PICO_FLASH_BANK_STORAGE_OFFSET - 1u * F
 constexpr uint32_t SLOTS_FLASH_OFFSET  = PICO_FLASH_BANK_STORAGE_OFFSET - 2u * FLASH_SECTOR_SIZE;
 constexpr uint32_t REMAP_FLASH_OFFSET  = PICO_FLASH_BANK_STORAGE_OFFSET - 3u * FLASH_SECTOR_SIZE;
 constexpr uint32_t CALIB_FLASH_OFFSET  = PICO_FLASH_BANK_STORAGE_OFFSET - 4u * FLASH_SECTOR_SIZE;
-// Everything from here to the end of flash belongs to saved state (calibration,
-// remap, slots, config, BTstack's bank, the legacy config sector), never to the
-// firmware image. tools/check_flash_reserved.py reads it from the built ELF
-// (ds5_reserved_flash_start, config.cpp) and fails if any UF2 block or the
-// image's end reaches it, so a firmware update can't touch saved state.
-constexpr uint32_t RESERVED_FLASH_OFFSET = CALIB_FLASH_OFFSET;
-static_assert(RESERVED_FLASH_OFFSET < REMAP_FLASH_OFFSET && REMAP_FLASH_OFFSET < SLOTS_FLASH_OFFSET &&
+// Tension's saved trigger sets (protocol 1.23, src/tension.cpp): the next
+// sector down, below calibration. Nothing above moved; the sector was free
+// (firmware images end far below: 0.9.4's is ~1.37 MB of the 4 MB).
+constexpr uint32_t TENSION_FLASH_OFFSET = PICO_FLASH_BANK_STORAGE_OFFSET - 5u * FLASH_SECTOR_SIZE;
+// Everything from here to the end of flash belongs to saved state (Tension's
+// sets, calibration, remap, slots, config, BTstack's bank, the legacy config
+// sector), never to the firmware image. tools/check_flash_reserved.py reads it
+// from the built ELF (ds5_reserved_flash_start, config.cpp) and fails if any
+// UF2 block or the image's end reaches it, so a firmware update can't touch
+// saved state.
+constexpr uint32_t RESERVED_FLASH_OFFSET = TENSION_FLASH_OFFSET;
+static_assert(RESERVED_FLASH_OFFSET + FLASH_SECTOR_SIZE == CALIB_FLASH_OFFSET, "Tension's sector sits directly below calibration");
+static_assert(CALIB_FLASH_OFFSET < REMAP_FLASH_OFFSET && REMAP_FLASH_OFFSET < SLOTS_FLASH_OFFSET &&
               SLOTS_FLASH_OFFSET < CONFIG_FLASH_OFFSET && CONFIG_FLASH_OFFSET < PICO_FLASH_BANK_STORAGE_OFFSET,
               "RESERVED_FLASH_OFFSET must be the lowest saved-state sector");
 // Where config lived before; read once to migrate saved settings.

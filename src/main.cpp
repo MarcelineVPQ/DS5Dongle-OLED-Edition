@@ -28,6 +28,7 @@
 #include "oled.h"
 #include "remap.h"
 #include "calib.h"
+#include "tension.h"
 #include "perf.h"
 #include "ctrl_info.h"
 #include "dse.h"
@@ -505,8 +506,13 @@ static bool host_out02_forward(const uint8_t *buffer, uint16_t bufsize) {
     // all of them at "the game's own" the report goes out as the
     // game sent it (upstream #228's fix).
     state_stamp_config(outputData + 3, true);
+    // Tension (proto 1.23): our trigger effects where a set owns the trigger
+    // (Fill in / Replace); untouched when none runs.
+    const uint8_t tension_wrote = tension_on_state_report(outputData + 3);
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); false when the output queue is full, so g_host_out02_to_bt counts only reports that went out
-    return bt_write(outputData, sizeof(outputData));
+    const bool sent = bt_write(outputData, sizeof(outputData));
+    if (!sent) tension_report_lost(tension_wrote);
+    return sent;
 }
 
 // A host output report 0x02 (buffer[0] = 0x02, bufsize >= 2): counted for
@@ -696,6 +702,7 @@ int main() {
     config_load();
     remap_load();
     calib_load();
+    tension_load();
 
     bt_init();
     bt_register_data_callback(on_bt_data);
@@ -742,6 +749,7 @@ int main() {
         perf_record(PERF_AUDIO, t3 - t2c);
         interrupt_loop();
         calib_service();
+        tension_task();  // after the input report: the stages run on the newest pull
         const uint32_t t4 = perf_now();
         perf_record(PERF_INPUT, (t4 - t3) + (t2c - t2));
         oled_loop();

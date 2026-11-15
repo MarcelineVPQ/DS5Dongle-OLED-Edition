@@ -15,6 +15,7 @@
 #include "identify_screen.h"
 #include "display_table.h"
 #include "settings_merge.h"
+#include "tension.h"
 #include "settings_menu.h"
 #include "diag_rows.h"
 #include "audio.h"
@@ -589,6 +590,8 @@ void send_trigger_effect(int preset) {
     for (int i = 0; i < 9; i++) pkt[25 + i] = p[i];
 
     state_stamp_host_rumble(pkt + 3);
+    // Tension stands aside while a test preset is on (Off ends the test).
+    tension_pause(preset != 0);
     // error: LOGGED-OK — counter bt_send_drops (0xFD, OLED Diagnostics); a full output queue drops this OLED test/lightbar write, the next one (KEY press, ~10 Hz preview) sends it again
     bt_write(pkt, sizeof(pkt));
 }
@@ -1167,6 +1170,13 @@ __attribute__((noinline)) void render_screen_triggers() {
         if (rfill > 0) rect_filled(74, 37, rfill, 5);
     } else {
         draw_text(kContentX, 24, "(no controller)");
+    }
+
+    // Tension's running set (protocol 1.23), between the bars and the hint.
+    const char *set = tension_running_name();
+    if (set[0]) {
+        snprintf(buf, sizeof(buf), "Set: %.13s", set);
+        draw_text(kContentX, 46, buf);
     }
 
     draw_text(kContentX, 56, "Tri=cycle");
