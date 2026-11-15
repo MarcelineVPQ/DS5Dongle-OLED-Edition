@@ -141,6 +141,14 @@ void CORE0_RAM_FUNC(interrupt_loop)() {
         }
     }
 
+    // Tension buttons (proto 1.24), every pass, before the gamepad's own
+    // checks: hold / double press / tap / turbo timers, gyro, and the keys
+    // and mouse interface (which doesn't wait for the gamepad endpoint). A
+    // gamepad output that changed without a new Bluetooth report (a timer)
+    // needs a report in real-time polling too.
+    // error: NOT-WORTH — not a failure: true only says the gamepad output changed (a timer), so real-time polling sends a report
+    if (buttons_task()) report_dirty = true;
+
     // Only the wake keyboard on the bus: HID instance 0 isn't the DualSense.
     if (usb_wake_keyboard() || !tud_hid_ready()) return;
 
@@ -267,6 +275,7 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
 
         if (get_config().polling_rate_mode != 2) {
             memcpy(interrupt_in_data, data + 3, 63);
+            buttons_on_input();  // Tension buttons: a fresh report (gyro, the stale check)
 #if ENABLE_BATT_LED
             battery_led_note_report();
 #endif
@@ -274,6 +283,7 @@ void CORE0_RAM_FUNC(on_bt_data)(CHANNEL_TYPE channel, uint8_t *data, uint16_t le
         }
 
         memcpy(interrupt_in_data, data + 3, 63);
+        buttons_on_input();
         report_dirty = true;
 #if ENABLE_BATT_LED
         battery_led_note_report();

@@ -61,3 +61,10 @@ typedef struct __attribute__((packed)) {
 
 // fakes.cpp: g_fake_tud_mounted (the host has configured us).
 bool tud_mounted();
+// fakes.cpp, for src/buttons.cpp (protocol 1.24): the keys and mouse
+// interface's reports (g_fake_hid_reports), whether its endpoint is free
+// (g_fake_hid_ready) and USB suspend (g_fake_tud_suspended).
+bool tud_suspended();
+bool tud_hid_n_ready(uint8_t instance);
+bool tud_hid_n_report(uint8_t instance, uint8_t report_id, void const *report, uint16_t len);
+void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report, uint16_t len);

@@ -45,6 +45,11 @@ void calib_apply(uint8_t *report);
 // 0..255, the raw value when that trigger isn't calibrated. Tension's stages
 // read it (protocol 1.23).
 uint8_t calib_trigger(int i, uint8_t raw);
+// The gyro's zero per axis (pitch, yaw, roll), for gyro as mouse (protocol
+// 1.24, docs/TENSION_BUTTONS.md section 4.6): the current slot's calibrated
+// rest reading when it has one, else the controller's factory bias (0x05).
+// False until 0x05 has arrived on this connection (as calib_apply's gyro step).
+bool calib_gyro_zero(int16_t out[3]);
 enum class CalibSet : uint8_t { Ok, Invalid, NotSaved };
 CalibSet calib_set(uint8_t slot, const uint8_t *body);
 void calib_get(uint8_t slot, uint8_t out[kCalibBodySize]);

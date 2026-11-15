@@ -48,3 +48,8 @@ extern uint8_t g_fake_chip;
 // tud_mounted() (src/usb_descriptors.cpp's keys and mouse latch, proto 1.24).
 extern bool g_fake_tud_mounted;
 extern bool g_usb_wake_keyboard;  // usb_power.h
+// src/buttons.cpp (protocol 1.24): tud_suspended(), tud_hid_n_ready() and the
+// reports tud_hid_n_report() sent, each [instance, report id, bytes...].
+extern bool g_fake_tud_suspended;
+extern bool g_fake_hid_ready;
+extern std::vector<std::vector<uint8_t>> g_fake_hid_reports;

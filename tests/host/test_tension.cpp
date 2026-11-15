@@ -875,7 +875,7 @@ TEST(tension_buttons_identity_bit_58) {
     fresh();
     uint8_t id[63]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 59), 59);
-    CHECK_EQ(id[58], buttons::kFeatLayouts);
+    CHECK_EQ(id[58], 0x7F);  // steps 2-8: every piece; bit7 reserved
 }
 
 TEST(tension_buttons_save_read_back_run_and_survive_a_restart) {
@@ -942,19 +942,22 @@ TEST(tension_buttons_ver1_save_keeps_a_slots_buttons) {
     CHECK(buttons::all_zero(reinterpret_cast<const uint8_t *>(&none), sizeof(none)));
 }
 
-TEST(tension_buttons_refuses_bad_and_later_pieces) {
+TEST(tension_buttons_refuses_bad_parts_and_takes_every_piece) {
     fresh();
     const SetBody bow = make_set("Bow", Program{}, bow_r2());
-    // A Hold row is valid (section 3.5) but build step 4's: INVALID here.
+    // A Hold row (build step 4) is taken now, like every piece of steps 2-8.
     buttons::ButtonPart hold = press_part({});
     const uint8_t e[6] = {buttons::kCross, buttons::kHold, buttons::kButton, buttons::kTriangle, 0, 30};
     std::memcpy(hold.pool, e, sizeof(e));
     hold.pool_len = sizeof(e);
     CHECK(buttons::part_valid(hold));
-    with_crc2(0x1D, 0, stage_v2(bow, hold));
-    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
     with_crc2(0x1E, 1, stage_v2(bow, hold));
-    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    set({0x1E, kWireVer2, 0});
+    with_crc2(0x1D, 0, stage_v2(bow, hold));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
     // A rule broken (Cross targets button 18).
     buttons::ButtonPart bad = press_part({{buttons::kCross, buttons::kCircle}});
     bad.pool[3] = 18;
@@ -1091,4 +1094,53 @@ TEST(tension_store_layout1_loads_and_saves_as_layout2) {
     CHECK(store_load(a, s) == Load::Ok);
     CHECK_EQ(s.slot[6].used, 0);
     CHECK_EQ(s.h.active, kNone);
+}
+
+// Build step 8 (docs/TENSION_BUTTONS.md section 6.2): 0x22 runs the staged set
+// for a game, shown as slot 0xFD, and never writes flash; 0x12 or [2, 0] ends it.
+TEST(tension_app_set_runs_without_writing_flash_and_0x12_ends_it) {
+    fresh();
+    with_crc2(0x1D, 1, stage_v2(make_set("Saved", Program{}, bow_r2()), kNoSquare));
+    settle();
+    set({0x20, kWireVer, 1, 0});  // the saved choice: slot 1
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    static uint8_t before[PICO_FLASH_SIZE_BYTES];
+    std::memcpy(before, g_fake_flash, sizeof(before));
+    const uint32_t crc = stage_v2(make_set("Game", Program{}, bow_r2()), kSwap);
+    with_crc2(0x22, 1, crc);
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);  // the app's set's buttons
+    CHECK(std::strcmp(tension_running_name(), "Game") == 0);
+    uint8_t r[63];
+    CHECK_EQ(tension_get(0x00, r, 63), 8 + 2 * (4 + kEffectBytes));
+    CHECK_EQ(r[3] & 0x04, 0x04);  // a choice for now
+    CHECK_EQ(r[4], 1);            // the saved choice stays
+    CHECK_EQ(r[5], kAppSet);      // chosen now: the app's set
+    uint8_t live[63];
+    buttons_live_get(live, 63);
+    CHECK_EQ(live[4], kAppSet);
+    settle();
+    CHECK(std::memcmp(before, g_fake_flash, sizeof(before)) == 0);  // nothing written
+    set({0x12});  // the game ended: back to the saved choice
+    CHECK_EQ(pc_gets(kSq), 0x08);  // slot 1's buttons: Square off
+    tension_get(0x00, r, 63);
+    CHECK_EQ(r[5], 1);
+    // [2, 0] ends it too; with none running it is OK and changes nothing.
+    with_crc2(0x22, 1, crc);
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);
+    set({0x22, kWireVer2, 0});
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX), 0x08 | kX);
+    set({0x22, kWireVer2, 0});
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    // Refused: a bad CRC, ver 1, bad framing.
+    with_crc2(0x22, 1, crc ^ 1);
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    set({0x22, kWireVer, 0});
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    set({0x22, kWireVer2});
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    settle();
+    CHECK(std::memcmp(before, g_fake_flash, sizeof(before)) == 0);
 }

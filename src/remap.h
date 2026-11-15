@@ -57,6 +57,8 @@ bool remap_set_temporary(const uint8_t *table);
 void remap_revert();
 // A temporary table is active (identity [19] bit 1).
 bool remap_temporary();
+// The table in use changes something (not the identity): GET 0xE8 [3] bit0.
+bool remap_active();
 
 // Copy the current 16-entry table out.
 void remap_get(uint8_t out[kRemapCount]);

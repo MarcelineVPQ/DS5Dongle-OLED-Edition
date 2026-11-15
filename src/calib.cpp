@@ -194,6 +194,15 @@ uint8_t calib_trigger(int i, uint8_t raw) {
     return clamp_u8(((float) raw - t.lo) * 255.0f / (float) (t.hi - t.lo));
 }
 
+bool calib_gyro_zero(int16_t out[3]) {
+    // error: NOT-WORTH — not a failure: 0x05 hasn't arrived yet, so gyro as mouse waits (as calib_apply's gyro step does)
+    if (!g_bias_known) return false;
+    const int slot = slot_now();
+    // loop: HOT-PATH-OK — N = 3 gyro axes, per input report while gyro as mouse is on
+    for (int i = 0; i < 3; i++) out[i] = g_active[slot].gyro ? g_cal.body[slot].gyro[i] : g_bias[i];
+    return true;
+}
+
 void calib_apply(uint8_t *r) {
     const int slot = slot_now();
     const Active &a = g_active[slot];

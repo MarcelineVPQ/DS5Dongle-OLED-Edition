@@ -751,6 +751,12 @@ uint8_t tension_delete_check(const uint8_t *args, uint16_t n); // 0x1F at SET ti
 uint8_t tension_delete(uint8_t slot);                          // 0x1F from cmd_task
 uint8_t tension_select(const uint8_t *args, uint16_t n, bool &defer_save);  // 0x20
 uint8_t tension_select_save(uint8_t slot);                     // 0x20 saved, from cmd_task
+// 0x22 [2, 1, crc32 over 494] (protocol 1.24, docs/TENSION_BUTTONS.md
+// section 6.2): the staged set runs as the set chosen now, for a game, RAM
+// only (never written to flash), shown as slot kAppSet; [2, 0] ends it (back
+// to the saved choice), as does 0x12.
+uint8_t tension_app_set(const uint8_t *args, uint16_t n);       // 0x22, now
+constexpr uint8_t kAppSet = 0xFD;
 // GET 0xE9 (vendor interface only): the reply for `selector`, ≤ 63 bytes.
 uint16_t tension_get(uint8_t selector, uint8_t *buffer, uint16_t reqlen);
 

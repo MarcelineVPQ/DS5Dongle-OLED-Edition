@@ -1,9 +1,19 @@
 # Tension buttons: button layouts in Tension sets (protocol 1.24)
 
-Status: build steps 1 and 2 (section 9) are built in the firmware, not yet
-checked on hardware; the rest is design. Direction approved by the owner
-2026-11-15 (scope: all four parts below; GUI: the research report's
-recommendation with its four picks; the +1: live truth from the board).
+Status: build steps 1 to 8 (section 9) are built in the firmware, not yet
+checked on hardware; section 4.10 lists the choices the firmware made where
+this document left room. Direction approved by the owner 2026-11-15 (scope:
+all four parts below; GUI: the research report's recommendation with its four
+picks; the +1: live truth from the board).
+
+**Words (owner, 2026-11-15):** the app has no "Sets" concept. What users see
+is the existing **Button layouts** (named, with Load / Update / Delete); a
+board slot simply holds a layout that runs without the app (its buttons and
+its trigger effects). The data model and the protocol below are unchanged and
+keep their internal names (set, SetBody, slot); anything users read (the
+OLED, the app, the CHANGELOG and READMEs) says "layout", never "set". Section
+7 still says "set" where it describes the GUI; the app's rebuild follows the
+new words.
 This document is the contract for both repos: the firmware half, the protocol,
 and the app's GUI. It builds on `docs/TENSION.md` (protocol 1.23), which stays
 true except where section 3 below changes the store.
@@ -227,7 +237,10 @@ returns. Firmware before 1.23 never reads either sector.
 **RAM** (estimate): the store's page buffer grows from 1280 to 4096 bytes, the
 staged and Feel it buffers from 2 × 134 to 2 × 494, the engine's compiled
 layout and state about 1.7 KB (section 4.2): about **+5.2 KB** in all. Measure
-with `tools/analyze.sh` at step 2.
+with `tools/analyze.sh` at step 2. As built (steps 3-8, estimate from the
+struct sizes, not measured): the compiled `buttons::Layout` holds 4 × 22 + 22
+entries of 18 bytes (about 2.0 KB), the engine's state about 1.6 KB, and the
+app's set for 0x22 another 494 bytes.
 
 **Flash time**: a save erases one sector and writes 16 pages instead of 5, from
 `cmd_task()` with core1 parked, as today. Not measured.
@@ -291,9 +304,11 @@ reboot, the OLED, the virtual OLED buttons and `0xF0` keep raw input.
 **Real-time polling** (`polling_rate_mode` 2, `src/config.h:25`) sends a report
 only when `report_dirty` is set (main.cpp:160-188). Timers (hold, double
 window, turbo, tap end, mouse motion, gyro) change the output without a new
-Bluetooth report, so the engine keeps `next_deadline_us` and `interrupt_loop`
-sets `report_dirty` when it passes. The fixed-rate modes send every pass that
-`tud_hid_ready()` allows, so they need nothing extra.
+Bluetooth report. As built, instead of a `next_deadline_us`: the engine steps
+on every main-loop pass while a set's buttons run (`buttons_task`, at the top
+of `interrupt_loop`), and when the gamepad half of its output changed it
+returns true and `interrupt_loop` sets `report_dirty`. The fixed-rate modes
+send every pass that `tud_hid_ready()` allows, so they need nothing extra.
 
 ### 4.2 Compiling a layout
 
@@ -445,9 +460,52 @@ comes up (`usb_wake_keyboard()`, main.cpp:144).
 
 Per pass with a set's buttons running: 22 sources × a few compares, one
 entry lookup per edge, two gyro multiplies per input report: a few microseconds
-at 150 MHz (estimate). The `0xFC` "input" stage (stage 4) measures it: one A/B
-reading on the owner's hardware at step 3, per the testing rule. With nothing
-running: one flag test, then today's `remap_apply`.
+at 150 MHz (estimate). As built the engine steps twice per pass that sends a
+gamepad report (`buttons_task`, then `buttons_apply` on the report; the second
+finds no new edge) and builds the keyboard report only for a layout with key
+targets. The `0xFC` "input" stage (stage 4) measures it: one A/B reading on
+the owner's hardware, per the testing rule: reset with 0xF6 0x15, play one
+minute with no set's buttons, read stage 4's average and max; then the same
+with a layout using Hold and keys. **Not measured yet** (no reading in this
+document is from hardware). With nothing running: one flag test (`g_layout`
+and a pending all-up report), then today's `remap_apply`.
+
+### 4.10 As built: choices the firmware made
+
+Where sections 4.3-4.8 left room, the firmware (`src/buttons.h`,
+`src/buttons.cpp`) does this; the app's simulated board should match.
+
+1. **After release everything** (4.8) a button still held counts as a new
+   press at the next step, so it acts in the new layout (after a layout
+   change, the pause, or a fresh report following a stale gap). While input
+   isn't current (no controller, no report for `kStaleUs`, `tud_suspended()`,
+   the wake keyboard) the engine doesn't step at all and every output stays
+   released.
+2. **A PS press used by a chord** (4.5) is cancelled whole: no PS tap, no
+   pass-through after `kPsPassUs`, and no PS Hold row either.
+3. **Gyro switches** (3.4 kind 6, a = 2) flip a latch. With flags bit2 (needs
+   a button) gyro runs while a "while held" target holds it or the latch is
+   on; without bit2 it runs unless the latch is on. "Off while held" always
+   wins. A layer's `lflags` 2 turns it off there.
+4. **Gyro direction** (**unverified**): turning left and tilting up are taken
+   as positive raw counts, so both are negated to move the pointer left / up
+   (and the right stick left / up); the invert flags turn either around.
+   `kGyroShift` 25 and `kGyroStickShift` 9 are starting values (**tunable**,
+   for the first trial).
+5. **Keys** go out paced: modifiers `kKeyLeadUs` (20 ms) before the key, the
+   key held at least `kKeyHoldUs` (60 ms), modifiers `kKeyTrailUs` (20 ms)
+   after it (**tunable**; idea from SundayMoments/DS5_Bridge, AGPL-3.0, no
+   code). A key that doesn't fit in the six is counted once and never sent
+   for that press, even when room frees up later. Turbo on a key target is
+   paced the same way, so pulses shorter than the pacing merge.
+6. **Mouse motion** keeps its remainder while a motion target stays on and
+   drops it when none is on that axis; pending counts wait (saturating at
+   ±32767) while the endpoint is busy and are dropped while the interface
+   isn't on the bus or keys and mouse are paused.
+7. **GET 0xE8**: while Feel it runs, [4] reads 0xFC (`kRunFeelIt`); an Edge
+   button as itself shows as target kind 1 with a = its source id 18..21;
+   with only the legacy table running, [9..11] repeats [6..8] and [12] is
+   0xFF.
 
 ## 5. USB: keys and mouse
 
@@ -633,7 +691,7 @@ shown. The input fields are the same raw bytes `0xF0` serves.
 | 0..1 | 'B','T' |
 | 2 | ver 1 |
 | 3 | flags: bit0 a layout runs (a set's or the legacy table), bit1 it is a set's, bit2 Feel it, bit3 keys-and-mouse interface up, bit4 gyro mouse on now, bit5 keys and mouse paused (outputs below are then what would have gone out) |
-| 4 | what runs: set slot 0..7, 0xFD the app's set, 0xFE the legacy table, 0xFF nothing |
+| 4 | what runs: set slot 0..7, 0xFC Feel it, 0xFD the app's set, 0xFE the legacy table, 0xFF nothing |
 | 5 | layer now 0..3 |
 | 6..8 | u24: sources physically down (bit = source id) |
 | 9..11 | u24: sources whose action is on now |
@@ -988,6 +1046,10 @@ key).
 
 Each step updates CHANGELOG, the READMEs (7 languages) where users see it, the
 loop / error / lifetime pass rows, and its BACKLOG row, in its own commit.
+(Steps 3-8 landed together in the firmware, at the owner's request for the
+whole feature at once; their checks are in `tests/host/test_buttons.cpp` and
+`tests/host/test_tension.cpp`. The pass tables and BACKLOG rows live in the
+app repo and are updated there.)
 
 ## 10. Open questions for the owner (recommendation first)
 

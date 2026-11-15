@@ -195,6 +195,8 @@ void remap_revert() {
 
 bool remap_temporary() { return g_temporary; }
 
+bool remap_active() { return g_active; }
+
 RemapSet remap_set_extra(const uint8_t *extra, bool temporary) {
     // error: SHOWN — CMD_RESULT_INVALID in 0xF1, the app's command error
     if (!valid_extra(extra)) return RemapSet::Invalid;

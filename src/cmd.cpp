@@ -617,18 +617,20 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         board_id_get(buffer + 50);
         if (reqlen < 59) return 50 + kBoardIdLen;
         // proto 1.24 (docs/TENSION_BUTTONS.md section 6): [58] a fifth
-        // feature byte, one bit per piece of Tension buttons as it lands
-        // (buttons::Feature). bit0 (build step 2): button layouts in sets,
-        // Press with controller buttons and Disable (0x1C / 0x1D / 0x1E ver 2,
-        // GET 0xE9 sel 0x80). The keys_mouse setting (build step 1) is the
-        // body's byte 53 (body 54), with its state in [59].
+        // feature byte, one bit per piece of Tension buttons (buttons::Feature):
+        // bit0 button layouts in sets (0x1C / 0x1D / 0x1E ver 2, GET 0xE9
+        // sel 0x80), bit1 press types, bit2 layers, bit3 live truth (GET
+        // 0xE8), bit4 keys and mouse buttons (0xF6 0x21), bit5 mouse motion
+        // and gyro, bit6 a set from the app for a game (0xF6 0x22); bit7
+        // reserved. The keys_mouse setting (build step 1) is the body's byte
+        // 53 (body 54), with its state in [59].
         buffer[58] = buttons::kBuilt;
         if (reqlen < 60) return 59;
         // [59] keys and mouse now: bit0 the interface is on the bus, bit1
-        // paused (0xF6 0x21, not built yet), bit2 the keys_mouse setting is
-        // saved on (so the app can say "Reconnect to start keys and mouse").
+        // paused (0xF6 0x21), bit2 the keys_mouse setting is saved on (so the
+        // app can say "Reconnect to start keys and mouse").
         // error: NOT-WORTH — a state bit, not a failure: false = not saved on (or nothing valid saved)
-        buffer[59] = (usb_keys_mouse_on() ? 0x01 : 0) | (config_saved_keys_mouse() ? 0x04 : 0);
+        buffer[59] = (usb_keys_mouse_on() ? 0x01 : 0) | (buttons_paused() ? 0x02 : 0) | (config_saved_keys_mouse() ? 0x04 : 0);
         return 60;
     }
     if (report_id == 0xf7) {
@@ -1141,6 +1143,8 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     //        0x1C [ver][offset][bytes] stage a set   0x1D [ver][slot][crc32] save it (deferred)
     //        0x1E [ver][on][crc32] Feel it            0x1F [ver][slot] delete (deferred)
     //        0x20 [ver][slot][temporary] choose the set (saved: deferred)
+    //   0x21 [1][seconds] pause keys and mouse (proto 1.24, buttons.cpp; 0 ends it)
+    //   0x22 [2][on][crc32] run the staged set for a game, RAM only (proto 1.24; [2][0] ends it)
     s_last_result = CMD_RESULT_OK;
     switch (func) {
         case 0x01:
@@ -1287,10 +1291,18 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
             else if (save) defer(func, buffer[2], 0);
             break;
         }
+        case 0x21:
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte (buttons_pause), the app's command error
+            s_last_result = buttons_pause(buffer + 1, bufsize - 1);
+            break;
+        case 0x22:
+            // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte (tension_app_set), the app's command error
+            s_last_result = tension_app_set(buffer + 1, bufsize - 1);
+            break;
         case 0x12:
             remap_revert();
             curves_revert(); // a game's stick curves end with its layout
-            tension_revert(); // and its Tension set (proto 1.23): back to the saved choice
+            tension_revert(); // and its Tension set (proto 1.23; and a set the app sent, 0x22): back to the saved choice
             break;
         default:
             // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: unknown function, the app's command error

@@ -46,11 +46,12 @@ union Staged {
 };
 static_assert(sizeof(Staged) == kStagedBytes);
 Staged g_staged{};
+Staged g_app{};  // 0x22: the set the app sent for a game, run as slot kAppSet (RAM only, never saved)
 uint8_t g_save_ver = kWireVer;     // the 0x1D waiting in cmd_task: ver 1 keeps the slot's buttons, ver 2 saves them
 SetBody g_preview{};                  // Feel it: runs instead of the chosen set
 buttons::ButtonPart g_preview_buttons{};  // ...and its buttons (zero for a ver 1 Feel it)
 bool g_preview_on = false;
-uint8_t g_choice = kNone;       // the set chosen now (0..7, kNone)
+uint8_t g_choice = kNone;       // the set chosen now (0..7, kAppSet, kNone)
 bool g_choice_temp = false;     // ...for now only (a game's profile), not the saved one
 const SetBody *g_running = nullptr;
 
@@ -83,17 +84,26 @@ void programs(const Program *pg[2]) {
 // before the next pass already has the right effect.
 void restart() {
     const bool chosen = g_choice < kSlots && g_img.s.slot[g_choice].used == 1;
+    const bool app = g_choice == kAppSet;  // 0x22: a set the app sent for a game (RAM only)
     if (g_preview_on) g_running = &g_preview;
     else if (chosen) g_running = &g_img.s.slot[g_choice].body;
+    else if (app) g_running = &g_app.s.body;
     else g_running = nullptr;
     // The buttons (proto 1.24, section 3.7): the first that has buttons wins,
     // Feel it, then the set chosen now; a part that leaves the buttons alone
     // falls through, and with neither the legacy remap table runs.
     const buttons::ButtonPart *part = nullptr;
-    if (g_preview_on && (g_preview_buttons.bflags & buttons::kUsed)) part = &g_preview_buttons;
-    else if (chosen && (g_img.s.slot[g_choice].buttons.bflags & buttons::kUsed)) part = &g_img.s.slot[g_choice].buttons;
+    uint8_t run_id = g_choice;
+    if (g_preview_on && (g_preview_buttons.bflags & buttons::kUsed)) {
+        part = &g_preview_buttons;
+        run_id = kRunFeelIt;
+    } else if (chosen && (g_img.s.slot[g_choice].buttons.bflags & buttons::kUsed)) {
+        part = &g_img.s.slot[g_choice].buttons;
+    } else if (app && (g_app.s.buttons.bflags & buttons::kUsed)) {
+        part = &g_app.s.buttons;
+    }
     // error: NOT-WORTH — false = nothing of this set's runs (it leaves the buttons alone, or a later build's pieces); the legacy table runs, as the doc's precedence says
-    buttons_run(part && buttons::compile(*part, g_layout) ? &g_layout : nullptr);
+    buttons_run(part && buttons::compile(*part, g_layout) ? &g_layout : nullptr, run_id);
     const uint32_t now = now_ms();
     // loop: HOT-PATH-OK — N = 2 triggers, on a set change
     for (int t = 0; t < 2; t++) {
@@ -311,6 +321,26 @@ uint8_t tension_select(const uint8_t *a, uint16_t n, bool &defer_save) {
         // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: the sets were saved by newer firmware (0xE9 status [3] bit3); the app says so
         if (g_newer) return CMD_RESULT_FAILED;
         defer_save = true;
+        return CMD_RESULT_OK;
+    }
+    restart();
+    return CMD_RESULT_OK;
+}
+
+uint8_t tension_app_set(const uint8_t *a, uint16_t n) {
+    // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad framing, the app's command error
+    if (n < 2 || a[0] != kWireVer2 || a[1] > 1) return CMD_RESULT_INVALID;
+    if (a[1] == 1) {
+        // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad CRC, set or button rule, the app's command error
+        if (n < 6 || !staged_ok(a + 2, kWireVer2)) return CMD_RESULT_INVALID;
+        g_app = g_staged;  // RAM only: nothing here writes flash
+        g_choice = kAppSet;
+        g_choice_temp = true;
+    } else if (g_choice == kAppSet) {
+        g_choice = g_img.s.h.active;
+        g_choice_temp = false;
+    } else {
+        // error: NOT-WORTH — not a failure: no set from the app runs, so there is nothing to end
         return CMD_RESULT_OK;
     }
     restart();

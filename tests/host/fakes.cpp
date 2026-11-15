@@ -208,6 +208,21 @@ void state_stamp_host_rumble(uint8_t *) {}
 #include "usb_power.h"
 bool g_fake_tud_mounted = false;
 bool tud_mounted() { return g_fake_tud_mounted; }
+// src/buttons.cpp's keyboard and mouse reports (protocol 1.24): each sent
+// report as [instance, report id, bytes...].
+bool g_fake_tud_suspended = false;
+bool g_fake_hid_ready = true;
+std::vector<std::vector<uint8_t>> g_fake_hid_reports;
+bool tud_suspended() { return g_fake_tud_suspended; }
+bool tud_hid_n_ready(uint8_t) { return g_fake_hid_ready; }
+bool tud_hid_n_report(uint8_t instance, uint8_t report_id, void const *report, uint16_t len) {
+    if (!g_fake_hid_ready) return false;
+    std::vector<uint8_t> r{instance, report_id};
+    const auto *b = static_cast<const uint8_t *>(report);
+    r.insert(r.end(), b, b + len);
+    g_fake_hid_reports.push_back(r);
+    return true;
+}
 bool g_usb_wake_keyboard = false;
 bool usb_power_wake_enabled() { return (config_power_flags() & POWER_PS_WAKES_PC) != 0; }
 size_t board_usb_get_serial(uint16_t desc_str1[], size_t max_chars) {

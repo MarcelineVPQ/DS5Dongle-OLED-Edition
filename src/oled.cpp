@@ -1173,9 +1173,11 @@ __attribute__((noinline)) void render_screen_triggers() {
     }
 
     // Tension's running set (protocol 1.23), between the bars and the hint.
+    // Users know it as a button layout (the app's Button layouts), so the
+    // screen says "Layout" (19 glyphs: 8 + 11 of the name).
     const char *set = tension_running_name();
     if (set[0]) {
-        snprintf(buf, sizeof(buf), "Set: %.13s", set);
+        snprintf(buf, sizeof(buf), "Layout: %.11s", set);
         draw_text(kContentX, 46, buf);
     }
 
