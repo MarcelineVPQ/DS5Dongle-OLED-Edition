@@ -10,6 +10,11 @@ are Sony's (Feedback, Weapon, Vibration, Multiple Position Feedback, Slope
 Feedback, Multiple Position Vibration); Bow, Galloping and Machine are shown as
 unofficial. Never "dongle" in user text.
 
+Since protocol 1.24 (`docs/TENSION_BUTTONS.md`) a board slot holds a whole
+button layout: its buttons and these trigger effects. Users read "layout",
+never "set" (the app's Button layouts, the OLED's "Layout:"); "set" below is
+the internal name of the data.
+
 ## 1. What it does
 
 - A **set** (for example "Bow") holds one small program for L2 and one for R2,

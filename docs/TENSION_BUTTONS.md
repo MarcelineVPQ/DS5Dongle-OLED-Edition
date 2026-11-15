@@ -11,9 +11,12 @@ is the existing **Button layouts** (named, with Load / Update / Delete); a
 board slot simply holds a layout that runs without the app (its buttons and
 its trigger effects). The data model and the protocol below are unchanged and
 keep their internal names (set, SetBody, slot); anything users read (the
-OLED, the app, the CHANGELOG and READMEs) says "layout", never "set". Section
-7 still says "set" where it describes the GUI; the app's rebuild follows the
-new words.
+OLED, the app, the CHANGELOG and READMEs) says "layout", never "set".
+**Section 7 (the GUI) is superseded** by the app repo's
+`docs/design/button-layouts-2026-11.md`: no Sets section, the existing Button
+layouts hold everything, and no keys-and-mouse switch (the app sets byte 53
+by itself on Save). Sections 3 to 6, the wire format, are unchanged and stay
+the contract.
 This document is the contract for both repos: the firmware half, the protocol,
 and the app's GUI. It builds on `docs/TENSION.md` (protocol 1.23), which stays
 true except where section 3 below changes the store.
@@ -740,6 +743,19 @@ and a 63-byte copy per GET; no flash, no printf, no heap.
    cache pass rows, the BACKLOG rows (section 8).
 
 ## 7. The GUI
+
+> **Superseded (2026-11-15).** The owner turned down the Sets GUI below (a
+> Sets section, a set editor, "Make a set", the Pico 2 W page's keys-and-mouse
+> switch). The app shipped one system instead: the existing **Button layouts**
+> hold every button's press types and targets, the layers, the gyro and the
+> trigger effects; up to 8 of them go on the board; keyboard keys need no
+> switch (the app turns byte 53 on or off when it saves and reconnects USB).
+> The app's GUI contract is its `docs/design/button-layouts-2026-11.md`. This
+> section stays as the record of the research picks it kept (the drawing in
+> the middle, sentences per button, press the real button or key to pick it,
+> layers that inherit, plain warnings, live truth); the same goes for the app
+> column of section 9, open question 1 of section 10 and the "Make a set"
+> part of open question 3.
 
 The app's framework (app CLAUDE.md, "Page rules"): the drawing is the main view,
 the accordion beside it holds settings and actions, one save bar saves board
