@@ -144,7 +144,7 @@ keyboard-and-mouse base (all 21 sources that can take a Press) takes 105 bytes.
 Entries are sorted by (layer, source), at most one per pair.
 
 **Sources (22)**, 0..15 exactly the legacy order (remap.cpp:19-23), then:
-16 Touch pad button (byte 9 bit 0x02, per SDL `SDL_hidapi_ps5.c` as remap.h
+16 Touch pad button (byte 9 bit 0x02, per SDL's SDL_hidapi_ps5.c (in SDL, not this repo) as remap.h
 cites it), 17 PS button (byte 9 bit 0x01), 18 Left Fn button, 19 Right Fn
 button, 20 Left back button, 21 Right back button (byte 9 bits 0x10..0x80, as
 remap.cpp:283). The sticks are not sources (they are axes); the Mute button is
