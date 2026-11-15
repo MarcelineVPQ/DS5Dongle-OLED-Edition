@@ -47,6 +47,7 @@ TEST(config_erased_flash_gives_documented_defaults) {
     CHECK_EQ(c.mic_echo_cancel, 1);  // on (1.17)
     CHECK_EQ(c.packet_mode, 0);         // the packed 0x39 (1.22)
     CHECK_EQ(c.disconnect_on_dock, 0);  // off (1.22)
+    CHECK_EQ(c.keys_mouse, 0);          // off (1.24)
     CHECK(config_unsaved());  // nothing valid saved yet
 }
 

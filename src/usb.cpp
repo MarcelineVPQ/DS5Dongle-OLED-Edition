@@ -216,6 +216,9 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
     return audio10_set_req_entity(p_request, buf);
 }
 
+// Nothing yet for either HID instance (0 the DualSense, 1 keys and mouse,
+// protocol 1.24): the live truth report (docs/TENSION_BUTTONS.md section 6.4,
+// build step 3) will check the instance here first.
 void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report, uint16_t len) {
     (void) instance;
     (void) len;

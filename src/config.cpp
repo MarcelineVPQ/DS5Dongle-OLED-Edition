@@ -158,6 +158,7 @@ static void config_normalise(Config &c) {
     if (body->mic_echo_cancel > 1) body->mic_echo_cancel = 1;   // protocol 1.17: on
     if (body->packet_mode > 1) body->packet_mode = 0;           // protocol 1.22: the packed 0x39
     if (body->disconnect_on_dock > 1) body->disconnect_on_dock = 0;  // protocol 1.22: off
+    if (body->keys_mouse > 1) body->keys_mouse = 0;             // protocol 1.24: off
     if (c.power_flags & ~POWER_FLAGS_MASK) c.power_flags = POWER_FLAGS_DEFAULT; // 0xFF erased / older firmware
     c.display_id = display::resolve(c.display_id);  // 0xFF from firmware before 1.21: the Pico-OLED-1.3
     if (body->config_version != CONFIG_VERSION) {
@@ -400,6 +401,16 @@ bool config_save_display_id(uint8_t id) {
     page.display_id = id;
     // error: SHOWN — passed up; the callers report it (0xF1 CMD_RESULT_FAILED to the app, the OLED's "Save FAIL")
     return write_config(page);
+}
+
+bool config_saved_keys_mouse() {
+    const Config *saved = flash_config();
+    // error: NOT-WORTH — nothing valid saved yet reads as off (the default), not a failure
+    if (!config_page_intact(saved)) return false;
+    Config page = *saved;
+    take_short_body(page, saved);  // a body from older firmware: keys_mouse reads 0xFF, off
+    config_normalise(page);
+    return page.body.keys_mouse == 1;
 }
 
 const Config_body& get_config() {

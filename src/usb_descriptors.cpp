@@ -29,6 +29,7 @@
 #include "bt.h"
 #include "slots.h"
 #include "usb_power.h"
+#include "usb_keys_mouse.h"
 #if ENABLE_COMPANION_VENDOR
 #include "vendor_itf.h"
 #endif
@@ -76,6 +77,18 @@ enum {
 
 #if ENABLE_COMPANION_VENDOR
 static_assert(ITF_NUM_VENDOR == VENDOR_ITF_NUM, "vendor_itf.h VENDOR_ITF_NUM out of sync with the interface enum");
+// Protocol 1.24 (docs/TENSION_BUTTONS.md section 5.4): the keyboard + mouse
+// interface comes after every other one, so CONFIG_DESC_LEN_BASE (the
+// bInterval / HID-length patch anchor), those patch offsets and
+// VENDOR_ITF_NUM don't move. It is not counted in ITF_NUM_TOTAL or
+// CONFIG_DESC_LEN_TOTAL: its bytes sit after the vendor interface and
+// tud_descriptor_configuration_cb counts them in only while it is on, so with
+// it off the host gets exactly the configuration it got before.
+enum { ITF_NUM_KEYS_MOUSE = ITF_NUM_VENDOR + 1 };
+static_assert(ITF_NUM_KEYS_MOUSE == ITF_NUM_TOTAL, "keys and mouse is the last interface");
+// Off until the host has configured us with it on (see the callback): a
+// setting changed after enumeration waits for the next connect.
+static bool s_keys_mouse = false;
 #endif
 
 // String Descriptor Index
@@ -216,6 +229,81 @@ uint8_t const *tud_descriptor_device_cb(void) {
     desc_device.idProduct = ds_mode() ? 0x0CE6 : 0x0DF2;
     return reinterpret_cast<uint8_t const *>(&desc_device);
 }
+
+#if ENABLE_COMPANION_VENDOR
+// Protocol 1.24: the keyboard + mouse interface's report descriptor
+// (docs/TENSION_BUTTONS.md section 5.4, byte for byte). Report 1, keyboard,
+// 8 bytes: modifiers, reserved, 6 keys (usages up to 0xA4). Report 2, mouse,
+// 7 bytes: 5 buttons, X and Y int16, wheel, horizontal pan (AC Pan). Input
+// reports only: no output report, so the host sends no keyboard LEDs.
+static uint8_t const desc_hid_report_km[] = {
+    0x05, 0x01,        // Usage Page (Generic Desktop)
+    0x09, 0x06,        // Usage (Keyboard)
+    0xA1, 0x01,        // Collection (Application)
+    0x85, 0x01,        //   Report ID (1)
+    0x05, 0x07,        //   Usage Page (Keyboard/Keypad)
+    0x19, 0xE0,        //   Usage Minimum (Left Control)
+    0x29, 0xE7,        //   Usage Maximum (Right GUI)
+    0x15, 0x00,        //   Logical Minimum (0)
+    0x25, 0x01,        //   Logical Maximum (1)
+    0x75, 0x01,        //   Report Size (1)
+    0x95, 0x08,        //   Report Count (8)
+    0x81, 0x02,        //   Input (Data,Var,Abs): modifiers
+    0x95, 0x01,        //   Report Count (1)
+    0x75, 0x08,        //   Report Size (8)
+    0x81, 0x01,        //   Input (Const): reserved
+    0x95, 0x06,        //   Report Count (6)
+    0x75, 0x08,        //   Report Size (8)
+    0x15, 0x00,        //   Logical Minimum (0)
+    0x26, 0xA4, 0x00,  //   Logical Maximum (164)
+    0x05, 0x07,        //   Usage Page (Keyboard/Keypad)
+    0x19, 0x00,        //   Usage Minimum (0)
+    0x29, 0xA4,        //   Usage Maximum (164)
+    0x81, 0x00,        //   Input (Data,Array): 6 keys
+    0xC0,              // End Collection
+    0x05, 0x01,        // Usage Page (Generic Desktop)
+    0x09, 0x02,        // Usage (Mouse)
+    0xA1, 0x01,        // Collection (Application)
+    0x85, 0x02,        //   Report ID (2)
+    0x09, 0x01,        //   Usage (Pointer)
+    0xA1, 0x00,        //   Collection (Physical)
+    0x05, 0x09,        //     Usage Page (Button)
+    0x19, 0x01,        //     Usage Minimum (1)
+    0x29, 0x05,        //     Usage Maximum (5)
+    0x15, 0x00,        //     Logical Minimum (0)
+    0x25, 0x01,        //     Logical Maximum (1)
+    0x95, 0x05,        //     Report Count (5)
+    0x75, 0x01,        //     Report Size (1)
+    0x81, 0x02,        //     Input (Data,Var,Abs): buttons
+    0x95, 0x01,        //     Report Count (1)
+    0x75, 0x03,        //     Report Size (3)
+    0x81, 0x01,        //     Input (Const): padding
+    0x05, 0x01,        //     Usage Page (Generic Desktop)
+    0x09, 0x30,        //     Usage (X)
+    0x09, 0x31,        //     Usage (Y)
+    0x16, 0x01, 0x80,  //     Logical Minimum (-32767)
+    0x26, 0xFF, 0x7F,  //     Logical Maximum (32767)
+    0x75, 0x10,        //     Report Size (16)
+    0x95, 0x02,        //     Report Count (2)
+    0x81, 0x06,        //     Input (Data,Var,Rel): X, Y
+    0x09, 0x38,        //     Usage (Wheel)
+    0x15, 0x81,        //     Logical Minimum (-127)
+    0x25, 0x7F,        //     Logical Maximum (127)
+    0x75, 0x08,        //     Report Size (8)
+    0x95, 0x01,        //     Report Count (1)
+    0x81, 0x06,        //     Input (Data,Var,Rel): wheel
+    0x05, 0x0C,        //     Usage Page (Consumer)
+    0x0A, 0x38, 0x02,  //     Usage (AC Pan)
+    0x15, 0x81,        //     Logical Minimum (-127)
+    0x25, 0x7F,        //     Logical Maximum (127)
+    0x75, 0x08,        //     Report Size (8)
+    0x95, 0x01,        //     Report Count (1)
+    0x81, 0x06,        //     Input (Data,Var,Rel): pan
+    0xC0,              //   End Collection
+    0xC0,              // End Collection
+};
+static_assert(sizeof(desc_hid_report_km) == 129, "docs/TENSION_BUTTONS.md section 5.4: 129 bytes");
+#endif
 
 //--------------------------------------------------------------------+
 // Configuration Descriptor
@@ -502,8 +590,39 @@ uint8_t descriptor_configuration[] = {
     0x00, // bInterfaceSubClass
     0x00, // bInterfaceProtocol
     STRID_VENDOR, // iInterface
+
+    // --- Keys and mouse (protocol 1.24), sent only while it is on ---
+    // Past wTotalLength while off (tud_descriptor_configuration_cb), so the
+    // host never sees these bytes then and TinyUSB never opens HID instance 1.
+    0x09, // bLength
+    0x04, // bDescriptorType (INTERFACE)
+    ITF_NUM_KEYS_MOUSE, // bInterfaceNumber
+    0x00, // bAlternateSetting
+    0x01, // bNumEndpoints: 1 (IN only: no output report, no keyboard LEDs)
+    0x03, // bInterfaceClass: HID
+    0x00, // bInterfaceSubClass: none (no boot keyboard)
+    0x00, // bInterfaceProtocol: none
+    0x00, // iInterface: no string
+    0x09, // bLength
+    0x21, // bDescriptorType (HID)
+    0x11, 0x01, // bcdHID: 1.11
+    0x00, // bCountryCode
+    0x01, // bNumDescriptors
+    0x22, // bDescriptorType: Report
+    U16_TO_U8S_LE(sizeof(desc_hid_report_km)), // wDescriptorLength: 129
+    0x07, // bLength
+    0x05, // bDescriptorType (ENDPOINT)
+    0x87, // bEndpointAddress: IN EP7 (0x85/0x86 are the serial build's CDC; 0x01, 0x82, 0x84, 0x03 are taken)
+    0x03, // bmAttributes: Interrupt
+    0x10, 0x00, // wMaxPacketSize: 16
+    0x01, // bInterval: 1 ms
 #endif
 };
+#if ENABLE_COMPANION_VENDOR
+static_assert(sizeof(descriptor_configuration) == CONFIG_DESC_LEN_TOTAL + TUD_HID_DESC_LEN, "the keys and mouse interface is the only part past CONFIG_DESC_LEN_TOTAL");
+#else
+static_assert(sizeof(descriptor_configuration) == CONFIG_DESC_LEN_TOTAL, "wTotalLength is the whole configuration");
+#endif
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
 // Application return pointer to descriptor
@@ -537,7 +656,28 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     }else {
         descriptor_configuration[offset - 16] = 0xB5;
     }
+#if ENABLE_COMPANION_VENDOR
+    // Keys and mouse (protocol 1.24): taken from the setting while the host
+    // enumerates us (before SET_CONFIGURATION), then kept until the next
+    // connect, so the descriptor never changes under a configured host. Off:
+    // wTotalLength and bNumInterfaces as before, so the host gets the same
+    // bytes as before (tests/host/test_usb_descriptors.cpp).
+    if (!tud_mounted()) s_keys_mouse = get_config().keys_mouse == 1;
+    const uint16_t total = CONFIG_DESC_LEN_TOTAL + (s_keys_mouse ? TUD_HID_DESC_LEN : 0);
+    descriptor_configuration[2] = (uint8_t) (total & 0xFF);  // wTotalLength
+    descriptor_configuration[3] = (uint8_t) (total >> 8);
+    descriptor_configuration[4] = (uint8_t) (ITF_NUM_TOTAL + (s_keys_mouse ? 1 : 0));  // bNumInterfaces
+#endif
     return descriptor_configuration;
+}
+
+bool usb_keys_mouse_on() {
+#if ENABLE_COMPANION_VENDOR
+    return s_keys_mouse && tud_mounted() && !usb_wake_keyboard();
+#else
+    // error: NOT-WORTH — not a failure: a build without the configurator interface has no keys and mouse interface
+    return false;
+#endif
 }
 
 //--------------------------------------------------------------------+
@@ -922,8 +1062,12 @@ static_assert(sizeof(desc_hid_report_dse) == 0x01B5);
 // Invoked when received GET HID REPORT DESCRIPTOR
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
-uint8_t const *tud_hid_descriptor_report_cb(uint8_t itf) {
-    (void) itf;
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
+#if ENABLE_COMPANION_VENDOR
+    // Instance 1 exists only while keys and mouse is on the bus.
+    if (instance == KEYS_MOUSE_HID_INSTANCE) return desc_hid_report_km;
+#endif
+    (void) instance;
     if (usb_wake_keyboard()) return desc_hid_report_wake_kbd;
     if (ds_mode()) {
         return desc_hid_report_ds;

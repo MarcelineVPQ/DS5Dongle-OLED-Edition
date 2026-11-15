@@ -46,9 +46,9 @@ void settle() {
 TEST(fwid_identity_announces_0xea_in_byte_49) {
     fresh();
     uint8_t id[63]{};
-    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 58);
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 60);  // [58], [59] from 1.24
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 23);
+    CHECK_EQ(id[5], 24);
     CHECK_EQ(id[49], 0xFF);  // board id, identify, 0xEA (bit2), display choice (bit3), 1.22's bits 4..6, Tension (bit7, 1.23)
 }
 
@@ -183,7 +183,7 @@ TEST(fwid_config_display_migration_and_save) {
     fresh();
     CHECK_EQ(config_display_id(), display::kPicoOled13);  // erased flash
     CHECK_EQ(offsetof(Config, display_id), offsetof(Config, power_flags) + 1);
-    CHECK_EQ(sizeof(Config_body), 53u);  // the display choice isn't in the body (protocol 1.22 grew it, not 1.21)
+    CHECK_EQ(sizeof(Config_body), 54u);  // the display choice isn't in the body (protocols 1.22 and 1.24 grew it, not 1.21)
     CHECK(config_save());
     CHECK(!config_unsaved());
 

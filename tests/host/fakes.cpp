@@ -200,3 +200,20 @@ bool bt_write(const uint8_t *data, uint16_t len) {
 }
 uint8_t reportSeqCounter = 0;
 void state_stamp_host_rumble(uint8_t *) {}
+
+// src/usb_descriptors.cpp on the PC (test_usb_descriptors.cpp): TinyUSB's
+// mount state, the wake keyboard flag (usb_power.cpp), and the board and
+// Bluetooth reads its string descriptors make.
+#include "config.h"
+#include "usb_power.h"
+bool g_fake_tud_mounted = false;
+bool tud_mounted() { return g_fake_tud_mounted; }
+bool g_usb_wake_keyboard = false;
+bool usb_power_wake_enabled() { return (config_power_flags() & POWER_PS_WAKES_PC) != 0; }
+size_t board_usb_get_serial(uint16_t desc_str1[], size_t max_chars) {
+    const size_t n = max_chars < 4 ? max_chars : 4;
+    for (size_t i = 0; i < n; i++) desc_str1[i] = '0';
+    return n;
+}
+void bt_get_addr(uint8_t out[6]) { std::memset(out, 0, 6); }
+uint16_t const *ms_os_string_descriptor() { return nullptr; }

@@ -45,3 +45,6 @@ extern int g_fake_identify_calls;
 extern uint8_t g_fake_display_active;
 extern uint8_t g_fake_flash_measured;  // size code, 0 unknown
 extern uint8_t g_fake_chip;
+// tud_mounted() (src/usb_descriptors.cpp's keys and mouse latch, proto 1.24).
+extern bool g_fake_tud_mounted;
+extern bool g_usb_wake_keyboard;  // usb_power.h

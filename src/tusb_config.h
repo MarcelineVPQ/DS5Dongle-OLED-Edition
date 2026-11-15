@@ -96,7 +96,16 @@
 
 //------------- CLASS -------------//
 #define CFG_TUD_AUDIO             1
+// Two HID instances with the configurator build: 0 the DualSense (or the wake
+// keyboard), 1 the keyboard + mouse interface (protocol 1.24, only on the bus
+// while Config_body.keys_mouse is on; docs/TENSION_BUTTONS.md section 5.4).
+// TinyUSB opens only the interfaces the descriptor lists, so with the switch
+// off instance 1 stays closed.
+#if ENABLE_COMPANION_VENDOR
+#define CFG_TUD_HID               2
+#else
 #define CFG_TUD_HID               1
+#endif
 #define CFG_TUD_CDC               ENABLE_SERIAL
 #define CFG_TUD_MSC               0
 #define CFG_TUD_MIDI              0

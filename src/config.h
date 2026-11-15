@@ -121,6 +121,11 @@ struct __attribute__((packed)) Config_body {
     // charging station (input report byte 53 bit 6, DockDetect); 0 = off
     // (default). Upstream 2e79733 + 3fa663e.
     uint8_t disconnect_on_dock;
+    // Protocol 1.24 (docs/TENSION_BUTTONS.md section 5.4): 1 = present the
+    // keyboard + mouse HID interface after the configurator interface, from
+    // the next USB connect; 0 = off (default, and 0xFF from older firmware):
+    // the configuration descriptor is then byte-identical to before.
+    uint8_t keys_mouse;
 };
 
 // The body as protocol 1.6 to 1.12 sent it. A config GET (0xF7) for the
@@ -133,7 +138,8 @@ static_assert(__builtin_offsetof(Config_body, mic_level) == 49, "protocol 1.16's
 static_assert(__builtin_offsetof(Config_body, mic_echo_cancel) == 50, "protocol 1.17's echo cancellation follows the 50-byte 1.16 body");
 static_assert(__builtin_offsetof(Config_body, packet_mode) == 51, "protocol 1.22's fields follow the 51-byte 1.17 body");
 static_assert(__builtin_offsetof(Config_body, disconnect_on_dock) == 52, "protocol 1.22's dock disconnect follows the audio report choice");
-static_assert(sizeof(Config_body) == 53, "update cmd.cpp, the app's config.ts and CLAUDE.md with the body");
+static_assert(__builtin_offsetof(Config_body, keys_mouse) == 53, "protocol 1.24's keys and mouse switch follows the 53-byte 1.22 body");
+static_assert(sizeof(Config_body) == 54, "update cmd.cpp, the app's config.ts and CLAUDE.md with the body");
 
 // What the dongle does when the PC sleeps (protocol 1.14, src/usb_power.h).
 // Kept after the body, not in it: set and saved on its own (0xF6 0x17, like
@@ -188,6 +194,10 @@ uint8_t config_display_id();
 // Save a display choice on its own, like config_save_power_flags. False = not
 // a display this image drives, or the flash write failed.
 bool config_save_display_id(uint8_t id);
+// The keys-and-mouse switch as saved in flash (off when nothing valid is
+// saved), for identity [59] bit2 (protocol 1.24): saved on but not on the bus
+// yet = "Reconnect to start keys and mouse".
+bool config_saved_keys_mouse();
 const Config_body& get_config();
 void set_config(const uint8_t *new_config, const uint16_t len);
 void config_valid();

@@ -563,7 +563,7 @@ TEST(tension_identity_bit_and_minor) {
     fresh();
     uint8_t id[58]{};
     pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id));
-    CHECK_EQ(id[5], 23);
+    CHECK_EQ(id[5], 24);
     CHECK(id[49] & 0x80);
 }
 

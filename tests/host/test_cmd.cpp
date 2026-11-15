@@ -35,14 +35,14 @@ void settle() {  // let a deferred command run (reboot/BOOTSEL wait 50 ms)
 }
 }  // namespace
 
-TEST(cmd_identity_reports_protocol_1_23) {
+TEST(cmd_identity_reports_protocol_1_24) {
     fresh();
     uint8_t id[47]{};
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, sizeof(id)), 47);
     CHECK(std::memcmp(id, "DS5O", 4) == 0);
     CHECK_EQ(id[4], 1);
-    CHECK_EQ(id[5], 23);
-    CHECK_EQ(id[6], 53);
+    CHECK_EQ(id[5], 24);
+    CHECK_EQ(id[6], 54);
     CHECK(id[46] & 0x02);  // the 1.13 config fields
     CHECK(id[46] & 0x04);  // the 1.14 PC sleep options
     CHECK(id[46] & 0x08);  // the 1.15 timed grip test
@@ -68,13 +68,14 @@ TEST(cmd_identity_board_id_1_20) {
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 50), 50);
     CHECK_EQ(id[49] & 0x03, 0x03);
     CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 57), 50);  // the id doesn't fit: left out
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 58), 58);
     std::memset(id, 0, sizeof(id));
-    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 63), 58);
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 63), 60);  // proto 1.24 adds [58], [59]
     CHECK(std::memcmp(id + 50, g_fake_board_id, 8) == 0);
     // Same id with or without a controller (the USB serial follows the MAC).
     g_fake_bt_connected = false;
     uint8_t id2[63]{};
-    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id2, 63), 58);
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id2, 63), 60);
     CHECK(std::memcmp(id2 + 50, g_fake_board_id, 8) == 0);
 }
 
@@ -158,7 +159,7 @@ TEST(cmd_config_get_layouts) {
     CHECK_EQ(pico_cmd_get(0xF7, r, 38), 38);                            // the narrator read
 }
 
-// The app's config write (0x01) carries the whole 53-byte body.
+// The app's config write (0x01) carries the whole 54-byte body.
 TEST(cmd_config_set_takes_the_whole_body) {
     fresh();
     Config_body b = get_config();
@@ -266,6 +267,43 @@ TEST(cmd_config_1_22_fields) {
     CHECK_EQ(get_config().packet_mode, 0);
     CHECK_EQ(get_config().disconnect_on_dock, 0);
     CHECK_EQ(get_config().polling_rate_mode, 1);  // out of range: 500 Hz
+}
+
+// Protocol 1.24 (docs/TENSION_BUTTONS.md section 5.4): the keys and mouse
+// switch at body byte 53 (body 54), off by default and for 0xFF from older
+// firmware; a 1.22..1.23 app's 53-byte write leaves it alone. Identity [59]
+// bit2 is what flash holds, bit0 the interface on the bus (from the next
+// connect, so not after a save alone).
+TEST(cmd_config_1_24_keys_mouse) {
+    fresh();
+    CHECK_EQ(get_config().keys_mouse, 0);
+    uint8_t id[63]{};
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 60), 60);
+    CHECK_EQ(id[59], 0);
+    Config_body b = get_config();
+    b.keys_mouse = 1;
+    uint8_t msg[1 + sizeof(Config_body)];
+    msg[0] = 0x01;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, sizeof(msg));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(get_config().keys_mouse, 1);
+    pico_cmd_get(PICO_CMD_IDENTITY, id, 60);
+    CHECK_EQ(id[59] & 0x04, 0);  // not saved yet
+    CHECK(config_save());
+    pico_cmd_get(PICO_CMD_IDENTITY, id, 60);
+    CHECK_EQ(id[59], 0x04);  // saved on, not on the bus until the next connect
+    b.keys_mouse = 0;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, 1 + 53);  // a 1.22..1.23 app's body
+    CHECK_EQ(get_config().keys_mouse, 1);
+    b.keys_mouse = 0xFF;
+    std::memcpy(msg + 1, &b, sizeof(b));
+    pico_cmd_set(PICO_CMD_SET, msg, sizeof(msg));
+    CHECK_EQ(get_config().keys_mouse, 0);
+    uint8_t r[63]{};
+    CHECK_EQ(pico_cmd_get(0xF7, r, sizeof(Config_body)), sizeof(Config_body));
+    CHECK_EQ(r[53], 0);
 }
 
 TEST(cmd_fc_timings_layout_and_reset) {

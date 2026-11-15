@@ -69,7 +69,7 @@ bool any_lit(const BitCanvas &c, int x0, int y0, int x1, int y1) {
 TEST(settings_menu_every_row_fits_19_glyphs_at_every_value) {
     const Config_body body = defaults();
     // A row: the label from column 1, one blank at least, the value ending on column 18.
-    // loop: NOT-WORTH — host test, 29 items
+    // loop: NOT-WORTH — host test, 30 items
     for (const SetItem &it : kItems) {
         const int label = static_cast<int>(std::strlen(it.label));
         CHECK(kLabelCol + label <= kValueEndCol + 1);
@@ -105,13 +105,13 @@ TEST(settings_menu_groups_in_order_with_their_items) {
         {"Haptics/trigger", "Vibration L", "Vibration R", "Trig. effect", "AutoHap", "AutoHap gain", "Auto filter"},
         {"Audio", "Spk volume", "Spk boost", "Lock volume", "Audio out", "Built-in mic", "Mic used", "Mic level",
          "Echo cancel", "Audio buffer", "Audio pkt"},
-        {"Connection", "Controller", "Poll rate", "Disconnect", "Idle time", "Drop on dock"},
+        {"Connection", "Controller", "Poll rate", "Disconnect", "Idle time", "Drop on dock", "Keys+mouse"},
         {"Screen & lights", "Screen dim", "Screen off", "Wake on input", "Status LED"},
         {"PC sleep", "Turn off ctrl", "PS wakes PC"},
         {"Reset", "Reset to defaults", "Wipe all slots"},
     };
     CHECK_EQ(kNumGroups, 6);
-    CHECK_EQ(kNumItems, 29);
+    CHECK_EQ(kNumItems, 30);
     // loop: NOT-WORTH — host test
     for (int g = 0; g < kNumGroups; g++) {
         CHECK(std::strcmp(kGroups[g].name, want[g][0]) == 0);

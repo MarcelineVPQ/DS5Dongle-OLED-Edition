@@ -70,6 +70,7 @@ inline const SetItem kItems[] = {
     {"Disconnect", nullptr, nullptr, kDisabled, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disable_inactive_disconnect), 0, 1, 1},
     {"Idle time", "min", nullptr, nullptr, SK_NUM, SF_PLAIN, 0, ACT_NONE, CFG_OFF(inactive_time), 10, 60, 5},
     {"Drop on dock", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(disconnect_on_dock), 0, 1, 1},
+    {"Keys+mouse", nullptr, nullptr, nullptr, SK_BOOL, SF_PLAIN, 0, ACT_NONE, CFG_OFF(keys_mouse), 0, 1, 1},  // protocol 1.24, from the next USB connect
     // Screen & lights
     {"Screen dim", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_dim_timeout), 0, 250, 1},
     {"Screen off", "min", nullptr, nullptr, SK_NUM, SF_OFF0, 0, ACT_NONE, CFG_OFF(screen_off_timeout), 0, 250, 1},
@@ -89,10 +90,10 @@ struct Group { const char *name; uint8_t first, count; };
 inline constexpr Group kGroups[] = {
     {"Haptics/trigger", 0, 6},
     {"Audio", 6, 10},
-    {"Connection", 16, 5},
-    {"Screen & lights", 21, 4},
-    {"PC sleep", 25, 2},
-    {"Reset", 27, 2},
+    {"Connection", 16, 6},
+    {"Screen & lights", 22, 4},
+    {"PC sleep", 26, 2},
+    {"Reset", 28, 2},
 };
 constexpr int kNumGroups = sizeof(kGroups) / sizeof(kGroups[0]);
 constexpr bool groups_tile_items() {

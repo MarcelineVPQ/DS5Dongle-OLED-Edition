@@ -294,6 +294,13 @@ volatile uint32_t g_get_count = 0;
 
 uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer,
                                uint16_t reqlen) {
+    // `itf` is TinyUSB's HID instance. Only instance 0 is the DualSense (or
+    // the wake keyboard); a request to the keys and mouse interface (instance
+    // 1, protocol 1.24) must never reach the DualSense's feature reports, or
+    // a feature GET there could answer DualSense data (hid-playstation would
+    // then make a second controller).
+    // error: NOT-WORTH — USB STALL / a 1-byte reply: the keys and mouse interface has no feature or input report to GET (the OS doesn't need one)
+    if (itf != 0) return 0;
     if (usb_wake_keyboard()) {  // the wake keyboard: no keys down
         // error: NOT-WORTH — USB STALL; a zero/short GET from the host OS, which retries with the right length
         if (reqlen < 8) return 0;
@@ -534,7 +541,11 @@ static void host_out02(const uint8_t *buffer, uint16_t bufsize) {
 
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer,
                            uint16_t bufsize) {
-    (void) itf;
+    // `itf` is TinyUSB's HID instance: a SET to the keys and mouse interface
+    // (instance 1, protocol 1.24) is never forwarded to the controller or run
+    // as a configurator command.
+    // error: NOT-WORTH — nothing to do: the keys and mouse interface has no output or feature report (no keyboard LEDs)
+    if (itf != 0) return;
     (void) report_id;
     (void) report_type;
     (void) buffer;
