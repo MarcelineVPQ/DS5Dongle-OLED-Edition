@@ -1,42 +1,42 @@
 {
   "schema": 2,
   "channel": "dev",
-  "issued_at": "2026-11-15T22:03:56Z",
+  "issued_at": "2026-11-15T23:22:13Z",
   "newest_stable": "0.9.4",
   "app": {
-    "version": "0.9.5-dev.22",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.22-oled-edition",
-    "notes": "### Added\n\n- **Button layouts hold everything** (firmware protocol 1.24). The Button layouts you already have now hold, for every button, a **Press**, **Hold** (with its time), **Double press**, **With PS** (pressed together with the PS button), **Toggle** and **Turbo**. Each of them can be a controller button, a keyboard key (with Ctrl / Shift / Alt / Win), a mouse button, mouse movement or the wheel, a layer, the gyro, or nothing (Disabled). A layout also holds up to three **layers** over the base, **Gyro as mouse** (or as the right stick; in the Gyroscope section) and its own **trigger effects** (Tension, below).\n- **Layouts on the board work without the app.** **Put on the board** keeps up to 8 layouts on your board, and one of them runs from power-on, with or without the app. The save bar writes them. A game's profile picks a layout that runs while the game does; nothing is saved on your board for it.\n- **Keyboard keys just work.** In Button assignments, pick a button (click it, choose it from the list or press it on the controller), then press a key on your PC's keyboard: that key, with Ctrl / Shift / Alt / Win held, becomes the button's Press. Escape un-picks; the Key tab's **Show all keys** covers keys you can't press. There is no switch to find: when you save, the app turns your board's keyboard and mouse on if a layout on the board (or one a game's profile sends) presses a key, uses the mouse or uses the gyro as the mouse, and off when none does. When that changes, your board reconnects by itself and a short notice says so; if it can't, the error says why and Button assignments offers **Reconnect USB**. Without key targets, the USB stays exactly as before. Keys and mouse pause while the app's window is in front, so a key never presses buttons in the app. Not yet tested on every system.\n- **Tension: your own adaptive trigger effects** (firmware protocol 1.23). In Adaptive triggers, Tension edits L2 and R2 of the layout you're editing. Per trigger: **Game** (the game's own effect), **Fill in** (yours only while the game sends nothing on that trigger) or **Replace** (always yours), with up to 4 stages, each one of the DualSense's effects (Feedback, Weapon, Vibration, Multiple Position Feedback, Slope Feedback, Multiple Position Vibration; Bow, Galloping and Machine marked unofficial) with its pull window, a hold time, and one setting that can build with the pull or with the time held. A picture shows each trigger's strength over the pull and marks a stage an earlier one cuts short. **Trigger effects: start from** puts in Bow, Heavy trigger, Brake pedal or Machine gun (L2 and R2 only; the buttons stay). **Feel it** runs what you're editing before you save it, and **Tension now** shows what runs on each trigger, live. Your board runs the effects itself, with or without the app.\n- **The Waveshare RP2350B-Plus-W is a known board.** A board running the firmware built for it (firmware PR #27, built by hand for now) shows as RP2350B-Plus-W with its specs on your board's page (RP2350B, 2× Cortex-M33, 520 KB SRAM, 16 MB flash, CYW43439, Bluetooth 5.2). No firmware update is offered for it yet, and the app still refuses to write another board's firmware to it.\n- **Diagnostics shows what was lost on the way.** On your board's page, Diagnostics has a new **Lost on the way** group with the firmware's loss counters: Bluetooth reports dropped because the output queue was full (BT drop), mic packets and frames dropped and 1 ms gaps in the mic audio (Mic i, Mic b, Mic u), and the PC's speaker audio overruns (USB ovr, a lower bound: it is counted once per check). The names in brackets are the OLED Diagnostics screen's, and each one has an ⓘ. They show with firmware 0.9.5-dev.21 and later; older firmware shows nothing rather than zeros.\n\n### Changed\n\n- **Button assignments opens on the layout you're editing** (with firmware that has button layouts). Pick a button by clicking it on the drawing, choosing it from the **Button** list or pressing it on the controller. Its rows read like sentences, and a picker with **Controller / Key / Mouse / Layer / Gyro** tabs sets what each row does. Changed buttons get a label on the drawing; **Swap with…**, **Reset this button**, layer tabs above the drawing (**+ Layer**), **One hand (left / right)** and **Toggle instead of hold** to start from, and plain warnings (for example when nothing presses ✕ or a Hold delays a button's press). **Live from the board** shows what the PC really got for each press. Each piece shows once your board's firmware has it; with older firmware Button assignments stays as it was and says what to update.\n\n### Fixed\n\n- **macOS: ⌘W closes the window again.** The app's own menu (dev.21) kept the App, Edit and Window menus but left out File, where Close lives, so ⌘W stopped closing the window. The File menu is back with Close (⌘W).",
+    "version": "0.9.5-dev.23",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.23-oled-edition",
+    "notes": "### Changed\n\n- **The macOS app is signed and notarized by Apple.** It's signed with a Developer ID and notarized, so macOS opens it like any other app: no more \"Apple could not verify it is free of malware\" and no trip to Privacy & Security → Open Anyway. The microphone test still asks for microphone access once.",
     "platforms": {
       "linux": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.22-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.22-linux-x86_64.AppImage",
-        "size": 200254190,
-        "sha256": "91f6592c4be8aded29914acb4eec7cf43fb99f07627ec02033634ee678b786fb"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.23-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.23-linux-x86_64.AppImage",
+        "size": 200253574,
+        "sha256": "e800f5c6501f35390355c83c11bee5dca988834df5173af39f42401a80f8aca6"
       },
       "windows": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.22-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.22-win-x64-setup.exe",
-        "size": 142305871,
-        "sha256": "cdb2515ae3dc9326fa7a240157dbb41904cdfe51d7f939517c999868e6cfc9a9"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.23-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.23-win-x64-setup.exe",
+        "size": 142305867,
+        "sha256": "11c10c7a57489d9886095eb122fd74653edf5fe6a9a6dc9406a3327386d8155f"
       },
       "macos": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.22-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.22-mac-universal.zip",
-        "size": 290470836,
-        "sha256": "e72df8e661322e9139debfe2d6b4e6f32cc273af0309b3aa19b8c80c53695071"
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.23-oled-edition/DS5Dongle-OLED-Edition-Configurator-0.9.5-dev.23-mac-universal.zip",
+        "size": 290561869,
+        "sha256": "8a2dfba58c18a3871c4efffbe99f66ab15ba2f23999b47f9f9eeda6c83af3404"
       }
     }
   },
   "firmware": {
-    "version": "v0.9.5-dev.22-oled-edition",
-    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.22-oled-edition",
+    "version": "v0.9.5-dev.23-oled-edition",
+    "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.23-oled-edition",
     "uf2": {
-      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.22-oled-edition/ds5-bridge-oled-v0.9.5-dev.22-oled-edition.uf2",
+      "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.23-oled-edition/ds5-bridge-oled-v0.9.5-dev.23-oled-edition.uf2",
       "size": 2829312,
-      "sha256": "3cf84f57881b23177a9c06fc74d77d731b2b09a4cd31fef6cdb71273dc5faf7d"
+      "sha256": "10a3c700d3f5d4f2c9a8d047113c166406c739b1f0afa116d964776aac29e427"
     }
   },
   "firmwares": [
     {
-      "version": "v0.9.5-dev.22-oled-edition",
+      "version": "v0.9.5-dev.23-oled-edition",
       "board": "pico2_w",
       "chip": "rp2350a",
       "flash_min": 4194304,
@@ -47,11 +47,11 @@
         "none",
         "pico_oled_1_3"
       ],
-      "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.22-oled-edition",
+      "notes_url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/tag/v0.9.5-dev.23-oled-edition",
       "uf2": {
-        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.22-oled-edition/ds5-bridge-oled-v0.9.5-dev.22-oled-edition.uf2",
+        "url": "https://github.com/MarcelineVPQ/DS5Dongle-OLED-Edition/releases/download/v0.9.5-dev.23-oled-edition/ds5-bridge-oled-v0.9.5-dev.23-oled-edition.uf2",
         "size": 2829312,
-        "sha256": "3cf84f57881b23177a9c06fc74d77d731b2b09a4cd31fef6cdb71273dc5faf7d"
+        "sha256": "10a3c700d3f5d4f2c9a8d047113c166406c739b1f0afa116d964776aac29e427"
       }
     }
   ],
