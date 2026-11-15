@@ -70,7 +70,7 @@ constexpr uint8_t kRampIdxMask = 0x07, kRampByHold = 0x80;
 struct __attribute__((packed)) Stage {
     uint8_t mode;       // Mode
     uint8_t p[7];       // the effect's parameters (docs/TENSION.md table), unused = 0
-    uint8_t pull_min;   // the stage's pull window, raw 0..255, min <= max
+    uint8_t pull_min;   // the stage's pull window, 0..255 as calibrated (calib_trigger), min <= max
     uint8_t pull_max;
     uint8_t hold_min;   // tenths of a second inside the window before the stage runs
     uint8_t ramp;       // kRampIdxMask | kRampByHold
@@ -97,16 +97,17 @@ static_assert(sizeof(SetBody) == 134, "SetBody is 134 bytes on the wire and in f
 // --- CRC-32 (IEEE 802.3 / zlib: reflected 0xEDB88320, init and final xor
 // 0xFFFFFFFF; "123456789" -> 0xCBF43926). Used for the staged set the app
 // commits and each saved slot; rare (a save, a load), so bitwise.
-inline uint32_t crc32_ieee(const uint8_t *d, uint32_t n) {
-    uint32_t c = 0xFFFFFFFFu;
-    // loop: NOT-WORTH — ≤ 1124 bytes, on a commit / save / load (never per report)
+// The running CRC state over more bytes (start 0xFFFFFFFF, finish with ~).
+inline uint32_t crc32_update(uint32_t c, const uint8_t *d, uint32_t n) {
+    // loop: NOT-WORTH — ≤ 1128 bytes, on a commit / save / load (never per report)
     for (uint32_t i = 0; i < n; i++) {
         c ^= d[i];
         // loop: NOT-WORTH — 8 bits per byte, on a commit / save / load
         for (int b = 0; b < 8; b++) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u)));
     }
-    return ~c;
+    return c;
 }
+inline uint32_t crc32_ieee(const uint8_t *d, uint32_t n) { return ~crc32_update(0xFFFFFFFFu, d, n); }
 
 // --- Effect parameters and encoding (Nielk1 rev 6) -------------------------
 
@@ -540,6 +541,10 @@ inline bool own_report(Engine &e, const Program *const pg[2], uint8_t *ss, uint3
 
 // --- The flash store --------------------------------------------------------
 
+// Two copies in two sectors (A and B). Each save writes the sector that
+// doesn't hold the newest copy, with the next sequence number; at boot the
+// newest copy whose CRC checks out wins. A power cut during a save leaves a
+// copy that fails its CRC (or the erased sector), so the previous one stays.
 constexpr uint32_t kStoreMagic = 0x534E4554u;  // 'T','E','N','S' in flash order
 constexpr uint8_t kStoreLayout = 1;
 
@@ -549,10 +554,11 @@ struct __attribute__((packed)) StoreHeader {
     uint8_t slots;      // kSlots
     uint8_t active;     // the saved choice: 0..7 or kNone
     uint8_t body_size;  // sizeof(SetBody)
-    uint32_t crc;       // CRC-32 of the 8 bytes above
+    uint32_t seq;       // bumps on every save (wraps); the newer copy wins
+    uint32_t crc;       // CRC-32 of the whole Store with this field as 0
 };
 struct __attribute__((packed)) SlotRec {
-    uint32_t crc;  // CRC-32 of body
+    uint32_t crc;  // CRC-32 of body (the app's cache key in the 0xE9 list)
     uint8_t used;  // 1 = holds a set (anything else = empty)
     SetBody body;  // zeros when empty
 };
@@ -560,10 +566,19 @@ struct __attribute__((packed)) Store {
     StoreHeader h;
     SlotRec slot[kSlots];
 };
-static_assert(sizeof(Store) == 12 + kSlots * 139, "Store layout 1");
+static_assert(sizeof(Store) == 16 + kSlots * 139, "Store layout 1");
 // Written as whole flash pages (256 bytes): 5 pages.
 constexpr uint32_t kStorePages = (sizeof(Store) + 255) / 256;
 constexpr uint32_t kStoreBytes = kStorePages * 256;
+constexpr uint32_t kStoreCrcAt = 12;  // offsetof(StoreHeader, crc)
+
+// CRC-32 of a whole copy with its crc field read as 0.
+inline uint32_t store_crc(const uint8_t *f) {
+    const uint8_t zero[4]{};
+    uint32_t c = crc32_update(0xFFFFFFFFu, f, kStoreCrcAt);
+    c = crc32_update(c, zero, 4);
+    return ~crc32_update(c, f + kStoreCrcAt + 4, sizeof(Store) - kStoreCrcAt - 4);
+}
 
 inline void store_empty(Store &s) {
     memset(&s, 0, sizeof(s));
@@ -574,30 +589,41 @@ inline void store_empty(Store &s) {
     s.h.body_size = sizeof(SetBody);
 }
 
-// Fill in every CRC before a save.
+// Fill in every CRC before a save (the sequence number is the caller's).
 inline void store_seal(Store &s) {
-    s.h.crc = crc32_ieee(reinterpret_cast<const uint8_t *>(&s.h), 8);
     // loop: HOT-PATH-OK — N = 8 slots, on a save
     for (SlotRec &r : s.slot) r.crc = r.used == 1 ? crc32_ieee(reinterpret_cast<const uint8_t *>(&r.body), sizeof(SetBody)) : 0;
+    s.h.crc = 0;
+    s.h.crc = store_crc(reinterpret_cast<const uint8_t *>(&s));
 }
 
 enum class Load : uint8_t { Empty, Ok, Newer };
 
-// What a flash image `f` holds, into `s` (always a usable store). Empty:
-// erased flash or something else (no magic, an unknown size); Newer: saved
-// by a firmware with a newer layout (`s` empty and must not be saved over);
-// Ok: every slot whose CRC and contents check out, the others empty, and the
-// saved choice if its header checks out and names a used slot.
-inline Load store_load(const uint8_t *f, Store &s) {
-    store_empty(s);
+// What a sector holds, read in place (no copy); `seq` its sequence number.
+inline Load store_check(const uint8_t *f, uint32_t &seq) {
     StoreHeader h;
     memcpy(&h, f, sizeof(h));
-    // error: NOT-WORTH — erased flash or another layout's bytes: no sets yet (the app lists none)
+    seq = h.seq;
+    // error: NOT-WORTH — erased flash or another layout's bytes: no copy here (the other sector, or no sets)
     if (h.magic != kStoreMagic) return Load::Empty;
     // error: SHOWN — 0xE9 status [3] bit3 (the app says the sets were saved by newer firmware and can't be changed here)
     if (h.layout > kStoreLayout) return Load::Newer;
-    // error: NOT-WORTH — a layout-1 header with other sizes is damaged: no sets (the app lists none)
-    if (h.layout != kStoreLayout || h.slots != kSlots || h.body_size != sizeof(SetBody)) return Load::Empty;
+    // error: NOT-WORTH — a damaged or half-written copy: the other sector's copy is used (or no sets)
+    if (h.layout != kStoreLayout || h.slots != kSlots || h.body_size != sizeof(SetBody) || h.crc != store_crc(f)) return Load::Empty;
+    return Load::Ok;
+}
+
+// One sector's copy `f` into `s` (always a usable store). Empty: erased
+// flash, something else, or a copy that fails its CRC (a save cut short);
+// Newer: saved by a firmware with a newer layout (`s` empty, and never to be
+// saved over); Ok: the copy, with any slot whose own CRC or contents fail
+// read as empty and the saved choice dropped if it names an empty slot.
+inline Load store_load(const uint8_t *f, Store &s) {
+    store_empty(s);
+    uint32_t seq;
+    const Load l = store_check(f, seq);
+    // error: NOT-WORTH — passed on: Empty / Newer as store_check says (store_pick decides)
+    if (l != Load::Ok) return l;
     memcpy(&s, f, sizeof(s));
     // loop: HOT-PATH-OK — N = 8 slots, at boot
     for (SlotRec &r : s.slot) {
@@ -607,11 +633,34 @@ inline Load store_load(const uint8_t *f, Store &s) {
         // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
         if (!ok) memset(&r, 0, sizeof(r));
     }
-    // error: NOT-WORTH — a damaged header drops only the saved choice (no set runs until one is chosen); the sets are kept
-    const bool head_ok = h.crc == crc32_ieee(f, 8) && h.active < kSlots && s.slot[h.active].used == 1;
-    s.h.active = head_ok ? h.active : kNone;
-    store_seal(s);
+    if (s.h.active >= kSlots || s.slot[s.h.active].used != 1) s.h.active = kNone;
     return Load::Ok;
+}
+
+// a is a later sequence number than b (wrap-safe, like TCP's).
+inline bool seq_after(uint32_t a, uint32_t b) { return (int32_t) (a - b) > 0; }
+
+struct Pick {
+    Load load;     // Ok (a copy), Empty (none), Newer (either sector is newer firmware's)
+    int8_t from;   // 0 = sector A, 1 = sector B, -1 = none
+    uint32_t seq;  // the copy's sequence number (0 with none)
+};
+
+// Both sectors into `s`: the newest valid copy. A newer layout in either
+// sector makes the whole store read-only (its sets aren't ours to drop).
+inline Pick store_pick(const uint8_t *fa, const uint8_t *fb, Store &s) {
+    uint32_t sa, sb;
+    const Load la = store_check(fa, sa), lb = store_check(fb, sb);
+    store_empty(s);
+    // error: SHOWN — 0xE9 status [3] bit3 (read-only: saved by newer firmware)
+    if (la == Load::Newer || lb == Load::Newer) return {Load::Newer, -1, 0};
+    // error: NOT-WORTH — a choice between the two copies (newest valid), not a failure
+    const int from = lb == Load::Ok && (la != Load::Ok || seq_after(sb, sa)) ? 1 : la == Load::Ok ? 0 : -1;
+    // error: NOT-WORTH — no valid copy in either sector: no sets yet (erased, or both damaged)
+    if (from < 0) return {Load::Empty, -1, 0};
+    // error: NOT-WORTH — store_check just said Ok for this sector, so the load is Ok
+    store_load(from ? fb : fa, s);
+    return {Load::Ok, (int8_t) from, from ? sb : sa};
 }
 
 }  // namespace tension
@@ -631,6 +680,8 @@ void tension_task();
 // report couldn't be sent.
 uint8_t tension_on_state_report(uint8_t *ss);
 void tension_report_lost(uint8_t wrote);
+// 0xF6 0x12 (a game ended): a temporary choice ends, back to the saved one.
+void tension_revert();
 // The OLED Trigger Test (or the app's 0x0A preview) drives the triggers:
 // Tension stands aside while `on`, then sends ours again.
 void tension_pause(bool on);

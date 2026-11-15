@@ -1091,7 +1091,8 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     //        steadily for tenths x 0.1 s (no byte: 0.5 s; 0 stops; max 5 s);
     //        a new one replaces the running one (deferred)
     //   0x11 remap table for now (below)   0x12 back to the saved remap table
-    //                                         (and the saved stick curves)
+    //                                         (and the saved stick curves, and
+    //                                         Tension's saved set choice, 1.23)
     //   0x13 Edge extra buttons (below)    0x14 stick response curves (below)
     //   0x15 reset the timing counters (0xFC [11..62], proto 1.11)
     //   0x16 [dev][action][pages] run a controller test command (proto 1.12,
@@ -1268,6 +1269,7 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
         case 0x12:
             remap_revert();
             curves_revert(); // a game's stick curves end with its layout
+            tension_revert(); // and its Tension set (proto 1.23): back to the saved choice
             break;
         default:
             // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: unknown function, the app's command error

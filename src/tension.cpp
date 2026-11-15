@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "bt.h"
+#include "calib.h"
 #include "cmd.h"
 #include "flash_layout.h"
 #include "flash_safe.h"
@@ -22,7 +23,8 @@ extern uint8_t reportSeqCounter;       // shared with main.cpp's 0x31 forwards
 using namespace tension;
 
 namespace {
-static_assert(TENSION_FLASH_OFFSET % FLASH_SECTOR_SIZE == 0);
+static_assert(TENSION_A_FLASH_OFFSET % FLASH_SECTOR_SIZE == 0 && TENSION_B_FLASH_OFFSET % FLASH_SECTOR_SIZE == 0);
+constexpr uint32_t kSector[2] = {TENSION_A_FLASH_OFFSET, TENSION_B_FLASH_OFFSET};
 static_assert(kStoreBytes <= FLASH_SECTOR_SIZE && kStoreBytes % FLASH_PAGE_SIZE == 0);
 
 union Image {
@@ -31,6 +33,8 @@ union Image {
 };
 alignas(4) Image g_img{};  // the saved sets as in flash (reloaded when a save fails)
 bool g_newer = false;      // flash holds a newer layout: shown, never written over
+int8_t g_from = -1;        // the sector holding the newest copy (0 A, 1 B, -1 none)
+uint32_t g_seq = 0;        // its sequence number
 
 uint8_t g_staged[sizeof(SetBody)]{};  // 0xF6 0x1C writes here; 0x1D / 0x1E take it
 SetBody g_preview{};                  // Feel it: runs instead of the chosen set
@@ -44,8 +48,17 @@ bool g_was_connected = false;
 char g_name[kNameLen + 1]{};
 
 uint32_t now_ms() { return (uint32_t) (time_us_64() / 1000); }
-const uint8_t *flash_bytes() { return reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_FLASH_OFFSET); }
-uint8_t pull(int t) { return interrupt_in_data[t == kL2 ? 4 : 5]; }
+const uint8_t *flash_bytes(int i) { return reinterpret_cast<const uint8_t *>(XIP_BASE + kSector[i]); }
+// The pull as the user's trigger calibration corrects it (what the PC sees).
+uint8_t pull(int t) { return calib_trigger(t, interrupt_in_data[t == kL2 ? 4 : 5]); }
+
+// Both sectors into RAM: the newest valid copy.
+void load_store() {
+    const Pick p = store_pick(flash_bytes(0), flash_bytes(1), g_img.s);
+    g_newer = p.load == Load::Newer;
+    g_from = p.from;
+    g_seq = p.seq;
+}
 
 void programs(const Program *pg[2]) {
     pg[0] = g_running ? &g_running->trig[kL2] : nullptr;
@@ -67,19 +80,27 @@ void restart() {
     }
 }
 
-// Seals and writes the whole store. On a failed write the RAM copy goes back
-// to what flash holds, so RAM and flash never differ.
+// Seals the store with the next sequence number and writes it to the sector
+// that doesn't hold the newest copy, so the previous copy stays until this
+// one is complete. On a failed write the RAM copy goes back to the newest
+// valid copy in flash, so RAM and flash never differ.
 bool save_store() {
+    const int to = g_from == 0 ? 1 : 0;
+    g_img.s.h.seq = g_seq + 1;
     store_seal(g_img.s);
     // error: SHOWN — false = CMD_RESULT_FAILED in 0xF1 for 0x1D / 0x1F / 0x20 (their callers); counted in g_fse_fail
-    const bool ok = flash_sector_write_pages(TENSION_FLASH_OFFSET, g_img.bytes, kStoreBytes) &&
-                    memcmp(flash_bytes(), g_img.bytes, sizeof(Store)) == 0;
+    const bool ok = flash_sector_write_pages(kSector[to], g_img.bytes, kStoreBytes) &&
+                    memcmp(flash_bytes(to), g_img.bytes, sizeof(Store)) == 0;
     if (!ok) {
         printf("[Tension] save failed\n");
         // error: NOT-WORTH — reloading what flash holds after a failed save (the failure itself is reported above)
-        store_load(flash_bytes(), g_img.s);
+        load_store();
+        // error: SHOWN — CMD_RESULT_FAILED in 0xF1 via the callers (0x1D / 0x1F / 0x20); counted in g_fse_fail
+        return false;
     }
-    return ok;
+    g_from = (int8_t) to;
+    g_seq = g_img.s.h.seq;
+    return true;
 }
 
 bool staged_ok(const uint8_t *crc_le) {
@@ -98,8 +119,7 @@ void tension_load() {
     g_choice_temp = false;
     g_eng = Engine{};
     g_was_connected = false;
-    const Load r = store_load(flash_bytes(), g_img.s);
-    g_newer = r == Load::Newer;
+    load_store();
     g_choice = g_img.s.h.active;
     restart();
 }
@@ -138,6 +158,14 @@ uint8_t tension_on_state_report(uint8_t *ss) {
 }
 
 void tension_report_lost(uint8_t mask) { report_lost(g_eng, mask); }
+
+void tension_revert() {
+    // error: NOT-WORTH — nothing temporary to end, not a failure
+    if (!g_choice_temp) return;
+    g_choice = g_img.s.h.active;
+    g_choice_temp = false;
+    restart();
+}
 
 void tension_pause(bool on) {
     g_eng.paused = on;

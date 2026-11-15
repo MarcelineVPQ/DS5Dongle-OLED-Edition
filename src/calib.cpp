@@ -186,6 +186,14 @@ void calib_service() {
     g_bias_known = true;
 }
 
+uint8_t calib_trigger(int i, uint8_t raw) {
+    const int slot = slot_now();
+    // error: NOT-WORTH — an uncalibrated trigger is its raw value (identity), not a failure
+    if (!g_active[slot].trigger[i]) return raw;
+    const auto &t = g_cal.body[slot].trigger[i];
+    return clamp_u8(((float) raw - t.lo) * 255.0f / (float) (t.hi - t.lo));
+}
+
 void calib_apply(uint8_t *r) {
     const int slot = slot_now();
     const Active &a = g_active[slot];
@@ -197,11 +205,7 @@ void calib_apply(uint8_t *r) {
     stick_curve_apply(r + 0, cn[0]);
     stick_curve_apply(r + 2, cn[1]);
     // loop: HOT-PATH-OK — 2 triggers per input report; calib_apply is not CORE0_RAM_FUNC
-    for (int i = 0; i < 2; i++) {
-        if (!a.trigger[i]) continue;
-        const auto &t = b.trigger[i];
-        r[4 + i] = clamp_u8(((float) r[4 + i] - t.lo) * 255.0f / (float) (t.hi - t.lo));
-    }
+    for (int i = 0; i < 2; i++) r[4 + i] = calib_trigger(i, r[4 + i]);
     if (a.gyro && g_bias_known) {
         // loop: HOT-PATH-OK — 3 gyro axes per input report, only with gyro calibration on
         for (int i = 0; i < 3; i++) {

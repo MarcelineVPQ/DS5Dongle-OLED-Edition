@@ -41,6 +41,10 @@ void calib_service();
 // gyro int16 at [15,17,19]) with the current slot's calibration. Each part is
 // a no-op while it is identity.
 void calib_apply(uint8_t *report);
+// One trigger (0 L2, 1 R2) as calib_apply corrects it: lo..hi stretched to
+// 0..255, the raw value when that trigger isn't calibrated. Tension's stages
+// read it (protocol 1.23).
+uint8_t calib_trigger(int i, uint8_t raw);
 enum class CalibSet : uint8_t { Ok, Invalid, NotSaved };
 CalibSet calib_set(uint8_t slot, const uint8_t *body);
 void calib_get(uint8_t slot, uint8_t out[kCalibBodySize]);

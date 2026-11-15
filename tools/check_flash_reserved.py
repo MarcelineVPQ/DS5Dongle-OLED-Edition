@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """A firmware update must never write saved state: settings, pairing slots,
-button assignments, calibration and BTstack's link keys live in the sectors from
+button assignments, calibration, Tension's trigger sets (two sectors, since
+protocol 1.23) and BTstack's link keys live in the sectors from
 RESERVED_FLASH_OFFSET (src/flash_layout.h) to the end of flash, and the app
 writes only the sectors a UF2's blocks cover (app: src/flash/index.ts,
 parseUf2Regions; tests/unit/uf2Regions.test.ts). So this checks a built

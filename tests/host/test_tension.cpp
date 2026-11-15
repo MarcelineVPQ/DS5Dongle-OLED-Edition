@@ -9,6 +9,7 @@
 // from this C++ and not from running the C# itself.
 #include <cstring>
 #include <vector>
+#include "calib.h"
 #include "cmd.h"
 #include "config.h"
 #include "fakes.h"
@@ -399,47 +400,112 @@ TEST(tension_set_validation) {
     CHECK(!set_valid(t));
 }
 
-TEST(tension_store_round_trip_crc_and_version) {
-    alignas(4) static uint8_t img[kStoreBytes];
+namespace {
+// A sealed copy with sets in slots 1 and 5, as a sector image (rest 0xFF).
+void sector_image(uint8_t *img, uint32_t seq, const char *name5 = "Rifle") {
     Store s;
     store_empty(s);
     s.slot[1].used = 1;
     s.slot[1].body = make_set("Bow", Program{}, bow_r2());
     s.slot[5].used = 1;
-    s.slot[5].body = make_set("Rifle", Program{}, steady(kFillIn));
+    s.slot[5].body = make_set(name5, Program{}, steady(kFillIn));
     s.h.active = 5;
+    s.h.seq = seq;
     store_seal(s);
-    std::memset(img, 0xFF, sizeof(img));
+    std::memset(img, 0xFF, kStoreBytes);
     std::memcpy(img, &s, sizeof(s));
+}
+alignas(4) uint8_t g_a[kStoreBytes], g_b[kStoreBytes];
+}  // namespace
 
+TEST(tension_store_round_trip_crc_and_version) {
+    sector_image(g_a, 7);
     Store l;
-    CHECK(store_load(img, l) == Load::Ok);
-    CHECK(std::memcmp(&l, &s, sizeof(s)) == 0);
-
-    // A damaged slot reads as empty, the others stay; the choice pointing at
-    // it is dropped.
-    img[12 + 5 * 139 + 5 + 3] ^= 0x01;  // a name byte of slot 5
-    CHECK(store_load(img, l) == Load::Ok);
-    CHECK_EQ(l.slot[5].used, 0);
+    CHECK(store_load(g_a, l) == Load::Ok);
+    CHECK_EQ(l.h.seq, 7u);
+    CHECK_EQ(l.h.active, 5);
+    CHECK(std::strcmp(l.slot[5].body.name, "Rifle") == 0);
     CHECK_EQ(l.slot[1].used, 1);
-    CHECK_EQ(l.h.active, kNone);
-    img[12 + 5 * 139 + 5 + 3] ^= 0x01;
 
-    // A damaged header keeps the sets, not the choice.
-    img[6] = 1;  // active = 1 without a new CRC
-    CHECK(store_load(img, l) == Load::Ok);
-    CHECK_EQ(l.slot[1].used, 1);
-    CHECK_EQ(l.h.active, kNone);
-    img[6] = 5;
+    g_a[16 + 5 * 139 + 5 + 3] ^= 0x01;  // one byte of slot 5's name: the copy fails its CRC
+    CHECK(store_load(g_a, l) == Load::Empty);
+    g_a[16 + 5 * 139 + 5 + 3] ^= 0x01;
 
-    img[4] = kStoreLayout + 1;  // saved by a newer firmware
-    CHECK(store_load(img, l) == Load::Newer);
+    g_a[4] = kStoreLayout + 1;  // saved by a newer firmware
+    CHECK(store_load(g_a, l) == Load::Newer);
     CHECK_EQ(l.slot[1].used, 0);
-    img[4] = kStoreLayout;
+    g_a[4] = kStoreLayout;
 
-    std::memset(img, 0xFF, sizeof(img));  // erased flash
-    CHECK(store_load(img, l) == Load::Empty);
+    std::memset(g_a, 0xFF, sizeof(g_a));  // erased flash
+    CHECK(store_load(g_a, l) == Load::Empty);
     CHECK_EQ(l.h.active, kNone);
+}
+
+TEST(tension_store_newest_valid_copy_wins) {
+    Store s;
+    sector_image(g_a, 5, "Old");
+    sector_image(g_b, 6, "New");
+    Pick p = store_pick(g_a, g_b, s);
+    CHECK(p.load == Load::Ok);
+    CHECK_EQ(p.from, 1);
+    CHECK_EQ(p.seq, 6u);
+    CHECK(std::strcmp(s.slot[5].body.name, "New") == 0);
+    p = store_pick(g_b, g_a, s);  // the same with the sectors swapped
+    CHECK_EQ(p.from, 0);
+    CHECK(std::strcmp(s.slot[5].body.name, "New") == 0);
+}
+
+TEST(tension_store_torn_write_keeps_the_old_copy) {
+    // A holds seq 5. A save of seq 6 to B is cut off after its sector erase
+    // and two of its five pages.
+    Store s;
+    sector_image(g_a, 5, "Old");
+    alignas(4) static uint8_t full[kStoreBytes];
+    sector_image(full, 6, "New");
+    std::memset(g_b, 0xFF, sizeof(g_b));
+    std::memcpy(g_b, full, 2 * 256);
+    Pick p = store_pick(g_a, g_b, s);
+    CHECK(p.load == Load::Ok);
+    CHECK_EQ(p.from, 0);
+    CHECK(std::strcmp(s.slot[5].body.name, "Old") == 0);
+    // Cut off right after the erase: the same.
+    std::memset(g_b, 0xFF, sizeof(g_b));
+    p = store_pick(g_a, g_b, s);
+    CHECK_EQ(p.from, 0);
+    CHECK_EQ(p.seq, 5u);
+}
+
+TEST(tension_store_sequence_wraps) {
+    Store s;
+    sector_image(g_a, 0xFFFFFFFFu, "Old");
+    sector_image(g_b, 0, "New");  // the save after 0xFFFFFFFF
+    Pick p = store_pick(g_a, g_b, s);
+    CHECK_EQ(p.from, 1);
+    CHECK(std::strcmp(s.slot[5].body.name, "New") == 0);
+    sector_image(g_a, 1, "Newest");
+    p = store_pick(g_a, g_b, s);
+    CHECK_EQ(p.from, 0);
+    CHECK(seq_after(0, 0xFFFFFFFFu));
+    CHECK(!seq_after(0xFFFFFFFFu, 0));
+}
+
+TEST(tension_store_both_invalid_is_empty_and_newer_is_read_only) {
+    Store s;
+    std::memset(g_a, 0xFF, sizeof(g_a));
+    sector_image(g_b, 3);
+    g_b[20] ^= 0x40;  // damaged
+    Pick p = store_pick(g_a, g_b, s);
+    CHECK(p.load == Load::Empty);
+    CHECK_EQ(p.from, -1);
+    CHECK_EQ(s.h.active, kNone);
+    CHECK_EQ(s.slot[1].used, 0);
+    // A newer firmware's copy in either sector: nothing shown, nothing written.
+    sector_image(g_a, 9);
+    sector_image(g_b, 2);
+    g_b[4] = kStoreLayout + 1;
+    p = store_pick(g_a, g_b, s);
+    CHECK(p.load == Load::Newer);
+    CHECK_EQ(s.slot[1].used, 0);
 }
 
 // --- The protocol (0xF6 0x1C..0x20, GET 0xE9) -----------------------------
@@ -453,6 +519,7 @@ void fresh() {
     g_fake_bt_write_fail = false;
     g_fake_bt_connected = true;
     config_load();
+    calib_load();
     tension_load();
     g_fake_bt_writes.clear();
     std::memset(interrupt_in_data, 0, 63);
@@ -531,8 +598,10 @@ TEST(tension_save_read_back_and_survive_a_restart) {
     tension_load();
     CHECK_EQ(tension_get(0x01, r, 63), 38);
     CHECK_EQ(r[2], 0x04);
+    // The first save goes to sector A, sequence 1.
     Store s;
-    CHECK(store_load(reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_FLASH_OFFSET), s) == Load::Ok);
+    CHECK(store_load(reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_A_FLASH_OFFSET), s) == Load::Ok);
+    CHECK_EQ(s.h.seq, 1u);
     CHECK(std::memcmp(&s.slot[2].body, &bow, sizeof(bow)) == 0);
 }
 
@@ -634,7 +703,7 @@ TEST(tension_newer_store_is_never_written_over) {
     with_crc(0x1D, 0, stage_set(make_set("Bow", Program{}, bow_r2())));
     settle();
     // Pretend a newer firmware saved the sector.
-    g_fake_flash[TENSION_FLASH_OFFSET + 4] = kStoreLayout + 1;
+    g_fake_flash[TENSION_A_FLASH_OFFSET + 4] = kStoreLayout + 1;  // the first save went to A
     tension_load();
     uint8_t r[63];
     tension_get(0x00, r, 63);
@@ -643,11 +712,81 @@ TEST(tension_newer_store_is_never_written_over) {
     CHECK_EQ(last_result(), CMD_RESULT_FAILED);
     set({0x1F, kWireVer, 0});
     CHECK_EQ(last_result(), CMD_RESULT_FAILED);
-    CHECK_EQ(g_fake_flash[TENSION_FLASH_OFFSET + 4], kStoreLayout + 1);
+    CHECK_EQ(g_fake_flash[TENSION_A_FLASH_OFFSET + 4], kStoreLayout + 1);
+    uint32_t seq;
+    CHECK(store_check(reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_B_FLASH_OFFSET), seq) == Load::Empty);  // B never written
 }
 
-TEST(tension_sector_sits_below_calibration) {
-    CHECK_EQ(TENSION_FLASH_OFFSET + FLASH_SECTOR_SIZE, CALIB_FLASH_OFFSET);
-    CHECK_EQ(RESERVED_FLASH_OFFSET, TENSION_FLASH_OFFSET);
+TEST(tension_sectors_sit_below_calibration) {
+    CHECK_EQ(TENSION_A_FLASH_OFFSET + FLASH_SECTOR_SIZE, CALIB_FLASH_OFFSET);
+    CHECK_EQ(TENSION_B_FLASH_OFFSET + FLASH_SECTOR_SIZE, TENSION_A_FLASH_OFFSET);
+    CHECK_EQ(RESERVED_FLASH_OFFSET, TENSION_B_FLASH_OFFSET);
     CHECK(kStoreBytes <= FLASH_SECTOR_SIZE);
+}
+
+TEST(tension_saves_alternate_and_a_cut_save_keeps_the_last_copy) {
+    fresh();
+    with_crc(0x1D, 0, stage_set(make_set("One", Program{}, bow_r2())));
+    settle();
+    with_crc(0x1D, 0, stage_set(make_set("Two", Program{}, bow_r2())));
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    const auto *a = reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_A_FLASH_OFFSET);
+    const auto *b = reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_B_FLASH_OFFSET);
+    uint32_t sa, sb;
+    CHECK(store_check(a, sa) == Load::Ok);
+    CHECK(store_check(b, sb) == Load::Ok);
+    CHECK_EQ(sa, 1u);
+    CHECK_EQ(sb, 2u);
+    // The third save goes to A again; cut it off after two pages.
+    std::memset(g_fake_flash + TENSION_A_FLASH_OFFSET + 2 * 256, 0xFF, 3 * 256);
+    g_fake_flash[TENSION_A_FLASH_OFFSET + 8] = 3;  // the header of the cut copy says seq 3
+    tension_load();
+    CHECK(std::strcmp(reinterpret_cast<const char *>(b + 16 + 5 + 2), "Two") == 0);
+    uint8_t r[63];
+    tension_get(0x40 | 0 << 2 | 0, r, 63);  // slot 0, chunk 0: name at body byte 2
+    CHECK(std::strcmp(reinterpret_cast<const char *>(r + 4 + 2), "Two") == 0);
+}
+
+TEST(tension_stages_read_the_calibrated_trigger) {
+    fresh();
+    // The user's R2 calibration: raw 0..128 is the whole travel.
+    CalibBody cb{};
+    for (auto &st : cb.stick) st = {0, 0, 0, 128};
+    cb.trigger[0] = {0, 255};
+    cb.trigger[1] = {0, 128};
+    CHECK(calib_set((uint8_t) g_fake_slot, reinterpret_cast<const uint8_t *>(&cb)) == CalibSet::Ok);
+    with_crc(0x1D, 0, stage_set(make_set("Bow", Program{}, bow_r2())));
+    settle();
+    set({0x20, kWireVer, 0, 1});
+    interrupt_in_data[5] = 120;  // raw; calibrated 239
+    g_fake_time_us += 1'000'000;
+    tension_task();
+    uint8_t r[63];
+    tension_get(0x00, r, 63);
+    CHECK_EQ(r[8 + 15 + 2], 239);
+    CHECK_EQ(r[8 + 15 + 1], 2);  // the draw
+    // 1 + 7 x 239 / 241 = 7.9 -> 8 (raw 120 would give 4)
+    CHECK(Bytes(r + 8 + 15 + 4, r + 8 + 15 + 15) == enc(kFeedback, {0, 8}));
+    fake_flash_erase_all();
+    calib_load();  // back to no calibration for the other tests
+}
+
+TEST(tension_game_end_0x12_ends_the_temporary_choice) {
+    fresh();
+    with_crc(0x1D, 0, stage_set(make_set("Saved", Program{}, bow_r2())));
+    settle();
+    with_crc(0x1D, 1, stage_set(make_set("Game", Program{}, bow_r2())));
+    settle();
+    set({0x20, kWireVer, 0, 0});  // the saved choice
+    settle();
+    set({0x20, kWireVer, 1, 1});  // a game's profile
+    CHECK(std::strcmp(tension_running_name(), "Game") == 0);
+    set({0x12});  // the game ended
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK(std::strcmp(tension_running_name(), "Saved") == 0);
+    uint8_t r[63];
+    tension_get(0x00, r, 63);
+    CHECK_EQ(r[3] & 0x04, 0);  // no longer temporary
+    CHECK_EQ(r[5], 0);
 }

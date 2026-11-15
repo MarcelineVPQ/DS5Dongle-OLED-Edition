@@ -58,7 +58,7 @@ same `SetBody`.
 |---|---|---|
 | 0 | `mode` | effect id, table below |
 | 1..7 | `p[0..6]` | the effect's parameters (table below); unused ones must be 0 |
-| 8 | `pull_min` | the stage's pull window, raw input value 0..255 |
+| 8 | `pull_min` | the stage's pull window, 0..255 as the user's trigger calibration corrects it (section 3) |
 | 9 | `pull_max` | `pull_min <= pull_max` |
 | 10 | `hold_min` | tenths of a second the pull must have been in the window (0..25.5 s) |
 | 11 | `ramp` | bits 0..2: parameter index + 1 (0 = no ramp); bits 3..6: 0; bit 7: source (0 = pull across the window, 1 = time held) |
@@ -118,7 +118,9 @@ Every main-loop pass while a controller is linked (`tension_task`, after
 `interrupt_loop`), per trigger:
 
 1. **Windows.** For each stage, the pull (input report byte [4] for L2, [5] for
-   R2, the raw value before calibration) is in its window or not. Entering
+   R2, corrected by the user's trigger calibration exactly as the PC gets it,
+   `calib_trigger()`; the raw value while that trigger isn't calibrated) is in
+   its window or not. Entering
    starts that stage's own timer. Once inside, the pull may go **3 counts** past
    the window's edges before the stage counts as left (hysteresis, so a finger
    resting on an edge doesn't flip effects; tunable).
@@ -195,9 +197,11 @@ bit 0x08 = L2's block [21..31].
 - **The saved choice** (flash, with the sets): what runs from power-on, with or
   without the app.
 - **For now** (RAM only, 0x20 with temporary = 1): a game's profile in the app
-  selects a set by slot when the game starts and sends "back to the saved
-  choice" (slot 0xFE) when it ends, so starting and stopping games never
-  writes flash (as temporary remaps since 1.8). A restart forgets it.
+  selects a set by slot when the game starts. When it ends, the app's 0xF6 0x12
+  (back to the saved remap and stick curves, which it already sends) also goes
+  back to the saved choice; 0x20 with slot 0xFE does only that. Starting and
+  stopping games never writes flash (as temporary remaps since 1.8). A restart
+  forgets it.
 - **Feel it** (0x1E): runs the staged, unsaved set instead of either until it is
   stopped or the board restarts. It keeps the set's own Fill in / Replace; with
   no game running a Fill in trigger is ours at once.
@@ -207,29 +211,36 @@ bit 0x08 = L2's block [21..31].
 
 ## 6. Flash
 
-One sector, `TENSION_FLASH_OFFSET` = `PICO_FLASH_BANK_STORAGE_OFFSET − 5 ×
-FLASH_SECTOR_SIZE` (`src/flash_layout.h`): directly below calibration (−4),
-below remap (−3), slots (−2) and config (−1), all below BTstack's link-key bank.
-On a 4 MB Pico 2 W with the bank at 0x3FD000 that is **0x3F8000–0x3F8FFF**.
-Nothing existing moved or shrank. `RESERVED_FLASH_OFFSET` (the start of saved
-state, which `tools/check_flash_reserved.py` holds every image and UF2 block
-below) now starts at this sector, 4 KB lower than before.
+Two sectors, A and B, holding two copies of the store (owner 2026-11-15):
+`TENSION_A_FLASH_OFFSET` = `PICO_FLASH_BANK_STORAGE_OFFSET − 5 × FLASH_SECTOR_SIZE`
+and `TENSION_B_FLASH_OFFSET` = `− 6 ×` (`src/flash_layout.h`): directly below
+calibration (−4), below remap (−3), slots (−2) and config (−1), all below
+BTstack's link-key bank. On a 4 MB Pico 2 W with the bank at 0x3FD000: A is
+**0x3F8000–0x3F8FFF**, B **0x3F7000–0x3F7FFF**. Nothing existing moved or shrank.
+`RESERVED_FLASH_OFFSET` (the start of saved state, which
+`tools/check_flash_reserved.py` holds every image and UF2 block below, read
+from the built ELF) now starts at B, 8 KB lower than before.
 
 Why it is safe:
 
-- **Not the image.** The CI gate fails any build whose image or UF2 blocks reach
-  the sector. 0.9.4's UF2 is 2,745,856 bytes (about 1.37 MB of image) on a 4 MB
-  chip; the sector is 32 KB below the end.
-- **Not settings or pairing keys.** Its own sector; `static_assert`s pin it
-  directly below calibration.
+- **Not the image.** The CI gate fails any build whose image or UF2 blocks
+  reach B. 0.9.4's UF2 is 2,745,856 bytes (about 1.37 MB of image) on a 4 MB
+  chip; B starts 36 KB below the end.
+- **Not settings or pairing keys.** Their own sectors; `static_assert`s pin A
+  directly below calibration and B directly below A.
 - **Updates and Back to stable.** The app's updater (and a UF2 copy) writes only
   the sectors a UF2's blocks cover, so the sets survive every update. Firmware
   without Tension (0.9.4 stable, and anything before 1.23) never reads or writes
-  the sector, and its image ends far below it. Going back to stable and then
+  A or B, and its image ends about 2.6 MB below them. Going back to stable and
   forward again finds the sets as they were. A factory reset (0x09) resets
   settings only and keeps the sets.
+- **A power cut during a save.** Each save writes the sector that doesn't hold
+  the newest copy, with the next sequence number, and the other sector is left
+  alone. A save cut short leaves an erased or half-written sector that fails its
+  CRC, so the previous copy is used at the next start: at most that one save is
+  lost.
 
-Layout 1 (`tension::Store`, 1124 bytes, written as 5 pages):
+Layout 1 (`tension::Store`, 1128 bytes, written as 5 pages, the same in A and B):
 
 | Offset | Size | Field |
 |---|---|---|
@@ -238,24 +249,26 @@ Layout 1 (`tension::Store`, 1124 bytes, written as 5 pages):
 | 5 | 1 | slots (8) |
 | 6 | 1 | saved choice: 0..7, 0xFF none |
 | 7 | 1 | body size (134) |
-| 8 | 4 | CRC-32 of bytes 0..7 |
-| 12 + 139·i | 4 | slot i: CRC-32 of its body |
+| 8 | 4 | sequence number (bumps on every save, wraps) |
+| 12 | 4 | CRC-32 of the whole 1128-byte copy with these 4 bytes as 0 |
+| 16 + 139·i | 4 | slot i: CRC-32 of its body (the app's cache key in the list) |
 | +4 | 1 | used: 1, anything else empty |
 | +5 | 134 | SetBody (zeros when empty) |
 
 CRC-32 = IEEE 802.3 / zlib (reflected 0xEDB88320, init and final xor
 0xFFFFFFFF; "123456789" → 0xCBF43926), the same the app computes for 0x1D / 0x1E.
 
-Loading: no magic (erased flash, anything else) = no sets. A layout newer than
-1 = no sets shown and **never written over** (saves and deletes answer FAILED,
-0xE9 status [3] bit 3), so a later firmware's sets survive a trip back. A slot
-whose CRC or contents fail reads as empty; the others are kept. A header that
-fails its CRC keeps the sets and drops only the saved choice. Every save writes
-the whole sector from RAM through `flash_safe_execute` (core1 parked), from
-`cmd_task()` (never inside a USB callback), verifies it, and on failure puts
-RAM back to what flash holds. **Single sector, like config and remap:** a power
-cut during the ~50 ms erase-and-write of a save loses every set (they read as
-empty, nothing worse). See the open questions.
+Loading (`store_pick`): a sector without the magic, with other sizes, or whose
+copy fails its CRC holds no copy. Of the valid copies the one with the later
+sequence number wins (compared wrap-safe: `(int32)(a − b) > 0`, so 0 follows
+0xFFFFFFFF). Neither valid = no sets. Within the winning copy a slot whose own
+CRC or contents fail reads as empty, and a saved choice naming an empty slot is
+dropped. A layout newer than 1 in **either** sector = no sets shown and nothing
+**ever written** (saves and deletes answer FAILED, 0xE9 status [3] bit 3), so a
+later firmware's sets survive a trip back. Every save writes the whole copy from
+RAM through `flash_safe_execute` (core1 parked), from `cmd_task()` (never inside
+a USB callback), and verifies it. On failure RAM goes back to the newest valid
+copy in flash.
 
 Future layouts: grow `SetBody` or `Store` by bumping the layout; this firmware
 then shows no sets and protects them.
@@ -275,6 +288,10 @@ until it leaves PENDING; every SET meanwhile answers BUSY), INVALID, FAILED.
 | `0x1E` Feel it | `ver, 1, crc32 LE (4)` start; `ver, 0` stop | now | OK; INVALID |
 | `0x1F` delete | `ver, slot 0..7` | deferred (flash) | PENDING → OK / FAILED; INVALID; FAILED on a newer store. Deleting the chosen set chooses none |
 | `0x20` choose | `ver, slot, temporary 0/1`: slot 0..7 (a used one), 0xFF none, 0xFE back to the saved choice (temporary ignored but must be 0/1) | temporary / 0xFE: now; saved: deferred (flash) | OK / PENDING; INVALID for an empty slot or bad framing |
+
+`0x12` (existing: back to the saved remap and stick curves) also ends a
+temporary Tension choice from 1.23 (back to the saved one); Feel it is not
+touched.
 
 The staged buffer is 134 bytes in RAM; the app writes the whole `SetBody` (three
 SETs: offsets 0, 60, 120) and then 0x1D or 0x1E with its CRC-32. The board checks
@@ -302,7 +319,7 @@ A request shorter than the reply gets nothing.
 | 7 | stages per trigger (4) |
 | 8 + 15·t | trigger t (0 L2, 1 R2): owner (0 none, 1 Tension, 2 the game, 3 Fill in waiting for the hold-off) |
 | +1 | the stage running (0..3, 0xFF none) |
-| +2 | pull, raw 0..255 (0 without a controller) |
+| +2 | pull 0..255, calibrated as the stages read it (0 without a controller) |
 | +3 | tenths held in that stage's window (255 = 25.5 s or more) |
 | +4..+14 | the 11 bytes the program wants on the trigger now (zeros when no set runs) |
 
@@ -328,8 +345,9 @@ first); the app's `protocolLockstep.test.ts` needs equal minors. The app adds:
    effect table with Sony's ranges, and the same validation (the board refuses
    anything else with INVALID). Unofficial effects labelled.
 6. The flow: stage (3 SETs) → save (0x1D, poll 0xF1) or Feel it (0x1E); stop
-   Feel it when leaving the editor; choose temporary on a game's start and 0xFE
-   on its end; the saved choice from the Tension section.
+   Feel it when leaving the editor; choose temporary on a game's start; at its
+   end the existing 0x12 goes back to the saved choice; the saved choice from
+   the Tension section.
 7. Per-game profiles: a set slot (or none) per game.
 8. Messages for INVALID / FAILED, the read-only store (status bit 3), and the
    paused state (bit 4).
@@ -351,7 +369,7 @@ Core0 only. `tension_task` (main loop, in the 0xFC "input" stage): two triggers
 × ≤ 4 stages and one 11-byte encode each, plus at most one 78-byte report per
 20 ms. The merge runs inside the TinyUSB output callback and in `bt_send_state`:
 O(1), two 11-byte compares. Not RAM-resident (`host_out02_forward`, its caller,
-isn't either). No heap; RAM: the store (1280 bytes), the staged and Feel-it
+isn't either). No heap; RAM: the store (1280 bytes, one copy), the staged and Feel-it
 bodies (268 bytes) and the engine (~120 bytes). Flash writes only from
 `cmd_task()`.
 
@@ -364,15 +382,9 @@ bodies (268 bytes) and the engine (~120 bytes). Flash writes only from
 - OpenDS5, DS5_Bridge, PadForge: ideas only (named L2+R2 states, per-game
   selection), no code.
 
-## 12. Open questions for the owner
+## 12. Decided by the owner (2026-11-15)
 
-1. **Power cut during a save**: single sector like the other settings, so a cut
-   during the ~50 ms write loses every set. Two sectors (A/B with a sequence
-   number) would keep the previous copy, at the cost of a second 4 KB sector.
-2. **Pull source**: the raw trigger value, not the calibrated one. A trigger
-   that tops out below 255 may never reach a window at 250..255; the app can warn,
-   or the board could use the calibrated value.
-3. **0x12** ("back to the saved remap and curves", which apps send when a game
-   ends) does not touch Tension's temporary choice; the app sends 0x20 0xFE
-   instead. Folding it into 0x12 would change an existing function, so it is
-   left for the owner.
+1. Two alternating sectors, so a power cut during a save keeps the previous copy
+   (section 6).
+2. Stages read the calibrated trigger value (section 3).
+3. 0xF6 0x12 (a game ended) also ends the temporary set choice (section 5).
