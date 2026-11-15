@@ -77,9 +77,10 @@ CORE0=""
   btstack_run_loop_base_poll_data_sources btstack_run_loop_poll_data_sources_from_irq
   l2cap_request_can_send_now_event btstack_linked_list_iterator_init
   btstack_linked_list_iterator_has_next btstack_linked_list_iterator_next
-  crc32_lookup_table _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv audio.cpp:_ZL18send_single_reportb _Z13mic_add_queuePKh
+  crc32_lookup_table _Z13buttons_applyPh _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv audio.cpp:_ZL18send_single_reportb _Z13mic_add_queuePKh
 "
-# Inline helpers audio_loop calls per frame (src/haptics_decimate.h,
+# Inline helpers buttons_apply calls per input report (src/buttons.h) and
+# the ones audio_loop calls per frame (src/haptics_decimate.h,
 # src/audio_levels.h, src/auto_haptics.h, src/mic_level.h, and the haptic feedback test's grip_test_task with
 # src/grip_wave.h): normally folded into audio_loop, but an out-of-line copy
 # must be in RAM too. TinyUSB 0.21's single-item tu_fifo_read / tu_fifo_write
@@ -93,6 +94,7 @@ CORE0_OPTIONAL=""
   _ZNK21NativeHapticsPresence6silentEv _ZN21NativeHapticsPresence6recordEtm
   _ZN11AutoHaptics4nextEffffRfS0_ _ZN11AutoHaptics7combineEhbffRfS0_ _ZN11AutoHaptics8set_modeEh _Z9mix_limitf
   _ZNK9AudioPeak5levelEy _ZN9AudioPeak6recordEty
+  _ZN7buttons5applyERKNS_6LayoutEPh _ZN7buttons12sources_downEPKh
   _ZN8MicLevel6sampleEmi _ZN8MicLevel4dropEmi _Z14mic_frame_peakPKsi _Z10mic_splicePKsPsi"
 # FUNC/OBJECT symbols as "file:name addr" (locals, grouped after their FILE
 # entry) and "name addr" (globals and weak), one per line.

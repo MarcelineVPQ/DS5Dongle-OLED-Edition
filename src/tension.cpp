@@ -36,12 +36,25 @@ bool g_newer = false;      // flash holds a newer layout: shown, never written o
 int8_t g_from = -1;        // the sector holding the newest copy (0 A, 1 B, -1 none)
 uint32_t g_seq = 0;        // its sequence number
 
-uint8_t g_staged[sizeof(SetBody)]{};  // 0xF6 0x1C writes here; 0x1D / 0x1E take it
+// 0xF6 0x1C writes here (ver 1: the SetBody, ver 2: all 494 bytes); 0x1D / 0x1E take it.
+union Staged {
+    struct __attribute__((packed)) {
+        SetBody body;
+        buttons::ButtonPart buttons;
+    } s;
+    uint8_t bytes[kStagedBytes];
+};
+static_assert(sizeof(Staged) == kStagedBytes);
+Staged g_staged{};
+uint8_t g_save_ver = kWireVer;     // the 0x1D waiting in cmd_task: ver 1 keeps the slot's buttons, ver 2 saves them
 SetBody g_preview{};                  // Feel it: runs instead of the chosen set
+buttons::ButtonPart g_preview_buttons{};  // ...and its buttons (zero for a ver 1 Feel it)
 bool g_preview_on = false;
 uint8_t g_choice = kNone;       // the set chosen now (0..7, kNone)
 bool g_choice_temp = false;     // ...for now only (a game's profile), not the saved one
 const SetBody *g_running = nullptr;
+
+buttons::Layout g_layout{};  // the buttons that run (docs/TENSION_BUTTONS.md section 3.7), handed to buttons_run
 
 Engine g_eng;
 bool g_was_connected = false;
@@ -69,9 +82,18 @@ void programs(const Program *pg[2]) {
 // the stage timers start over, and the first step runs at once so a merge
 // before the next pass already has the right effect.
 void restart() {
+    const bool chosen = g_choice < kSlots && g_img.s.slot[g_choice].used == 1;
     if (g_preview_on) g_running = &g_preview;
-    else if (g_choice < kSlots && g_img.s.slot[g_choice].used == 1) g_running = &g_img.s.slot[g_choice].body;
+    else if (chosen) g_running = &g_img.s.slot[g_choice].body;
     else g_running = nullptr;
+    // The buttons (proto 1.24, section 3.7): the first that has buttons wins,
+    // Feel it, then the set chosen now; a part that leaves the buttons alone
+    // falls through, and with neither the legacy remap table runs.
+    const buttons::ButtonPart *part = nullptr;
+    if (g_preview_on && (g_preview_buttons.bflags & buttons::kUsed)) part = &g_preview_buttons;
+    else if (chosen && (g_img.s.slot[g_choice].buttons.bflags & buttons::kUsed)) part = &g_img.s.slot[g_choice].buttons;
+    // error: NOT-WORTH — false = nothing of this set's runs (it leaves the buttons alone, or a later build's pieces); the legacy table runs, as the doc's precedence says
+    buttons_run(part && buttons::compile(*part, g_layout) ? &g_layout : nullptr);
     const uint32_t now = now_ms();
     // loop: HOT-PATH-OK — N = 2 triggers, on a set change
     for (int t = 0; t < 2; t++) {
@@ -103,13 +125,21 @@ bool save_store() {
     return true;
 }
 
-bool staged_ok(const uint8_t *crc_le) {
+// The staged set as `ver` commits it: ver 1 the SetBody (134 bytes), ver 2
+// the SetBody and its ButtonPart (494), whose pieces must all be built here
+// (identity [58]; a later piece is INVALID until it lands).
+bool staged_ok(const uint8_t *crc_le, uint8_t ver) {
     uint32_t crc;
     memcpy(&crc, crc_le, 4);
-    SetBody b;
-    memcpy(&b, g_staged, sizeof(b));
-    // error: SHOWN — false = CMD_RESULT_INVALID in 0xF1 for 0x1D / 0x1E (a CRC that doesn't match or a set out of range), the app's command error
-    return crc == crc32_ieee(g_staged, sizeof(g_staged)) && set_valid(b);
+    // Checked in place (no 360-byte copy on the stack of a USB callback).
+    if (ver == kWireVer) {
+        // error: SHOWN — false = CMD_RESULT_INVALID in 0xF1 for 0x1D / 0x1E (a CRC that doesn't match or a set out of range), the app's command error
+        return crc == crc32_ieee(g_staged.bytes, sizeof(SetBody)) && set_valid(g_staged.s.body);
+    }
+    const buttons::ButtonPart &p = g_staged.s.buttons;
+    // error: SHOWN — false = CMD_RESULT_INVALID in 0xF1 for 0x1D / 0x1E ver 2 (CRC, set, a button rule of section 3.5, or a piece not built yet), the app's command error
+    return crc == crc32_ieee(g_staged.bytes, kStagedBytes) && set_valid(g_staged.s.body) && buttons::part_valid(p) &&
+           (buttons::part_needs(p) & ~buttons::kBuilt) == 0;
 }
 }  // namespace
 
@@ -179,27 +209,42 @@ const char *tension_running_name() {
     return g_name;
 }
 
-// 0x1C [ver, offset, bytes...]: into the staging buffer, at once.
+// 0x1C into the staging buffer, at once: ver 1 [1, offset, bytes...] into
+// the SetBody (134 bytes); ver 2 [2, offset lo, offset hi, bytes...] into the
+// SetBody and its ButtonPart (494 bytes).
 uint8_t tension_stage_write(const uint8_t *a, uint16_t n) {
+    if (n >= 1 && a[0] == kWireVer2) {
+        const unsigned at = n >= 3 ? (unsigned) (a[1] | a[2] << 8) : 0;
+        // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad framing or past byte 494, the app's command error
+        if (n < 4 || at + (n - 3) > kStagedBytes) return CMD_RESULT_INVALID;
+        memcpy(g_staged.bytes + at, a + 3, n - 3);
+        return CMD_RESULT_OK;
+    }
     // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad framing or past the record's end, the app's command error
-    if (n < 3 || a[0] != kWireVer || a[1] + (n - 2) > (int) sizeof(g_staged)) return CMD_RESULT_INVALID;
-    memcpy(g_staged + a[1], a + 2, n - 2);
+    if (n < 3 || a[0] != kWireVer || a[1] + (n - 2) > (int) sizeof(SetBody)) return CMD_RESULT_INVALID;
+    memcpy(g_staged.bytes + a[1], a + 2, n - 2);
     return CMD_RESULT_OK;
 }
 
-// 0x1D [ver, slot, crc32 LE]: checked now, saved from cmd_task().
+// 0x1D [ver, slot, crc32 LE]: checked now, saved from cmd_task(). Ver 1 (a
+// 1.23 app): the CRC covers the SetBody, the slot keeps its buttons. Ver 2:
+// the CRC covers all 494 bytes, both are saved.
 uint8_t tension_save_check(const uint8_t *a, uint16_t n) {
+    const bool ver_ok = n >= 1 && (a[0] == kWireVer || a[0] == kWireVer2);
     // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad framing, slot, CRC or set, the app's command error
-    if (n < 6 || a[0] != kWireVer || a[1] >= kSlots || !staged_ok(a + 2)) return CMD_RESULT_INVALID;
+    if (n < 6 || !ver_ok || a[1] >= kSlots || !staged_ok(a + 2, a[0])) return CMD_RESULT_INVALID;
     // error: SHOWN — CMD_RESULT_FAILED in the 0xF1 result byte: the sets were saved by newer firmware (0xE9 status [3] bit3); the app says so
     if (g_newer) return CMD_RESULT_FAILED;
+    g_save_ver = a[0];  // every SET answers BUSY until cmd_task has saved it, so neither this nor g_staged changes meanwhile
     return CMD_RESULT_OK;
 }
 
 uint8_t tension_save_staged(uint8_t slot) {
     SlotRec &r = g_img.s.slot[slot];
+    if (g_save_ver == kWireVer2) r.buttons = g_staged.s.buttons;
+    else if (r.used != 1) memset(&r.buttons, 0, sizeof(r.buttons));  // ver 1 into an empty slot: no buttons; else they stay
     r.used = 1;
-    memcpy(&r.body, g_staged, sizeof(r.body));
+    r.body = g_staged.s.body;
     // error: SHOWN — false = CMD_RESULT_FAILED in 0xF1 (returned below), the app's command error
     const bool ok = save_store();
     restart();
@@ -208,13 +253,16 @@ uint8_t tension_save_staged(uint8_t slot) {
 }
 
 // 0x1E [ver, 1, crc32 LE] = Feel it with the staged set; [ver, 0] = stop.
+// Ver 1 runs the triggers only; ver 2 (CRC over 494 bytes) the buttons too.
 uint8_t tension_feel(const uint8_t *a, uint16_t n) {
     // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad framing, the app's command error
-    if (n < 2 || a[0] != kWireVer || a[1] > 1) return CMD_RESULT_INVALID;
+    if (n < 2 || (a[0] != kWireVer && a[0] != kWireVer2) || a[1] > 1) return CMD_RESULT_INVALID;
     if (a[1] == 1) {
         // error: SHOWN — CMD_RESULT_INVALID in the 0xF1 result byte: bad CRC or set, the app's command error
-        if (n < 6 || !staged_ok(a + 2)) return CMD_RESULT_INVALID;
-        memcpy(&g_preview, g_staged, sizeof(g_preview));
+        if (n < 6 || !staged_ok(a + 2, a[0])) return CMD_RESULT_INVALID;
+        g_preview = g_staged.s.body;
+        if (a[0] == kWireVer2) g_preview_buttons = g_staged.s.buttons;
+        else memset(&g_preview_buttons, 0, sizeof(g_preview_buttons));
     }
     g_preview_on = a[1] == 1;
     restart();
@@ -286,7 +334,8 @@ uint8_t tension_select_save(uint8_t slot) {
 
 // GET 0xE9, wValue's high byte = selector (docs/TENSION.md, "Reading"):
 //   0x00 status (38 bytes), 0x01 list (38 bytes),
-//   0x40 | slot << 2 | chunk (chunk 0..2): a saved set, 56 bytes a chunk.
+//   0x40 | slot << 2 | chunk (chunk 0..2): a saved set, 56 bytes a chunk;
+//   0x80 | slot << 3 | chunk (chunk 0..6, proto 1.24): its ButtonPart, the same way.
 uint16_t tension_get(uint8_t sel, uint8_t *b, uint16_t reqlen) {
     const uint8_t flags = (uint8_t) ((g_running ? 0x01 : 0) | (g_preview_on ? 0x02 : 0) | (g_choice_temp ? 0x04 : 0) |
                                      (g_newer ? 0x08 : 0) | (g_eng.paused ? 0x10 : 0));
@@ -333,6 +382,22 @@ uint16_t tension_get(uint8_t sel, uint8_t *b, uint16_t reqlen) {
         b[4] = g_choice;
         b[5] = flags;
         return kLen;
+    }
+    if ((sel & 0x80) && (sel & 0x07) < 7) {
+        // [0] ver 2, [1] slot, [2] chunk, [3] used, then ButtonPart bytes 56 x chunk on (56, the last 24).
+        constexpr uint16_t kChunk = 56;
+        const uint8_t slot = (sel >> 3) & 0x07, chunk = sel & 0x07;
+        const uint16_t at = chunk * kChunk;
+        const uint16_t n = sizeof(buttons::ButtonPart) - at < kChunk ? sizeof(buttons::ButtonPart) - at : kChunk;
+        // error: NOT-WORTH — no data; a request shorter than the reply (the app always asks the full length, its transport reports a short reply)
+        if (reqlen < 4 + n) return 0;
+        const SlotRec &r = g_img.s.slot[slot];
+        b[0] = kWireVer2;
+        b[1] = slot;
+        b[2] = chunk;
+        b[3] = r.used == 1 ? 1 : 0;
+        memcpy(b + 4, reinterpret_cast<const uint8_t *>(&r.buttons) + at, n);
+        return (uint16_t) (4 + n);
     }
     if ((sel & 0xE0) == 0x40 && (sel & 0x03) < 3) {
         constexpr uint16_t kChunk = 56;

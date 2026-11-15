@@ -240,7 +240,7 @@ Why it is safe:
   CRC, so the previous copy is used at the next start: at most that one save is
   lost.
 
-Layout 1 (`tension::Store`, 1128 bytes, written as 5 pages, the same in A and B):
+From protocol 1.24 the store is layout 2 (each slot also holds its button layout, 4008 bytes, 16 pages; `docs/TENSION_BUTTONS.md` section 3.6); layout 1 is still read and converted. Layout 1 (`tension::Store` in 1.23, 1128 bytes, written as 5 pages, the same in A and B):
 
 | Offset | Size | Field |
 |---|---|---|

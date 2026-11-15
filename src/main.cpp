@@ -27,6 +27,7 @@
 #endif
 #include "oled.h"
 #include "remap.h"
+#include "buttons.h"
 #include "calib.h"
 #include "tension.h"
 #include "perf.h"
@@ -150,7 +151,7 @@ void CORE0_RAM_FUNC(interrupt_loop)() {
         uint8_t out[63];
         memcpy(out, interrupt_in_data, 63);
         calib_apply(out);
-        remap_apply(out);
+        buttons_apply(out);  // a Tension set's buttons, else the remap table (proto 1.24)
         // error: LOGGED-OK — printf; the HID IN endpoint is busy, this input frame is skipped and the next one (~1 ms) replaces it
         if (!tud_hid_report(0x01, out, 63)) {
             printf("[USBHID] tud_hid_report error\n");
@@ -171,7 +172,7 @@ void CORE0_RAM_FUNC(interrupt_loop)() {
     // Remap the snapshot, not interrupt_in_data (outgoing copy only — see above).
     if (should_send) {
         calib_apply(safe_report);
-        remap_apply(safe_report);
+        buttons_apply(safe_report);
     }
 
     // Only send to TinyUSB if we actually grabbed fresh data

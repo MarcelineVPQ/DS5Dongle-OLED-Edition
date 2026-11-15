@@ -1,6 +1,7 @@
 # Tension buttons: button layouts in Tension sets (protocol 1.24)
 
-Design only: nothing here is built yet. Direction approved by the owner
+Status: build steps 1 and 2 (section 9) are built in the firmware, not yet
+checked on hardware; the rest is design. Direction approved by the owner
 2026-11-15 (scope: all four parts below; GUI: the research report's
 recommendation with its four picks; the +1: live truth from the board).
 This document is the contract for both repos: the firmware half, the protocol,
@@ -113,8 +114,8 @@ the same way, so a Japanese user's preset isn't stored in English); `colour`
 `lflags` bits 0-1 gyro in this layer (0 same as base, 1 on, 2 off), bits 2..7
 zero.
 
-**Gyro (10 bytes)**: `[0]` mode (1 mouse; 2 right stick if open question 5 is
-approved; 0 is invalid when bit1 is set), `[1]` horizontal axis (0 yaw, 1 roll),
+**Gyro (10 bytes)**: `[0]` mode (1 mouse; 2 right stick, open question 5,
+approved 2026-11-15; 0 is invalid when bit1 is set), `[1]` horizontal axis (0 yaw, 1 roll),
 `[2]` flags (bit0 invert horizontal, bit1 invert vertical, bit2 needs a button:
 gyro runs only while a Gyro target (3.4) holds or switches it on; else always
 on in the layers where it is on), `[3]` horizontal speed 1..255, `[4]` vertical
@@ -243,7 +244,10 @@ falls through):
 4. **The legacy saved table** (remap sector).
 
 A set's buttons **replace** the legacy table completely (not on top of it).
-Triggers keep TENSION.md section 5's precedence.
+Triggers keep TENSION.md section 5's precedence. A part that needs a piece this
+firmware doesn't have (identity [58]; possible only in flash, saved by a later
+build) keeps its bytes and falls through like a part that isn't used; the board
+refuses such a part from the app (INVALID).
 
 ### 3.8 Migration from today's remap
 
@@ -491,6 +495,19 @@ It **can't be called safe from the code**. What is known:
   SDL, Steam, Sony's PC ports).
 - **macOS: likely a prompt.** A new keyboard usually opens the Keyboard Setup
   Assistant (**unverified** with this board).
+- **Windows' per-device cache.** Windows keeps what it learned about a device
+  (the MS OS descriptor answer, `usbflags`) per VID/PID/bcdDevice, and our
+  bcdDevice stays 0x0100 with the switch on or off. Whether a PC that already
+  knows the board picks up interface 5 after the switch is turned on is
+  **unverified**; the probe checks it on a PC that has seen the board before.
+  Prior art (ideas only, AGPL-3.0, no code taken): SundayMoments/DS5_Bridge
+  presents a boot keyboard interface beside the DualSense under Sony's VID in
+  one of its configurations and raises bcdDevice for it (0x0106) because of
+  that cache; a third-party app (Kitsune Input 1.5) is reported to type keys
+  through it on Windows (a field report, not checked by us). If the probe shows
+  the cache keeps the old configuration, a bcdDevice change while the switch is
+  on is the known fix, and it is the owner's call (it changes the device
+  descriptor, so Windows sees a new device).
 - **Firmware traps (fixable, must be fixed):** today's HID callbacks ignore the
   interface (main.cpp:295, 535-537). With a second instance, a request to it
   could reach the DualSense handlers: a feature GET could answer DualSense data
@@ -573,7 +590,9 @@ that, renumber 1.24..1.30 per step, nothing else changes.)
 
 Identity **[59]** (wLength ≥ 60): bit0 the keys-and-mouse interface is on the
 bus now, bit1 keys and mouse are paused, bit2 `keys_mouse` saved on (so the app
-can say "Reconnect to start keys and mouse"). Before a bit's piece lands, the
+can say "Reconnect to start keys and mouse"). [59] is answered from step 1, where
+[58] has no bit yet: the switch itself is known from the body length (identity
+[6] ≥ 54). Before a bit's piece lands, the
 board accepts its bytes as invalid (INVALID) and the app never sends them.
 
 ### 6.1 Changed functions (all SETs to 0xF6, ≤ 63 bytes)
@@ -647,7 +666,11 @@ and a 63-byte copy per GET; no flash, no printf, no heap.
 2. The ButtonPart codec, validator (3.5, rule for rule), target table and
    store-independent CRC, with shared test vectors generated from
    `src/buttons.h` in the host tests (as `stickCurve.ts` does with
-   `stick_curve.h`).
+   `stick_curve.h`). The vectors: `tests/host/fixtures/buttons/vectors.txt`
+   in this repo (one line per part: name, ok/bad, the [58] bits it needs, its
+   CRC-32, its 360 bytes in hex; written by `gen_vectors.py` next to it, with
+   each expectation set by hand per rule), checked against `src/buttons.h` by
+   `tests/host/test_buttons.cpp`.
 3. Staging 494 bytes with 0x1C ver 2 (9 SETs) before 0x1D / 0x1E / 0x22 ver 2;
    reading sel 0x80 chunks; ver 1 to 1.23 firmware.
 4. `simulatedDongle.ts` speaks all of it (the tests' fake).

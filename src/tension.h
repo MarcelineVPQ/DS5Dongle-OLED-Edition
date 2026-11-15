@@ -36,9 +36,12 @@
 #include <cstdint>
 #include <cstring>
 
+#include "buttons.h"
+
 namespace tension {
 
 constexpr uint8_t kWireVer = 1;    // the 0xF6 0x1C..0x20 framing and the 0xE9 replies
+constexpr uint8_t kWireVer2 = 2;   // proto 1.24: 0x1C / 0x1D / 0x1E with the buttons, 0xE9 sel 0x80
 constexpr uint8_t kRecordVer = 1;  // SetBody::ver
 constexpr int kStages = 4;         // per trigger
 constexpr int kSlots = 8;          // saved sets on the board
@@ -93,6 +96,10 @@ struct __attribute__((packed)) SetBody {
     Program trig[2];  // kL2, kR2
 };
 static_assert(sizeof(SetBody) == 134, "SetBody is 134 bytes on the wire and in flash");
+// Proto 1.24: what the app stages (0x1C ver 2) and commits: the SetBody, then
+// the set's ButtonPart (src/buttons.h), 494 bytes; the wire bytes are the flash bytes.
+constexpr unsigned kStagedBytes = sizeof(SetBody) + sizeof(buttons::ButtonPart);
+static_assert(kStagedBytes == 494, "docs/TENSION_BUTTONS.md section 3.1");
 
 // --- CRC-32 (IEEE 802.3 / zlib: reflected 0xEDB88320, init and final xor
 // 0xFFFFFFFF; "123456789" -> 0xCBF43926). Used for the staged set the app
@@ -547,7 +554,11 @@ inline bool own_report(Engine &e, const Program *const pg[2], uint8_t *ss, uint3
 // newest copy whose CRC checks out wins. A power cut during a save leaves a
 // copy that fails its CRC (or the erased sector), so the previous one stays.
 constexpr uint32_t kStoreMagic = 0x534E4554u;  // 'T','E','N','S' in flash order
-constexpr uint8_t kStoreLayout = 1;
+// Layout 2 (proto 1.24, docs/TENSION_BUTTONS.md section 3.6): each slot also
+// holds its ButtonPart. Layout 1 (proto 1.23) is still read, converted in RAM
+// (no buttons), and never written again: the first save writes layout 2.
+constexpr uint8_t kStoreLayout = 2;
+constexpr uint8_t kStoreLayoutV1 = 1;
 
 struct __attribute__((packed)) StoreHeader {
     uint32_t magic;
@@ -559,27 +570,47 @@ struct __attribute__((packed)) StoreHeader {
     uint32_t crc;       // CRC-32 of the whole Store with this field as 0
 };
 struct __attribute__((packed)) SlotRec {
-    uint32_t crc;  // CRC-32 of body (the app's cache key in the 0xE9 list)
+    uint32_t crc;  // CRC-32 of body and buttons, 494 bytes (the app's cache key in the 0xE9 list)
     uint8_t used;  // 1 = holds a set (anything else = empty)
     SetBody body;  // zeros when empty
+    buttons::ButtonPart buttons;  // zeros when empty or when the set leaves the buttons alone
 };
 struct __attribute__((packed)) Store {
     StoreHeader h;
     SlotRec slot[kSlots];
 };
-static_assert(sizeof(Store) == 16 + kSlots * 139, "Store layout 1");
-// Written as whole flash pages (256 bytes): 5 pages.
+static_assert(sizeof(Store) == 16 + kSlots * 499 && sizeof(Store) == 4008, "Store layout 2");
+// Layout 1, as 1.23 wrote it: read only, to convert.
+struct __attribute__((packed)) SlotRecV1 {
+    uint32_t crc;  // CRC-32 of body
+    uint8_t used;
+    SetBody body;
+};
+struct __attribute__((packed)) StoreV1 {
+    StoreHeader h;
+    SlotRecV1 slot[kSlots];
+};
+static_assert(sizeof(StoreV1) == 16 + kSlots * 139, "Store layout 1");
+// Written as whole flash pages (256 bytes): 16 pages (layout 1 was 5).
 constexpr uint32_t kStorePages = (sizeof(Store) + 255) / 256;
 constexpr uint32_t kStoreBytes = kStorePages * 256;
 constexpr uint32_t kStoreCrcAt = 12;  // offsetof(StoreHeader, crc)
 
-// CRC-32 of a whole copy with its crc field read as 0.
-inline uint32_t store_crc(const uint8_t *f) {
+// CRC-32 of a whole copy (`size` bytes: sizeof(Store), or sizeof(StoreV1)
+// for layout 1) with its crc field read as 0.
+inline uint32_t store_crc(const uint8_t *f, uint32_t size = sizeof(Store)) {
     const uint8_t zero[4]{};
     uint32_t c = crc32_update(0xFFFFFFFFu, f, kStoreCrcAt);
     c = crc32_update(c, zero, 4);
-    return ~crc32_update(c, f + kStoreCrcAt + 4, sizeof(Store) - kStoreCrcAt - 4);
+    return ~crc32_update(c, f + kStoreCrcAt + 4, size - kStoreCrcAt - 4);
 }
+
+// A slot's own CRC: its body and buttons (contiguous in the record).
+inline uint32_t slot_crc(const SlotRec &r) {
+    return crc32_ieee(reinterpret_cast<const uint8_t *>(&r.body), kStagedBytes);
+}
+static_assert(__builtin_offsetof(SlotRec, buttons) == __builtin_offsetof(SlotRec, body) + sizeof(SetBody),
+              "slot_crc reads body and buttons in one run");
 
 inline void store_empty(Store &s) {
     memset(&s, 0, sizeof(s));
@@ -593,7 +624,7 @@ inline void store_empty(Store &s) {
 // Fill in every CRC before a save (the sequence number is the caller's).
 inline void store_seal(Store &s) {
     // loop: HOT-PATH-OK — N = 8 slots, on a save
-    for (SlotRec &r : s.slot) r.crc = r.used == 1 ? crc32_ieee(reinterpret_cast<const uint8_t *>(&r.body), sizeof(SetBody)) : 0;
+    for (SlotRec &r : s.slot) r.crc = r.used == 1 ? slot_crc(r) : 0;
     s.h.crc = 0;
     s.h.crc = store_crc(reinterpret_cast<const uint8_t *>(&s));
 }
@@ -609,8 +640,9 @@ inline Load store_check(const uint8_t *f, uint32_t &seq) {
     if (h.magic != kStoreMagic) return Load::Empty;
     // error: SHOWN — 0xE9 status [3] bit3 (the app says the sets were saved by newer firmware and can't be changed here)
     if (h.layout > kStoreLayout) return Load::Newer;
+    const uint32_t size = h.layout == kStoreLayoutV1 ? sizeof(StoreV1) : sizeof(Store);
     // error: NOT-WORTH — a damaged or half-written copy: the other sector's copy is used (or no sets)
-    if (h.layout != kStoreLayout || h.slots != kSlots || h.body_size != sizeof(SetBody) || h.crc != store_crc(f)) return Load::Empty;
+    if (h.layout < kStoreLayoutV1 || h.slots != kSlots || h.body_size != sizeof(SetBody) || h.crc != store_crc(f, size)) return Load::Empty;
     return Load::Ok;
 }
 
@@ -625,14 +657,34 @@ inline Load store_load(const uint8_t *f, Store &s) {
     const Load l = store_check(f, seq);
     // error: NOT-WORTH — passed on: Empty / Newer as store_check says (store_pick decides)
     if (l != Load::Ok) return l;
-    memcpy(&s, f, sizeof(s));
-    // loop: HOT-PATH-OK — N = 8 slots, at boot
-    for (SlotRec &r : s.slot) {
-        // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
-        const bool ok = r.used == 1 && r.crc == crc32_ieee(reinterpret_cast<const uint8_t *>(&r.body), sizeof(SetBody)) &&
-                        set_valid(r.body);
-        // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
-        if (!ok) memset(&r, 0, sizeof(r));
+    if (f[4] == kStoreLayoutV1) {
+        // Layout 1 (1.23): each slot's own CRC and set as 1.23 checked them,
+        // then its buttons zero (the set leaves them alone) and its CRC over
+        // body + buttons. Only RAM changes: nothing is written at boot.
+        memcpy(&s.h, f, sizeof(s.h));
+        s.h.layout = kStoreLayout;
+        // loop: HOT-PATH-OK — N = 8 slots, at boot
+        for (int i = 0; i < kSlots; i++) {
+            SlotRecV1 v;
+            memcpy(&v, f + sizeof(StoreHeader) + i * sizeof(SlotRecV1), sizeof(v));
+            // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
+            const bool ok = v.used == 1 && v.crc == crc32_ieee(reinterpret_cast<const uint8_t *>(&v.body), sizeof(SetBody)) &&
+                            set_valid(v.body);
+            if (!ok) continue;  // stays empty (store_empty)
+            SlotRec &r = s.slot[i];
+            r.used = 1;
+            r.body = v.body;
+            r.crc = slot_crc(r);
+        }
+    } else {
+        memcpy(&s, f, sizeof(s));
+        // loop: HOT-PATH-OK — N = 8 slots, at boot
+        for (SlotRec &r : s.slot) {
+            // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
+            const bool ok = r.used == 1 && r.crc == slot_crc(r) && set_valid(r.body) && buttons::part_valid(r.buttons);
+            // error: NOT-WORTH — a damaged slot reads as empty (the app lists it empty); the others are kept
+            if (!ok) memset(&r, 0, sizeof(r));
+        }
     }
     if (s.h.active >= kSlots || s.slot[s.h.active].used != 1) s.h.active = kNone;
     return Load::Ok;
@@ -647,8 +699,9 @@ struct Pick {
     uint32_t seq;  // the copy's sequence number (0 with none)
 };
 
-// Both sectors into `s`: the newest valid copy. A newer layout in either
-// sector makes the whole store read-only (its sets aren't ours to drop).
+// Both sectors into `s`: the newest valid copy, layout 1 or 2 (the later
+// sequence number wins across layouts). A newer layout in either sector makes
+// the whole store read-only (its sets aren't ours to drop).
 inline Pick store_pick(const uint8_t *fa, const uint8_t *fb, Store &s) {
     uint32_t sa, sb;
     const Load la = store_check(fa, sa), lb = store_check(fb, sb);

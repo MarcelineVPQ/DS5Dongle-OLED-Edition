@@ -56,6 +56,7 @@ add_executable(host_tests
         test_fw_identity.cpp
         test_tension.cpp
         test_usb_descriptors.cpp
+        test_buttons.cpp
         # The firmware sources under test, unmodified.
         ${FW}/src/calib.cpp
         ${FW}/src/remap.cpp
@@ -67,6 +68,7 @@ add_executable(host_tests
         ${FW}/src/slots.cpp
         ${FW}/src/tension.cpp
         ${FW}/src/usb_descriptors.cpp
+        ${FW}/src/buttons.cpp
 )
 # stubs/ first so its SDK headers win.
 target_include_directories(host_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs ${FW}/src)
@@ -80,6 +82,7 @@ target_compile_definitions(host_tests PRIVATE
         FIRMWARE_VERSION="host-test"
         PICO_PROGRAM_VERSION_STRING="host-test"
         CONFIG_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/config"  # test_config_fixtures.cpp
+        BUTTONS_VECTORS="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/buttons/vectors.txt"  # test_buttons.cpp
 )
 # Same char signedness as the firmware build (CMakeLists.txt: -fsigned-char).
 target_compile_options(host_tests PRIVATE -O1 -g -fsigned-char -Wall -Wextra -Wno-unused-parameter ${SAN})

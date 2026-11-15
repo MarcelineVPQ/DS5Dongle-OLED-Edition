@@ -37,6 +37,7 @@
 #include "grip_wave.h"
 #include "rssi_poll.h"
 #include "tension.h"
+#include "buttons.h"
 #include "usb_keys_mouse.h"
 
 // The haptic feedback test (0xF6 0x0E [side, tenths]): a steady HD haptics
@@ -616,10 +617,12 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         board_id_get(buffer + 50);
         if (reqlen < 59) return 50 + kBoardIdLen;
         // proto 1.24 (docs/TENSION_BUTTONS.md section 6): [58] a fifth
-        // feature byte, one bit per piece of Tension buttons as it lands.
-        // None yet (build step 1, the USB probe: the keys_mouse setting is the
-        // body's byte 53, body 54).
-        buffer[58] = 0;
+        // feature byte, one bit per piece of Tension buttons as it lands
+        // (buttons::Feature). bit0 (build step 2): button layouts in sets,
+        // Press with controller buttons and Disable (0x1C / 0x1D / 0x1E ver 2,
+        // GET 0xE9 sel 0x80). The keys_mouse setting (build step 1) is the
+        // body's byte 53 (body 54), with its state in [59].
+        buffer[58] = buttons::kBuilt;
         if (reqlen < 60) return 59;
         // [59] keys and mouse now: bit0 the interface is on the bus, bit1
         // paused (0xF6 0x21, not built yet), bit2 the keys_mouse setting is

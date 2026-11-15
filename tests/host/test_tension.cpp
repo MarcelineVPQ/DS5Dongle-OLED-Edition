@@ -8,6 +8,7 @@
 // Nielk1's C# (rev 6, gist revision f73a299f), floats emulated as 32-bit, not
 // from this C++ and not from running the C# itself.
 #include <cstring>
+#include <utility>
 #include <vector>
 #include "calib.h"
 #include "cmd.h"
@@ -15,6 +16,7 @@
 #include "fakes.h"
 #include "flash_layout.h"
 #include "hardware/flash.h"
+#include "remap.h"
 #include "tension.h"
 #include "test.h"
 
@@ -427,9 +429,9 @@ TEST(tension_store_round_trip_crc_and_version) {
     CHECK(std::strcmp(l.slot[5].body.name, "Rifle") == 0);
     CHECK_EQ(l.slot[1].used, 1);
 
-    g_a[16 + 5 * 139 + 5 + 3] ^= 0x01;  // one byte of slot 5's name: the copy fails its CRC
+    g_a[16 + 5 * sizeof(SlotRec) + 5 + 3] ^= 0x01;  // one byte of slot 5's name: the copy fails its CRC
     CHECK(store_load(g_a, l) == Load::Empty);
-    g_a[16 + 5 * 139 + 5 + 3] ^= 0x01;
+    g_a[16 + 5 * sizeof(SlotRec) + 5 + 3] ^= 0x01;
 
     g_a[4] = kStoreLayout + 1;  // saved by a newer firmware
     CHECK(store_load(g_a, l) == Load::Newer);
@@ -457,7 +459,7 @@ TEST(tension_store_newest_valid_copy_wins) {
 
 TEST(tension_store_torn_write_keeps_the_old_copy) {
     // A holds seq 5. A save of seq 6 to B is cut off after its sector erase
-    // and two of its five pages.
+    // and two of its sixteen pages.
     Store s;
     sector_image(g_a, 5, "Old");
     alignas(4) static uint8_t full[kStoreBytes];
@@ -739,7 +741,7 @@ TEST(tension_saves_alternate_and_a_cut_save_keeps_the_last_copy) {
     CHECK_EQ(sa, 1u);
     CHECK_EQ(sb, 2u);
     // The third save goes to A again; cut it off after two pages.
-    std::memset(g_fake_flash + TENSION_A_FLASH_OFFSET + 2 * 256, 0xFF, 3 * 256);
+    std::memset(g_fake_flash + TENSION_A_FLASH_OFFSET + 2 * 256, 0xFF, (kStorePages - 2) * 256);
     g_fake_flash[TENSION_A_FLASH_OFFSET + 8] = 3;  // the header of the cut copy says seq 3
     tension_load();
     CHECK(std::strcmp(reinterpret_cast<const char *>(b + 16 + 5 + 2), "Two") == 0);
@@ -789,4 +791,300 @@ TEST(tension_game_end_0x12_ends_the_temporary_choice) {
     tension_get(0x00, r, 63);
     CHECK_EQ(r[3] & 0x04, 0);  // no longer temporary
     CHECK_EQ(r[5], 0);
+}
+
+// --- Tension buttons (protocol 1.24, build step 2) --------------------------
+// docs/TENSION_BUTTONS.md: ButtonPart in the slot record, store layout 2 with
+// layout 1 read and converted, 0x1C / 0x1D / 0x1E ver 2, 0xE9 sel 0x80, which
+// buttons run (section 3.7).
+
+namespace {
+buttons::ButtonPart press_part(std::initializer_list<std::pair<uint8_t, uint8_t>> moves) {
+    buttons::ButtonPart p{};
+    p.bver = buttons::kPartVer;
+    p.bflags = buttons::kUsed;
+    p.double_window = 25;
+    for (auto [src, to] : moves) {
+        const uint8_t e[5] = {src, buttons::kPress, (uint8_t) (to == buttons::kOff ? buttons::kNothing : buttons::kButton),
+                              (uint8_t) (to == buttons::kOff ? 0 : to), 0};
+        std::memcpy(p.pool + p.pool_len, e, 5);
+        p.pool_len = (uint16_t) (p.pool_len + 5);
+    }
+    return p;
+}
+const buttons::ButtonPart kSwap = press_part({{buttons::kCircle, buttons::kCross}, {buttons::kCross, buttons::kCircle}});
+const buttons::ButtonPart kNoSquare = press_part({{buttons::kSquare, buttons::kOff}});
+
+Bytes staged(const SetBody &body, const buttons::ButtonPart &part) {
+    Bytes all(kStagedBytes);
+    std::memcpy(all.data(), &body, sizeof(body));
+    std::memcpy(all.data() + sizeof(body), &part, sizeof(part));
+    return all;
+}
+// Stages body + part with 0x1C ver 2, 59 bytes a SET (9 SETs), as the app does; the CRC-32 of all 494.
+uint32_t stage_v2(const SetBody &body, const buttons::ButtonPart &part) {
+    const Bytes all = staged(body, part);
+    int sets = 0;
+    for (unsigned at = 0; at < kStagedBytes; at += 59) {
+        const unsigned n = kStagedBytes - at < 59 ? kStagedBytes - at : 59;
+        uint8_t m[63] = {0x1C, kWireVer2, (uint8_t) (at & 0xFF), (uint8_t) (at >> 8)};
+        std::memcpy(m + 4, all.data() + at, n);
+        pico_cmd_set(PICO_CMD_SET, m, (uint16_t) (4 + n));
+        CHECK_EQ(last_result(), CMD_RESULT_OK);
+        sets++;
+    }
+    CHECK_EQ(sets, 9);
+    return crc32_ieee(all.data(), kStagedBytes);
+}
+void with_crc2(uint8_t func, uint8_t b1, uint32_t crc) {
+    uint8_t m[7] = {func, kWireVer2, b1};
+    std::memcpy(m + 3, &crc, 4);
+    pico_cmd_set(PICO_CMD_SET, m, sizeof(m));
+}
+// byte 7 of the report the PC gets for face buttons `b7` (hat none).
+uint8_t pc_gets(uint8_t b7) {
+    uint8_t r[63]{};
+    r[7] = (uint8_t) (0x08 | b7);
+    buttons_apply(r);
+    return r[7];
+}
+constexpr uint8_t kSq = 0x10, kX = 0x20, kO = 0x40, kTri = 0x80;
+// A saved slot's ButtonPart, read back with GET 0xE9 sel 0x80 (7 chunks).
+buttons::ButtonPart read_part(uint8_t slot, uint8_t *used = nullptr) {
+    buttons::ButtonPart p{};
+    uint8_t r[63];
+    for (uint8_t c = 0; c < 7; c++) {
+        const uint16_t n = tension_get((uint8_t) (0x80 | slot << 3 | c), r, 63);
+        CHECK_EQ(n, c < 6 ? 60 : 28);
+        CHECK_EQ(r[0], kWireVer2);
+        CHECK_EQ(r[1], slot);
+        CHECK_EQ(r[2], c);
+        if (used) *used = r[3];
+        std::memcpy(reinterpret_cast<uint8_t *>(&p) + 56 * c, r + 4, n - 4);
+    }
+    CHECK_EQ(tension_get((uint8_t) (0x80 | slot << 3 | 7), r, 63), 0);  // no chunk 7
+    return p;
+}
+}  // namespace
+
+TEST(tension_buttons_identity_bit_58) {
+    fresh();
+    uint8_t id[63]{};
+    CHECK_EQ(pico_cmd_get(PICO_CMD_IDENTITY, id, 59), 59);
+    CHECK_EQ(id[58], buttons::kFeatLayouts);
+}
+
+TEST(tension_buttons_save_read_back_run_and_survive_a_restart) {
+    fresh();
+    const SetBody bow = make_set("Bow", Program{}, bow_r2());
+    const uint32_t crc = stage_v2(bow, kSwap);
+    with_crc2(0x1D, 2, crc);
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    uint8_t used = 0;
+    const buttons::ButtonPart back = read_part(2, &used);
+    CHECK_EQ(used, 1);
+    CHECK(std::memcmp(&back, &kSwap, sizeof(back)) == 0);
+    // The list's slot CRC covers body and buttons (494 bytes).
+    uint8_t r[63];
+    CHECK_EQ(tension_get(0x01, r, 63), 38);
+    uint32_t listed;
+    std::memcpy(&listed, r + 6 + 4 * 2, 4);
+    CHECK_EQ(listed, crc);
+    // Not chosen: the legacy table (identity) runs.
+    CHECK_EQ(pc_gets(kX), 0x08 | kX);
+    set({0x20, kWireVer, 2, 1});
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);  // Cross does Circle's job
+    CHECK_EQ(pc_gets(kO), 0x08 | kX);
+    // Saved as the choice, it runs again after a restart, from layout 2 in flash.
+    set({0x20, kWireVer, 2, 0});
+    settle();
+    tension_load();
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);
+    Store s;
+    uint32_t seq;
+    const auto *b = reinterpret_cast<const uint8_t *>(XIP_BASE + TENSION_B_FLASH_OFFSET);
+    CHECK(store_check(b, seq) == Load::Ok);  // the second save went to B
+    CHECK(store_load(b, s) == Load::Ok);
+    CHECK_EQ(b[4], kStoreLayout);
+    CHECK(std::memcmp(&s.slot[2].buttons, &kSwap, sizeof(kSwap)) == 0);
+    set({0x1F, kWireVer, 2});  // delete: the slot's buttons go too
+    settle();
+    CHECK_EQ(pc_gets(kX), 0x08 | kX);
+}
+
+TEST(tension_buttons_ver1_save_keeps_a_slots_buttons) {
+    fresh();
+    with_crc2(0x1D, 0, stage_v2(make_set("Bow", Program{}, bow_r2()), kSwap));
+    settle();
+    // A 1.23 app saves new triggers into the same slot: the buttons stay.
+    with_crc(0x1D, 0, stage_set(make_set("Rifle", Program{}, steady(kFillIn))));
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    const buttons::ButtonPart kept = read_part(0);
+    CHECK(std::memcmp(&kept, &kSwap, sizeof(kSwap)) == 0);
+    uint8_t r[63];
+    tension_get(0x40 | 0 << 2 | 0, r, 63);
+    CHECK(std::strcmp(reinterpret_cast<const char *>(r + 4 + 2), "Rifle") == 0);
+    // ...and into an empty slot: no buttons.
+    with_crc(0x1D, 1, stage_set(make_set("Plain", Program{}, steady(kFillIn))));
+    settle();
+    uint8_t used = 0;
+    const buttons::ButtonPart none = read_part(1, &used);
+    CHECK_EQ(used, 1);
+    CHECK(buttons::all_zero(reinterpret_cast<const uint8_t *>(&none), sizeof(none)));
+}
+
+TEST(tension_buttons_refuses_bad_and_later_pieces) {
+    fresh();
+    const SetBody bow = make_set("Bow", Program{}, bow_r2());
+    // A Hold row is valid (section 3.5) but build step 4's: INVALID here.
+    buttons::ButtonPart hold = press_part({});
+    const uint8_t e[6] = {buttons::kCross, buttons::kHold, buttons::kButton, buttons::kTriangle, 0, 30};
+    std::memcpy(hold.pool, e, sizeof(e));
+    hold.pool_len = sizeof(e);
+    CHECK(buttons::part_valid(hold));
+    with_crc2(0x1D, 0, stage_v2(bow, hold));
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    with_crc2(0x1E, 1, stage_v2(bow, hold));
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    // A rule broken (Cross targets button 18).
+    buttons::ButtonPart bad = press_part({{buttons::kCross, buttons::kCircle}});
+    bad.pool[3] = 18;
+    with_crc2(0x1D, 0, stage_v2(bow, bad));
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    // Ver 2 with a CRC over the SetBody only.
+    const uint32_t crc = stage_v2(bow, kSwap);
+    with_crc2(0x1D, 0, crc32_ieee(reinterpret_cast<const uint8_t *>(&bow), sizeof(bow)));
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    with_crc2(0x1D, 0, crc);
+    CHECK_EQ(last_result(), CMD_RESULT_PENDING);
+    settle();
+    // Framing: past byte 494, no data, an unknown version.
+    set({0x1C, kWireVer2, 0xEE, 0x01, 1, 2});  // 494
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    set({0x1C, kWireVer2, 0x00, 0x00});
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    set({0x1C, 3, 0, 0, 1});
+    CHECK_EQ(last_result(), CMD_RESULT_INVALID);
+    set({0x1C, kWireVer2, 0xED, 0x01, 7});  // the last byte, 493
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+}
+
+// Section 3.7: Feel it, then the set chosen now, then the legacy temporary
+// table, then the saved one; a set whose buttons aren't used falls through,
+// and a set's buttons replace the legacy table completely.
+TEST(tension_buttons_precedence) {
+    fresh();
+    remap_load();
+    with_crc2(0x1D, 0, stage_v2(make_set("Swap", Program{}, bow_r2()), kSwap));
+    settle();
+    with_crc(0x1D, 1, stage_set(make_set("Triggers", Program{}, bow_r2())));  // no buttons
+    settle();
+    uint8_t table[16];
+    for (uint8_t i = 0; i < 16; i++) table[i] = i;
+    table[buttons::kCross] = buttons::kTriangle;
+    CHECK(remap_set_temporary(table));  // a game's legacy layout (0x11)
+    CHECK_EQ(pc_gets(kX), 0x08 | kTri);  // nothing chosen: the legacy table
+    set({0x20, kWireVer, 0, 1});
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);  // the set's buttons, not the table's
+    // Feel it without buttons (ver 1): the chosen set's buttons still run.
+    with_crc(0x1E, 1, stage_set(make_set("Try", Program{}, steady(kReplace))));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);
+    // Feel it with buttons (ver 2): those, alone.
+    with_crc2(0x1E, 1, stage_v2(make_set("Try", Program{}, steady(kReplace)), kNoSquare));
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX | kSq), 0x08 | kX);  // Square off, Cross itself
+    set({0x1E, kWireVer2, 0});
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK_EQ(pc_gets(kX), 0x08 | kO);
+    // A chosen set without buttons: the legacy table again.
+    set({0x20, kWireVer, 1, 1});
+    CHECK_EQ(pc_gets(kX), 0x08 | kTri);
+    // 0x12 (a game ended): back to the saved choice (none) and the saved table (identity).
+    set({0x20, kWireVer, 0, 1});
+    set({0x12});
+    CHECK_EQ(pc_gets(kX), 0x08 | kX);
+}
+
+namespace {
+// A layout-1 store (1.23) with a set in slot `slot`, chosen, at sequence `seq`.
+void layout1_image(uint8_t *img, uint8_t slot, uint32_t seq, const char *name) {
+    StoreV1 s{};
+    s.h.magic = kStoreMagic;
+    s.h.layout = kStoreLayoutV1;
+    s.h.slots = kSlots;
+    s.h.active = slot;
+    s.h.body_size = sizeof(SetBody);
+    s.h.seq = seq;
+    s.slot[slot].used = 1;
+    s.slot[slot].body = make_set(name, Program{}, bow_r2());
+    s.slot[slot].crc = crc32_ieee(reinterpret_cast<const uint8_t *>(&s.slot[slot].body), sizeof(SetBody));
+    s.h.crc = store_crc(reinterpret_cast<const uint8_t *>(&s), sizeof(s));
+    std::memset(img, 0xFF, FLASH_SECTOR_SIZE);
+    std::memcpy(img, &s, sizeof(s));
+}
+}  // namespace
+
+// Section 3.6: a layout-1 store loads (its sets kept, no buttons), nothing is
+// written at boot, and the first save writes layout 2 into the other sector.
+TEST(tension_store_layout1_loads_and_saves_as_layout2) {
+    fresh();
+    uint8_t *a = g_fake_flash + TENSION_A_FLASH_OFFSET;
+    uint8_t *b = g_fake_flash + TENSION_B_FLASH_OFFSET;
+    layout1_image(a, 3, 41, "Old");
+    static uint8_t before_a[FLASH_SECTOR_SIZE], before_b[FLASH_SECTOR_SIZE];
+    std::memcpy(before_a, a, FLASH_SECTOR_SIZE);
+    std::memcpy(before_b, b, FLASH_SECTOR_SIZE);
+    tension_load();
+    CHECK(std::memcmp(before_a, a, FLASH_SECTOR_SIZE) == 0);  // nothing written at boot
+    CHECK(std::memcmp(before_b, b, FLASH_SECTOR_SIZE) == 0);
+    CHECK(std::strcmp(tension_running_name(), "Old") == 0);  // its saved choice runs
+    uint8_t r[63];
+    tension_get(0x01, r, 63);
+    CHECK_EQ(r[2], 1 << 3);
+    CHECK_EQ(r[3], 3);
+    // Its CRC in the list now covers body + 360 zero bytes.
+    const Bytes conv = staged(make_set("Old", Program{}, bow_r2()), buttons::ButtonPart{});
+    uint32_t listed;
+    std::memcpy(&listed, r + 6 + 4 * 3, 4);
+    CHECK_EQ(listed, crc32_ieee(conv.data(), kStagedBytes));
+    uint8_t used = 0;
+    const buttons::ButtonPart none = read_part(3, &used);
+    CHECK_EQ(used, 1);
+    CHECK(buttons::all_zero(reinterpret_cast<const uint8_t *>(&none), sizeof(none)));
+    // The first save: layout 2, sequence 42, into B; A keeps the layout-1 copy.
+    with_crc2(0x1D, 5, stage_v2(make_set("New", Program{}, bow_r2()), kSwap));
+    settle();
+    CHECK_EQ(last_result(), CMD_RESULT_OK);
+    CHECK(std::memcmp(before_a, a, FLASH_SECTOR_SIZE) == 0);
+    uint32_t seq;
+    CHECK(store_check(b, seq) == Load::Ok);
+    CHECK_EQ(b[4], kStoreLayout);
+    CHECK_EQ(seq, 42u);
+    tension_load();
+    tension_get(0x01, r, 63);
+    CHECK_EQ(r[2], (1 << 3) | (1 << 5));  // the old set survived the move to layout 2
+    // Across layouts the later sequence wins: a layout-1 copy at 43 beats layout 2 at 42.
+    layout1_image(a, 6, 43, "Later");
+    Store s;
+    const Pick p = store_pick(a, b, s);
+    CHECK(p.load == Load::Ok);
+    CHECK_EQ(p.from, 0);
+    CHECK_EQ(s.slot[6].used, 1);
+    CHECK_EQ(s.h.layout, kStoreLayout);
+    // A damaged layout-1 slot reads as empty, the others are kept.
+    layout1_image(a, 6, 43, "Later");
+    a[16 + 6 * sizeof(SlotRecV1) + 5 + 2] ^= 0x01;  // its name: the slot's own CRC fails
+    StoreV1 v;
+    std::memcpy(&v, a, sizeof(v));
+    v.h.crc = store_crc(reinterpret_cast<const uint8_t *>(&v), sizeof(v));  // the copy's CRC still holds
+    std::memcpy(a, &v, sizeof(v));
+    CHECK(store_load(a, s) == Load::Ok);
+    CHECK_EQ(s.slot[6].used, 0);
+    CHECK_EQ(s.h.active, kNone);
 }
