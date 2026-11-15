@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
+## [0.9.5-dev.22-oled-edition] - 2026-11-15
+
 ### Added
 
 - **Button layouts on the board: they work without the app** (protocol 1.24, identity [58] bits 0-6; the contract for both repos is `docs/TENSION_BUTTONS.md`). The board keeps up to 8 named button layouts (in the app: Button layouts → Put on the board). One of them can run from power-on, on Windows, Linux and macOS alike, with or without the app. A layout holds the buttons and its own trigger effects (Tension, below). While a layout runs, its buttons replace the board's button assignments; a layout that leaves the buttons alone keeps them, so nothing changes for anyone who doesn't use this. The board checks every rule before it takes a layout, the same rules the app checks. What a layout can do:
