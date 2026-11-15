@@ -149,6 +149,7 @@ inline bool params_valid(uint8_t mode, const uint8_t *p) {
 
 // A parameter a stage may ramp: any scalar one (not the packed zone levels).
 inline bool rampable(uint8_t mode, int idx) {
+    if (mode >= kModeCount) return false;  // error: NOT-WORTH — set_valid refuses the stage (params_valid also checks the mode)
     if (mode == kMultiFeedback) return false;  // error: NOT-WORTH — a yes/no answer for set_valid, not a failure
     if (mode == kMultiVibration) return idx == 0;
     return idx < kParamCount[mode];
