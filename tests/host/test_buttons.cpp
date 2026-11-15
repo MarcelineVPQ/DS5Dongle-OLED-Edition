@@ -19,6 +19,7 @@
 #include "remap.h"
 #include "tension.h"
 #include "test.h"
+#include "tusb.h"  // tud_hid_report_complete_cb (the live-truth capture)
 #include "usb_keys_mouse.h"
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index);

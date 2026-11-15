@@ -803,21 +803,23 @@ TEST(tension_game_end_0x12_ends_the_temporary_choice) {
 // buttons run (section 3.7).
 
 namespace {
+// "Disable" in these helpers' (source, target) pairs: a Press entry with target kind Nothing.
+constexpr uint8_t kDisableTo = 0xFE;
 buttons::ButtonPart press_part(std::initializer_list<std::pair<uint8_t, uint8_t>> moves) {
     buttons::ButtonPart p{};
     p.bver = buttons::kPartVer;
     p.bflags = buttons::kUsed;
     p.double_window = 25;
     for (auto [src, to] : moves) {
-        const uint8_t e[5] = {src, buttons::kPress, (uint8_t) (to == buttons::kOff ? buttons::kNothing : buttons::kButton),
-                              (uint8_t) (to == buttons::kOff ? 0 : to), 0};
+        const uint8_t e[5] = {src, buttons::kPress, (uint8_t) (to == kDisableTo ? buttons::kNothing : buttons::kButton),
+                              (uint8_t) (to == kDisableTo ? 0 : to), 0};
         std::memcpy(p.pool + p.pool_len, e, 5);
         p.pool_len = (uint16_t) (p.pool_len + 5);
     }
     return p;
 }
 const buttons::ButtonPart kSwap = press_part({{buttons::kCircle, buttons::kCross}, {buttons::kCross, buttons::kCircle}});
-const buttons::ButtonPart kNoSquare = press_part({{buttons::kSquare, buttons::kOff}});
+const buttons::ButtonPart kNoSquare = press_part({{buttons::kSquare, kDisableTo}});
 
 Bytes staged(const SetBody &body, const buttons::ButtonPart &part) {
     Bytes all(kStagedBytes);

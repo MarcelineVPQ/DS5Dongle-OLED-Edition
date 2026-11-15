@@ -78,7 +78,7 @@ CORE0=""
   l2cap_request_can_send_now_event btstack_linked_list_iterator_init
   btstack_linked_list_iterator_has_next btstack_linked_list_iterator_next
   crc32_lookup_table _Z13buttons_applyPh _Z12buttons_taskv _Z16buttons_on_inputv tud_hid_report_complete_cb
-  buttons.cpp:_ZN12_GLOBAL__N_18run_stepEPKh buttons.cpp:_ZN12_GLOBAL__N_115send_keys_mouseEv _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv audio.cpp:_ZL18send_single_reportb _Z13mic_add_queuePKh
+  buttons.cpp:_ZN12_GLOBAL__N_1L8run_stepEPKh buttons.cpp:_ZN12_GLOBAL__N_1L15send_keys_mouseEv _Z10audio_loopv audio.cpp:_ZL13audio_bt_taskv audio.cpp:_ZL18send_single_reportb _Z13mic_add_queuePKh
 "
 # Inline helpers buttons_apply / buttons_task call per pass (src/buttons.h) and
 # the ones audio_loop calls per frame (src/haptics_decimate.h,
